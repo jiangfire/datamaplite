@@ -1,0 +1,31 @@
+# DataMap-Lite 配置文件
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: 30s
+  write_timeout: 30s
+  shutdown_timeout: 10s
+
+database:
+  type: "sqlite"     # sqlite 或 postgres
+  # PostgreSQL 配置（当 type=postgres 时使用）
+  host: "localhost"
+  port: 5432
+  database: "datamap"
+  username: "datamap"
+  password: "datamap"
+  ssl_mode: "disable"
+  max_conns: 25
+  min_conns: 5
+  max_conn_lifetime: 1h
+  max_conn_idle_time: 30m
+
+log:
+  level: "info"      # debug, info, warn, error
+  format: "console"  # console, json
+  output: "stdout"   # stdout, stderr, or file path
+
+scanner:
+  mongodb_sample_size: 1000  # MongoDB抽样文档数
+  max_lineage_depth: 10      # 血缘查询最大深度

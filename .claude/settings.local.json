@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__web-search-prime__web_search_prime",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs",
+      "mcp__zread__get_repo_structure",
+      "mcp__zread__read_file",
+      "mcp__web-reader__webReader",
+      "Bash(dir:*)",
+      "mcp__sequential-thinking__sequentialthinking",
+      "mcp__playwright__browser_navigate",
+      "Bash(go mod:*)",
+      "Bash(go build:*)",
+      "Bash(go get:*)",
+      "Bash(go vet:*)",
+      "Bash(go test:*)",
+      "Bash(mkdir:*)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm exec:*)",
+      "Bash(pnpm build:*)",
+      "Bash(.gitignore:*)"
+    ]
+  }
+}

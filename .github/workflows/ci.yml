@@ -1,0 +1,172 @@
+# DataMap-Lite CI Workflow
+# Runs on every push and pull request to main branch
+# Performs: lint, test, build
+
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+
+env:
+  GO_VERSION: '1.25'
+  NODE_VERSION: '22'
+
+jobs:
+  # Backend CI
+  backend:
+    name: Backend CI
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: datamap
+          POSTGRES_PASSWORD: datamap_test
+          POSTGRES_DB: datamap_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+
+    - name: Install dependencies
+      run: go mod download
+
+    - name: Run golangci-lint
+      uses: golangci/golangci-lint-action@v6
+      with:
+        version: latest
+        args: --timeout=5m
+
+    - name: Run tests
+      env:
+        DATABASE_HOST: localhost
+        DATABASE_PORT: 5432
+        DATABASE_NAME: datamap_test
+        DATABASE_USER: datamap
+        DATABASE_PASSWORD: datamap_test
+        DATAMAP_ENCRYPTION_KEY: test-encryption-key-32bytes-long!!
+      run: |
+        go test -v -race -coverprofile=coverage.out ./...
+        go tool cover -func=coverage.out
+
+    - name: Upload coverage
+      uses: codecov/codecov-action@v4
+      with:
+        files: ./coverage.out
+        flags: backend
+        name: backend-coverage
+
+    - name: Build binary
+      run: go build -v ./cmd/datamap
+
+    - name: Test Docker build
+      run: docker build -t datamap-backend:test .
+
+  # Frontend CI
+  frontend:
+    name: Frontend CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./web
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'pnpm'
+        cache-dependency-path: './web/pnpm-lock.yaml'
+
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 9
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: Run ESLint
+      run: pnpm lint
+
+    - name: Run TypeScript check
+      run: pnpm exec tsc --noEmit
+
+    - name: Run tests
+      run: pnpm test --if-present
+
+    - name: Build
+      run: pnpm build
+
+    - name: Test Docker build
+      run: docker build -t datamap-frontend:test .
+
+  # Integration test
+  integration:
+    name: Integration Test
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Start services with docker-compose
+      run: |
+        cp .env.example .env
+        docker-compose up -d --build
+
+    - name: Wait for services to be ready
+      run: |
+        sleep 10
+        docker-compose ps
+
+    - name: Test health endpoints
+      run: |
+        curl -f http://localhost:8080/health || exit 1
+        curl -f http://localhost/health || exit 1
+
+    - name: Run API tests
+      run: |
+        # Test creating a data source
+        curl -X POST http://localhost:8080/api/v1/sources \
+          -H "Content-Type: application/json" \
+          -d '{
+            "name": "test-mysql",
+            "type": "mysql",
+            "host": "mysql",
+            "port": 3306,
+            "database": "test",
+            "username": "root",
+            "password": "password"
+          }' || exit 1
+
+    - name: Cleanup
+      if: always()
+      run: docker-compose down -v

@@ -1,0 +1,117 @@
+# DataMap-Lite Docker Compose Configuration
+# Usage:
+#   docker-compose up -d          # Start all services
+#   docker-compose down           # Stop all services
+#   docker-compose logs -f        # View logs
+#   docker-compose build          # Rebuild images
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: datamap-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-datamap}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-datamap123}
+      POSTGRES_DB: ${DB_NAME:-datamap}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-datamap} -d ${DB_NAME:-datamap}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - datamap-network
+
+  # Backend API Server
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: datamap-backend
+    restart: unless-stopped
+    environment:
+      # Database
+      DATABASE_TYPE: postgres
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ${DB_NAME:-datamap}
+      DATABASE_USER: ${DB_USER:-datamap}
+      DATABASE_PASSWORD: ${DB_PASSWORD:-datamap123}
+      # Server
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 8080
+      # Security
+      DATAMAP_ENCRYPTION_KEY: ${ENCRYPTION_KEY:-change-me-in-production-32bytes}
+      # Log
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - datamap-network
+
+  # Frontend Web Server
+  frontend:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: datamap-frontend
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-80}:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - datamap-network
+
+  # Optional: pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: datamap-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@datamap.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin123}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - datamap-network
+    profiles:
+      - tools
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  datamap-network:
+    driver: bridge
