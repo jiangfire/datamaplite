@@ -245,8 +245,8 @@ type SchemaChangeResponse struct {
 
 // SearchColumnsRequest 搜索字段请求
 type SearchColumnsRequest struct {
-	Query string `query:"q" validate:"required,min=1,max=100"`
-	Limit int    `query:"limit" validate:"omitempty,min=1,max=100"`
+	Query string `form:"q" validate:"required,min=1,max=100"`
+	Limit int    `form:"limit" validate:"omitempty,min=1,max=100"`
 }
 
 // ColumnMappingRequest 创建字段映射请求

@@ -14,6 +14,7 @@ type Config struct {
 	Database DatabaseConfig `mapstructure:"database"`
 	Log      LogConfig      `mapstructure:"log"`
 	Scanner  ScannerConfig  `mapstructure:"scanner"`
+	Auth     AuthConfig     `mapstructure:"auth"`
 }
 
 // ServerConfig HTTP服务配置
@@ -51,6 +52,14 @@ type LogConfig struct {
 type ScannerConfig struct {
 	MongoDBSampleSize int `mapstructure:"mongodb_sample_size"`
 	MaxLineageDepth   int `mapstructure:"max_lineage_depth"`
+}
+
+// AuthConfig 认证配置
+type AuthConfig struct {
+	JWTSecret       string        `mapstructure:"jwt_secret"`
+	AccessTokenTTL  time.Duration `mapstructure:"access_token_ttl"`
+	RefreshTokenTTL time.Duration `mapstructure:"refresh_token_ttl"`
+	BcryptCost      int           `mapstructure:"bcrypt_cost"`
 }
 
 // Load 加载配置
@@ -116,6 +125,12 @@ func setDefaults() {
 	// Scanner defaults
 	viper.SetDefault("scanner.mongodb_sample_size", 1000)
 	viper.SetDefault("scanner.max_lineage_depth", 10)
+
+	// Auth defaults
+	viper.SetDefault("auth.jwt_secret", "your-secret-key-change-in-production")
+	viper.SetDefault("auth.access_token_ttl", "15m")
+	viper.SetDefault("auth.refresh_token_ttl", "7d")
+	viper.SetDefault("auth.bcrypt_cost", 10)
 }
 
 // Validate 验证配置

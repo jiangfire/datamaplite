@@ -166,3 +166,56 @@ CREATE TRIGGER update_schema_objects_updated_at BEFORE UPDATE ON schema_objects
 
 CREATE TRIGGER update_columns_updated_at BEFORE UPDATE ON columns
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- 8. 数据质量规则表
+CREATE TABLE IF NOT EXISTS dq_rules (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    source_id UUID REFERENCES data_sources(id) ON DELETE CASCADE,
+    object_id UUID REFERENCES schema_objects(id) ON DELETE CASCADE,
+    column_id UUID REFERENCES columns(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    rule_type VARCHAR(50) NOT NULL CHECK (rule_type IN ('not_null', 'unique', 'regex', 'range', 'enum', 'custom_sql', 'referential')),
+    rule_config JSONB NOT NULL DEFAULT '{}',
+    severity VARCHAR(20) NOT NULL DEFAULT 'error' CHECK (severity IN ('error', 'warning', 'info')),
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+COMMENT ON TABLE dq_rules IS '数据质量规则定义表';
+COMMENT ON COLUMN dq_rules.rule_config IS '规则配置JSON，包含正则表达式、范围值、枚举值等';
+
+CREATE INDEX idx_dq_rules_source ON dq_rules(source_id);
+CREATE INDEX idx_dq_rules_object ON dq_rules(object_id);
+CREATE INDEX idx_dq_rules_column ON dq_rules(column_id);
+CREATE INDEX idx_dq_rules_type ON dq_rules(rule_type);
+CREATE INDEX idx_dq_rules_active ON dq_rules(is_active);
+
+-- 9. 数据质量检测结果表
+CREATE TABLE IF NOT EXISTS dq_results (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    rule_id UUID NOT NULL REFERENCES dq_rules(id) ON DELETE CASCADE,
+    check_batch_id UUID NOT NULL,
+    column_id UUID REFERENCES columns(id) ON DELETE CASCADE,
+    status VARCHAR(20) NOT NULL CHECK (status IN ('passed', 'failed', 'error')),
+    total_rows BIGINT NOT NULL DEFAULT 0,
+    failed_rows BIGINT NOT NULL DEFAULT 0,
+    pass_rate DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+    sample_errors JSONB DEFAULT '[]',
+    error_message TEXT,
+    checked_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+COMMENT ON TABLE dq_results IS '数据质量检测结果';
+COMMENT ON COLUMN dq_results.sample_errors IS '样本错误数据，最多存储5条';
+COMMENT ON COLUMN dq_results.check_batch_id IS '同一批次检查的唯一标识';
+
+CREATE INDEX idx_dq_results_rule ON dq_results(rule_id);
+CREATE INDEX idx_dq_results_batch ON dq_results(check_batch_id);
+CREATE INDEX idx_dq_results_status ON dq_results(status);
+CREATE INDEX idx_dq_results_checked_at ON dq_results(checked_at DESC);
+
+-- 为dq_rules和dq_results添加更新时间触发器
+CREATE TRIGGER update_dq_rules_updated_at BEFORE UPDATE ON dq_rules
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

@@ -57,6 +57,25 @@ type Store interface {
 	// DDL 生成
 	GetObjectWithColumns(ctx context.Context, objectID string) (*SchemaObjectRow, []*ColumnRow, error)
 
+	// User 用户管理
+	CreateUser(ctx context.Context, user *UserCreate) (string, error)
+	GetUserByID(ctx context.Context, id string) (*UserRow, error)
+	GetUserByUsername(ctx context.Context, username string) (*UserRow, error)
+	ListUsers(ctx context.Context) ([]*UserRow, error)
+	UpdateUser(ctx context.Context, id string, updates *UserUpdate) error
+	DeleteUser(ctx context.Context, id string) error
+
+	// Data Quality 数据质量
+	CreateDQRule(ctx context.Context, rule *DQRuleCreate) (string, error)
+	GetDQRule(ctx context.Context, id string) (*DQRuleRow, error)
+	ListDQRules(ctx context.Context, filter *DQRuleFilter) ([]*DQRuleRow, error)
+	UpdateDQRule(ctx context.Context, id string, updates *DQRuleUpdate) error
+	DeleteDQRule(ctx context.Context, id string) error
+	CreateDQResult(ctx context.Context, result *DQResultCreate) error
+	ListDQResults(ctx context.Context, filter *DQResultFilter) ([]*DQResultRow, error)
+	GetLatestDQResult(ctx context.Context, ruleID string) (*DQResultRow, error)
+	GetDQStats(ctx context.Context) (*DQStatsRow, error)
+
 	// Transaction
 	WithTx(ctx context.Context, fn func(Store) error) error
 
@@ -268,6 +287,127 @@ type BusinessTermUpdate struct {
 	Name        *string
 	Description *string
 	Category    *string
+}
+
+// UserCreate 创建用户参数
+type UserCreate struct {
+	Username     string
+	Email        string
+	PasswordHash string
+	Role         string
+}
+
+// UserRow 用户行
+type UserRow struct {
+	ID           string
+	Username     string
+	Email        string
+	PasswordHash string
+	Role         string
+	CreatedAt    string
+	UpdatedAt    string
+}
+
+// UserUpdate 更新用户参数
+type UserUpdate struct {
+	Username     *string
+	Email        *string
+	PasswordHash *string
+	Role         *string
+}
+
+// DQRuleCreate 创建数据质量规则参数
+type DQRuleCreate struct {
+	SourceID    *string
+	ObjectID    *string
+	ColumnID    *string
+	Name        string
+	Description *string
+	RuleType    string
+	RuleConfig  string // JSON
+	Severity    string
+	IsActive    bool
+}
+
+// DQRuleRow 数据质量规则行
+type DQRuleRow struct {
+	ID          string
+	SourceID    *string
+	ObjectID    *string
+	ColumnID    *string
+	Name        string
+	Description *string
+	RuleType    string
+	RuleConfig  string
+	Severity    string
+	IsActive    bool
+	CreatedAt   string
+	UpdatedAt   string
+}
+
+// DQRuleUpdate 更新数据质量规则参数
+type DQRuleUpdate struct {
+	Name        *string
+	Description *string
+	RuleConfig  *string
+	Severity    *string
+	IsActive    *bool
+}
+
+// DQRuleFilter 数据质量规则过滤条件
+type DQRuleFilter struct {
+	SourceID *string
+	ObjectID *string
+	ColumnID *string
+	RuleType *string
+	IsActive *bool
+}
+
+// DQResultCreate 创建数据质量结果参数
+type DQResultCreate struct {
+	RuleID       string
+	CheckBatchID string
+	ColumnID     *string
+	Status       string
+	TotalRows    int64
+	FailedRows   int64
+	PassRate     float64
+	SampleErrors string // JSON
+	ErrorMessage *string
+}
+
+// DQResultRow 数据质量结果行
+type DQResultRow struct {
+	ID            string
+	RuleID        string
+	CheckBatchID  string
+	ColumnID      *string
+	Status        string
+	TotalRows     int64
+	FailedRows    int64
+	PassRate      float64
+	SampleErrors  string
+	ErrorMessage  *string
+	CheckedAt     string
+}
+
+// DQResultFilter 数据质量结果过滤条件
+type DQResultFilter struct {
+	RuleID       *string
+	BatchID      *string
+	ColumnID     *string
+	Status       *string
+	Limit        int
+}
+
+// DQStatsRow 数据质量统计行
+type DQStatsRow struct {
+	TotalRules      int
+	ActiveRules     int
+	TotalChecks     int64
+	PassedChecks    int64
+	FailedChecks    int64
+	OverallPassRate float64
 }
 
 // New 创建新的存储实例
