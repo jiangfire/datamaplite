@@ -8,23 +8,29 @@ import (
 
 // Router 路由注册器
 type Router struct {
-	sourceHandler *SourceHandler
-	schemaHandler *SchemaHandler
-	termHandler   *TermHandler
-	authHandler   *AuthHandler
-	dqHandler     *DQHandler
-	authService   *service.AuthService
+	sourceHandler       *SourceHandler
+	schemaHandler       *SchemaHandler
+	termHandler         *TermHandler
+	authHandler         *AuthHandler
+	dqHandler           *DQHandler
+	tagHandler          *TagHandler
+	alertHandler        *AlertHandler
+	notificationHandler *NotificationHandler
+	authService         *service.AuthService
 }
 
 // NewRouter 创建路由注册器
-func NewRouter(sourceHandler *SourceHandler, schemaHandler *SchemaHandler, termHandler *TermHandler, authHandler *AuthHandler, dqHandler *DQHandler, authService *service.AuthService) *Router {
+func NewRouter(sourceHandler *SourceHandler, schemaHandler *SchemaHandler, termHandler *TermHandler, authHandler *AuthHandler, dqHandler *DQHandler, tagHandler *TagHandler, alertHandler *AlertHandler, notificationHandler *NotificationHandler, authService *service.AuthService) *Router {
 	return &Router{
-		sourceHandler: sourceHandler,
-		schemaHandler: schemaHandler,
-		termHandler:   termHandler,
-		authHandler:   authHandler,
-		dqHandler:     dqHandler,
-		authService:   authService,
+		sourceHandler:       sourceHandler,
+		schemaHandler:       schemaHandler,
+		termHandler:         termHandler,
+		authHandler:         authHandler,
+		dqHandler:           dqHandler,
+		tagHandler:          tagHandler,
+		alertHandler:        alertHandler,
+		notificationHandler: notificationHandler,
+		authService:         authService,
 	}
 }
 
@@ -107,8 +113,37 @@ func (r *Router) Register(engine *gin.Engine) {
 				dq.GET("/stats", r.dqHandler.GetStats)
 			}
 
+			// 标签管理
+			tags := authorized.Group("/tags")
+			{
+				tags.GET("", r.tagHandler.ListTags)
+				tags.POST("", r.tagHandler.CreateTag)
+				tags.GET("/:id", r.tagHandler.GetTag)
+				tags.PUT("/:id", r.tagHandler.UpdateTag)
+				tags.DELETE("/:id", r.tagHandler.DeleteTag)
+				tags.GET("/:id/columns", r.tagHandler.GetColumnsByTag)
+			}
+
 			// DDL生成
 			authorized.POST("/ddl/generate", r.termHandler.GenerateDDL)
+
+			// 告警规则管理
+			alerts := authorized.Group("/alerts")
+			{
+				alerts.GET("/rules", r.alertHandler.ListAlertRules)
+				alerts.POST("/rules", r.alertHandler.CreateAlertRule)
+				alerts.GET("/rules/:id", r.alertHandler.GetAlertRule)
+				alerts.PUT("/rules/:id", r.alertHandler.UpdateAlertRule)
+				alerts.DELETE("/rules/:id", r.alertHandler.DeleteAlertRule)
+			}
+
+			// 通知管理
+			notifications := authorized.Group("/notifications")
+			{
+				notifications.GET("", r.notificationHandler.ListNotifications)
+				notifications.GET("/stats", r.notificationHandler.GetNotificationStats)
+				notifications.POST("/read", r.notificationHandler.MarkAsRead)
+			}
 		}
 	}
 }

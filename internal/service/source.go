@@ -13,9 +13,10 @@ import (
 
 // SourceService 数据源服务
 type SourceService struct {
-	store    store.Store
-	cipher   *crypto.Cipher
-	registry *scanner.Registry
+	store        store.Store
+	cipher       *crypto.Cipher
+	registry     *scanner.Registry
+	alertService *AlertService
 }
 
 // NewSourceService 创建数据源服务
@@ -25,6 +26,11 @@ func NewSourceService(store store.Store, cipher *crypto.Cipher, registry *scanne
 		cipher:   cipher,
 		registry: registry,
 	}
+}
+
+// SetAlertService 设置告警服务（用于解决循环依赖）
+func (s *SourceService) SetAlertService(alertService *AlertService) {
+	s.alertService = alertService
 }
 
 // CreateSource 创建数据源
@@ -314,6 +320,29 @@ func (s *SourceService) saveSchema(ctx context.Context, sourceID string, schemaI
 
 		return nil
 	})
+
+	// 触发告警
+	if s.alertService != nil {
+		// 获取刚创建的变更记录（最近50条）
+		changes, _ := s.store.ListSchemaChangesBySource(ctx, sourceID, 50)
+		for _, change := range changes {
+			schemaChange := &SchemaChangeInfo{
+				ID:         change.ID,
+				SourceID:   change.SourceID,
+				ObjectID:   change.ObjectID,
+				ChangeType: change.ChangeType,
+				ObjectType: change.ObjectType,
+				ObjectName: change.ObjectName,
+				OldValue:   change.OldValue,
+				NewValue:   change.NewValue,
+				DetectedAt: change.DetectedAt,
+			}
+			// 异步触发告警
+			go s.alertService.ProcessSchemaChange(context.Background(), schemaChange)
+		}
+	}
+
+	return nil
 }
 
 // toSourceResponse 转换为响应格式

@@ -5,3 +5,4 @@ export * from './schema';
 export * from './search';
 export * from './lineage';
 export * from './terms';
+export * from './dq';

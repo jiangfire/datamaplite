@@ -344,3 +344,33 @@ func (p PaginationQuery) GetLimit() int {
 	}
 	return p.PageSize
 }
+
+// ============ Tag Types ============
+
+// TagRequest 创建/更新标签请求
+type TagRequest struct {
+	Name        string `json:"name" validate:"required,max=100"`
+	Color       string `json:"color" validate:"required,hexcolor"`
+	Description string `json:"description,omitempty"`
+}
+
+// TagResponse 标签响应
+type TagResponse struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Color       string `json:"color"`
+	Description string `json:"description,omitempty"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
+}
+
+// ColumnTagRequest 添加标签到字段请求
+type ColumnTagRequest struct {
+	TagID string `json:"tag_id" validate:"required"`
+}
+
+// ColumnWithTagsResponse 带标签的字段响应
+type ColumnWithTagsResponse struct {
+	ColumnDetailResponse
+	Tags []TagResponse `json:"tags"`
+}

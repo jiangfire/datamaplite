@@ -219,3 +219,106 @@ CREATE INDEX idx_dq_results_checked_at ON dq_results(checked_at DESC);
 -- 为dq_rules和dq_results添加更新时间触发器
 CREATE TRIGGER update_dq_rules_updated_at BEFORE UPDATE ON dq_rules
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- 10. 标签表
+CREATE TABLE IF NOT EXISTS tags (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(100) NOT NULL UNIQUE,
+    color VARCHAR(7) NOT NULL DEFAULT '#6366f1',
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+COMMENT ON TABLE tags IS '字段标签表';
+
+CREATE INDEX idx_tags_name ON tags(name);
+
+-- 11. 字段标签关联表（多对多）
+CREATE TABLE IF NOT EXISTS column_tags (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    column_id UUID NOT NULL REFERENCES columns(id) ON DELETE CASCADE,
+    tag_id UUID NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(column_id, tag_id)
+);
+
+COMMENT ON TABLE column_tags IS '字段与标签的关联表';
+
+CREATE INDEX idx_column_tags_column ON column_tags(column_id);
+CREATE INDEX idx_column_tags_tag ON column_tags(tag_id);
+
+-- 为tags表添加更新时间触发器
+CREATE TRIGGER update_tags_updated_at BEFORE UPDATE ON tags
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- 12. 告警规则表
+CREATE TABLE IF NOT EXISTS alert_rules (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    source_id UUID REFERENCES data_sources(id) ON DELETE CASCADE,
+    object_id UUID REFERENCES schema_objects(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    change_types VARCHAR(255) NOT NULL DEFAULT 'all', -- 逗号分隔: add_object,drop_object,add_column,drop_column,alter_column,change_type
+    notify_webhook BOOLEAN NOT NULL DEFAULT false,
+    webhook_url TEXT,
+    notify_in_app BOOLEAN NOT NULL DEFAULT true,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+COMMENT ON TABLE alert_rules IS 'Schema变更告警规则';
+COMMENT ON COLUMN alert_rules.change_types IS '监控的变更类型，all表示全部，或逗号分隔指定类型';
+COMMENT ON COLUMN alert_rules.notify_webhook IS '是否启用Webhook通知';
+COMMENT ON COLUMN alert_rules.webhook_url IS 'Webhook URL地址';
+
+CREATE INDEX idx_alert_rules_source ON alert_rules(source_id);
+CREATE INDEX idx_alert_rules_object ON alert_rules(object_id);
+CREATE INDEX idx_alert_rules_active ON alert_rules(is_active);
+
+-- 13. 通知记录表
+CREATE TABLE IF NOT EXISTS notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    rule_id UUID REFERENCES alert_rules(id) ON DELETE CASCADE,
+    change_id UUID NOT NULL REFERENCES schema_changes(id) ON DELETE CASCADE,
+    source_id UUID NOT NULL REFERENCES data_sources(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    change_type VARCHAR(50) NOT NULL,
+    object_type VARCHAR(20) NOT NULL,
+    object_name VARCHAR(255) NOT NULL,
+    old_value TEXT,
+    new_value TEXT,
+    webhook_sent BOOLEAN NOT NULL DEFAULT false,
+    webhook_error TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+COMMENT ON TABLE notifications IS '告警通知记录';
+
+CREATE INDEX idx_notifications_rule ON notifications(rule_id);
+CREATE INDEX idx_notifications_change ON notifications(change_id);
+CREATE INDEX idx_notifications_source ON notifications(source_id);
+CREATE INDEX idx_notifications_created_at ON notifications(created_at DESC);
+
+-- 14. 用户通知状态表
+CREATE TABLE IF NOT EXISTS user_notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    notification_id UUID NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
+    is_read BOOLEAN NOT NULL DEFAULT false,
+    read_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, notification_id)
+);
+
+COMMENT ON TABLE user_notifications IS '用户通知读取状态';
+
+CREATE INDEX idx_user_notifications_user ON user_notifications(user_id);
+CREATE INDEX idx_user_notifications_notification ON user_notifications(notification_id);
+CREATE INDEX idx_user_notifications_unread ON user_notifications(user_id, is_read);
+
+-- 为告警规则表添加更新时间触发器
+CREATE TRIGGER update_alert_rules_updated_at BEFORE UPDATE ON alert_rules
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

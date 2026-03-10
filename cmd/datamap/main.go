@@ -94,6 +94,12 @@ func run() error {
 	ddlService := service.NewDDLService(store)
 	authService := initAuthService(cfg.Auth, store)
 	dqService := service.NewDQService(store)
+	tagService := service.NewTagService(store)
+	alertService := service.NewAlertService(store, logger)
+	notifService := service.NewNotificationService(store, logger)
+
+	// 解决循环依赖：设置告警服务到数据源服务
+	sourceService.SetAlertService(alertService)
 
 	// 初始化API层
 	sourceHandler := api.NewSourceHandler(sourceService, metadataService)
@@ -101,7 +107,10 @@ func run() error {
 	termHandler := api.NewTermHandler(termService, ddlService)
 	authHandler := api.NewAuthHandler(authService)
 	dqHandler := api.NewDQHandler(dqService)
-	router := api.NewRouter(sourceHandler, schemaHandler, termHandler, authHandler, dqHandler, authService)
+	tagHandler := api.NewTagHandler(tagService)
+	alertHandler := api.NewAlertHandler(alertService, notifService, logger)
+	notifHandler := api.NewNotificationHandler(notifService, logger)
+	router := api.NewRouter(sourceHandler, schemaHandler, termHandler, authHandler, dqHandler, tagHandler, alertHandler, notifHandler, authService)
 
 	// 配置Gin
 	if cfg.Log.Level != "debug" {

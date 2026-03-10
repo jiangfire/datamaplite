@@ -54,8 +54,39 @@ type Store interface {
 	DeleteBusinessTerm(ctx context.Context, id string) error
 	AssignTermToColumn(ctx context.Context, columnID string, termID *string) error
 
+	// Tag 标签管理
+	CreateTag(ctx context.Context, tag *TagCreate) (string, error)
+	GetTag(ctx context.Context, id string) (*TagRow, error)
+	GetTagByName(ctx context.Context, name string) (*TagRow, error)
+	ListTags(ctx context.Context) ([]*TagRow, error)
+	UpdateTag(ctx context.Context, id string, updates *TagUpdate) error
+	DeleteTag(ctx context.Context, id string) error
+
+	// ColumnTag 字段标签关联
+	AddTagToColumn(ctx context.Context, columnID string, tagID string) error
+	RemoveTagFromColumn(ctx context.Context, columnID string, tagID string) error
+	GetColumnTags(ctx context.Context, columnID string) ([]*TagRow, error)
+	SearchColumnsByTag(ctx context.Context, tagID string, limit int) ([]*ColumnSearchRow, error)
+
 	// DDL 生成
 	GetObjectWithColumns(ctx context.Context, objectID string) (*SchemaObjectRow, []*ColumnRow, error)
+
+	// AlertRule 告警规则
+	CreateAlertRule(ctx context.Context, rule *AlertRuleCreate) (string, error)
+	GetAlertRule(ctx context.Context, id string) (*AlertRuleRow, error)
+	ListAlertRules(ctx context.Context, sourceID *string) ([]*AlertRuleRow, error)
+	UpdateAlertRule(ctx context.Context, id string, updates *AlertRuleUpdate) error
+	DeleteAlertRule(ctx context.Context, id string) error
+	ListMatchingAlertRules(ctx context.Context, sourceID string, changeType string) ([]*AlertRuleRow, error)
+
+	// Notification 通知
+	CreateNotification(ctx context.Context, notification *NotificationCreate) (string, error)
+	GetNotification(ctx context.Context, id string) (*NotificationRow, error)
+	ListNotifications(ctx context.Context, userID string, unreadOnly bool, limit int) ([]*NotificationRow, error)
+	GetNotificationStats(ctx context.Context, userID string) (*NotificationStatsRow, error)
+	MarkNotificationAsRead(ctx context.Context, userID string, notificationID string) error
+	MarkAllNotificationsAsRead(ctx context.Context, userID string) error
+	UpdateNotificationWebhookStatus(ctx context.Context, id string, sent bool, errorMsg *string) error
 
 	// User 用户管理
 	CreateUser(ctx context.Context, user *UserCreate) (string, error)
@@ -408,6 +439,117 @@ type DQStatsRow struct {
 	PassedChecks    int64
 	FailedChecks    int64
 	OverallPassRate float64
+}
+
+// TagCreate 创建标签参数
+type TagCreate struct {
+	Name        string
+	Color       string
+	Description *string
+}
+
+// TagRow 标签行
+type TagRow struct {
+	ID          string
+	Name        string
+	Color       string
+	Description *string
+	CreatedAt   string
+	UpdatedAt   string
+}
+
+// TagUpdate 更新标签参数
+type TagUpdate struct {
+	Name        *string
+	Color       *string
+	Description *string
+}
+
+// AlertRuleCreate 创建告警规则参数
+type AlertRuleCreate struct {
+	SourceID      *string
+	ObjectID      *string
+	Name          string
+	Description   *string
+	ChangeTypes   string
+	NotifyWebhook bool
+	WebhookURL    *string
+	NotifyInApp   bool
+	IsActive      bool
+}
+
+// AlertRuleRow 告警规则行
+type AlertRuleRow struct {
+	ID            string
+	SourceID      *string
+	ObjectID      *string
+	SourceName    *string
+	ObjectName    *string
+	Name          string
+	Description   *string
+	ChangeTypes   string
+	NotifyWebhook bool
+	WebhookURL    *string
+	NotifyInApp   bool
+	IsActive      bool
+	CreatedAt     string
+	UpdatedAt     string
+}
+
+// AlertRuleUpdate 更新告警规则参数
+type AlertRuleUpdate struct {
+	Name          *string
+	Description   *string
+	SourceID      *string
+	ObjectID      *string
+	ChangeTypes   *string
+	NotifyWebhook *bool
+	WebhookURL    *string
+	NotifyInApp   *bool
+	IsActive      *bool
+}
+
+// NotificationCreate 创建通知参数
+type NotificationCreate struct {
+	RuleID       *string
+	ChangeID     string
+	SourceID     string
+	Title        string
+	Message      string
+	ChangeType   string
+	ObjectType   string
+	ObjectName   string
+	OldValue     *string
+	NewValue     *string
+}
+
+// NotificationRow 通知行
+type NotificationRow struct {
+	ID            string
+	RuleID        *string
+	RuleName      *string
+	ChangeID      string
+	SourceID      string
+	SourceName    string
+	Title         string
+	Message       string
+	ChangeType    string
+	ObjectType    string
+	ObjectName    string
+	OldValue      *string
+	NewValue      *string
+	WebhookSent   bool
+	WebhookError  *string
+	IsRead        bool
+	ReadAt        *string
+	CreatedAt     string
+}
+
+// NotificationStatsRow 通知统计行
+type NotificationStatsRow struct {
+	TotalCount  int64
+	UnreadCount int64
+	TodayCount  int64
 }
 
 // New 创建新的存储实例

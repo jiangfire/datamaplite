@@ -2,3 +2,7 @@ export { api } from './api';
 export { sourceService } from './sourceService';
 export { columnService } from './columnService';
 export { termService } from './termService';
+export { dqService } from './dqService';
+export { tagService } from './tagService';
+export { alertService } from './alertService';
+export { notificationService } from './notificationService';

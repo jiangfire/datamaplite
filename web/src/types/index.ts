@@ -269,3 +269,195 @@ export interface ListResponse<T> {
   total: number;
   items: T[];
 }
+
+// ============ Data Quality Types ============
+export type DQRuleType = 'not_null' | 'unique' | 'regex' | 'range' | 'enum' | 'custom_sql' | 'referential';
+export type DQSeverity = 'error' | 'warning' | 'info';
+export type DQResultStatus = 'passed' | 'failed' | 'error';
+
+export interface DQRule {
+  id: string;
+  source_id?: string;
+  object_id?: string;
+  column_id?: string;
+  name: string;
+  description?: string;
+  rule_type: DQRuleType;
+  rule_config: Record<string, unknown>;
+  severity: DQSeverity;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DQRuleWithResult extends DQRule {
+  latest_result?: DQResult;
+}
+
+export interface DQRuleCreate {
+  source_id?: string;
+  object_id?: string;
+  column_id?: string;
+  name: string;
+  description?: string;
+  rule_type: DQRuleType;
+  rule_config: Record<string, unknown>;
+  severity: DQSeverity;
+  is_active?: boolean;
+}
+
+export interface DQRuleFilter {
+  source_id?: string;
+  object_id?: string;
+  column_id?: string;
+  rule_type?: DQRuleType;
+  is_active?: boolean;
+}
+
+export interface DQResult {
+  id: string;
+  rule_id: string;
+  check_batch_id: string;
+  column_id?: string;
+  status: DQResultStatus;
+  total_rows: number;
+  failed_rows: number;
+  pass_rate: number;
+  sample_errors?: Record<string, unknown>[];
+  error_message?: string;
+  checked_at: string;
+}
+
+export interface DQCheckRequest {
+  rule_ids?: string[];
+  source_id?: string;
+  object_id?: string;
+  column_id?: string;
+  check_all?: boolean;
+  sample_limit?: number;
+}
+
+export interface DQCheckResponse {
+  batch_id: string;
+  total_rules: number;
+  passed_rules: number;
+  failed_rules: number;
+  results: DQResult[];
+  checked_at: string;
+}
+
+export interface DQStats {
+  total_rules: number;
+  active_rules: number;
+  total_checks: number;
+  passed_checks: number;
+  failed_checks: number;
+  overall_pass_rate: number;
+}
+
+// Rule Config Types
+export interface RegexRuleConfig {
+  pattern: string;
+  flags?: string;
+}
+
+export interface RangeRuleConfig {
+  min?: number;
+  max?: number;
+}
+
+export interface EnumRuleConfig {
+  values: string[];
+}
+
+export interface CustomSQLRuleConfig {
+  sql: string;
+}
+
+export interface ReferentialRuleConfig {
+  ref_source_id?: string;
+  ref_object_id: string;
+  ref_column_id: string;
+}
+
+// ============ Tag Types ============
+export interface Tag {
+  id: string;
+  name: string;
+  color: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TagCreate {
+  name: string;
+  color: string;
+  description?: string;
+}
+
+export interface ColumnTagRequest {
+  tag_id: string;
+}
+
+// ============ Alert Rule Types ============
+export interface AlertRule {
+  id: string;
+  source_id?: string;
+  object_id?: string;
+  source_name?: string;
+  object_name?: string;
+  name: string;
+  description?: string;
+  change_types: string;
+  notify_webhook: boolean;
+  webhook_url?: string;
+  notify_in_app: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AlertRuleCreate {
+  source_id?: string;
+  object_id?: string;
+  name: string;
+  description?: string;
+  change_types: string;
+  notify_webhook: boolean;
+  webhook_url?: string;
+  notify_in_app: boolean;
+  is_active: boolean;
+}
+
+// ============ Notification Types ============
+export interface Notification {
+  id: string;
+  rule_id?: string;
+  rule_name?: string;
+  change_id: string;
+  source_id: string;
+  source_name: string;
+  title: string;
+  message: string;
+  change_type: string;
+  object_type: string;
+  object_name: string;
+  old_value?: string;
+  new_value?: string;
+  webhook_sent: boolean;
+  webhook_error?: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface NotificationStats {
+  total_count: number;
+  unread_count: number;
+  today_count: number;
+}
+
+export interface MarkAsReadRequest {
+  notification_ids?: string[];
+  mark_all?: boolean;
+}

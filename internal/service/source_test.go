@@ -333,6 +333,156 @@ func (m *MockStore) GetDQStats(ctx context.Context) (*store.DQStatsRow, error) {
 	return args.Get(0).(*store.DQStatsRow), args.Error(1)
 }
 
+func (m *MockStore) CreateTag(ctx context.Context, tag *store.TagCreate) (string, error) {
+	args := m.Called(ctx, tag)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockStore) GetTag(ctx context.Context, id string) (*store.TagRow, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.TagRow), args.Error(1)
+}
+
+func (m *MockStore) GetTagByName(ctx context.Context, name string) (*store.TagRow, error) {
+	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.TagRow), args.Error(1)
+}
+
+func (m *MockStore) ListTags(ctx context.Context) ([]*store.TagRow, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*store.TagRow), args.Error(1)
+}
+
+func (m *MockStore) UpdateTag(ctx context.Context, id string, updates *store.TagUpdate) error {
+	args := m.Called(ctx, id, updates)
+	return args.Error(0)
+}
+
+func (m *MockStore) DeleteTag(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *MockStore) AddTagToColumn(ctx context.Context, columnID string, tagID string) error {
+	args := m.Called(ctx, columnID, tagID)
+	return args.Error(0)
+}
+
+func (m *MockStore) RemoveTagFromColumn(ctx context.Context, columnID string, tagID string) error {
+	args := m.Called(ctx, columnID, tagID)
+	return args.Error(0)
+}
+
+func (m *MockStore) GetColumnTags(ctx context.Context, columnID string) ([]*store.TagRow, error) {
+	args := m.Called(ctx, columnID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*store.TagRow), args.Error(1)
+}
+
+func (m *MockStore) SearchColumnsByTag(ctx context.Context, tagID string, limit int) ([]*store.ColumnSearchRow, error) {
+	args := m.Called(ctx, tagID, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*store.ColumnSearchRow), args.Error(1)
+}
+
+// AlertRule methods
+func (m *MockStore) CreateAlertRule(ctx context.Context, rule *store.AlertRuleCreate) (string, error) {
+	args := m.Called(ctx, rule)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockStore) GetAlertRule(ctx context.Context, id string) (*store.AlertRuleRow, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.AlertRuleRow), args.Error(1)
+}
+
+func (m *MockStore) ListAlertRules(ctx context.Context, sourceID *string) ([]*store.AlertRuleRow, error) {
+	args := m.Called(ctx, sourceID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*store.AlertRuleRow), args.Error(1)
+}
+
+func (m *MockStore) UpdateAlertRule(ctx context.Context, id string, updates *store.AlertRuleUpdate) error {
+	args := m.Called(ctx, id, updates)
+	return args.Error(0)
+}
+
+func (m *MockStore) DeleteAlertRule(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *MockStore) ListMatchingAlertRules(ctx context.Context, sourceID string, changeType string) ([]*store.AlertRuleRow, error) {
+	args := m.Called(ctx, sourceID, changeType)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*store.AlertRuleRow), args.Error(1)
+}
+
+// Notification methods
+func (m *MockStore) CreateNotification(ctx context.Context, notification *store.NotificationCreate) (string, error) {
+	args := m.Called(ctx, notification)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockStore) GetNotification(ctx context.Context, id string) (*store.NotificationRow, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.NotificationRow), args.Error(1)
+}
+
+func (m *MockStore) ListNotifications(ctx context.Context, userID string, unreadOnly bool, limit int) ([]*store.NotificationRow, error) {
+	args := m.Called(ctx, userID, unreadOnly, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*store.NotificationRow), args.Error(1)
+}
+
+func (m *MockStore) GetNotificationStats(ctx context.Context, userID string) (*store.NotificationStatsRow, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.NotificationStatsRow), args.Error(1)
+}
+
+func (m *MockStore) MarkNotificationAsRead(ctx context.Context, userID string, notificationID string) error {
+	args := m.Called(ctx, userID, notificationID)
+	return args.Error(0)
+}
+
+func (m *MockStore) MarkAllNotificationsAsRead(ctx context.Context, userID string) error {
+	args := m.Called(ctx, userID)
+	return args.Error(0)
+}
+
+func (m *MockStore) UpdateNotificationWebhookStatus(ctx context.Context, id string, sent bool, errorMsg *string) error {
+	args := m.Called(ctx, id, sent, errorMsg)
+	return args.Error(0)
+}
+
 // MockScanner 模拟Scanner接口
 type MockScanner struct {
 	mock.Mock

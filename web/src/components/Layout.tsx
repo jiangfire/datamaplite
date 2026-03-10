@@ -4,8 +4,12 @@ import {
   Search,
   BookOpen,
   GitBranch,
+  ShieldCheck,
+  Tag,
   Menu,
   X,
+  Bell,
+  AlertTriangle,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -19,7 +23,11 @@ const navItems: NavItem[] = [
   { path: '/', label: '数据源', icon: <Database size={20} /> },
   { path: '/search', label: '字段搜索', icon: <Search size={20} /> },
   { path: '/terms', label: '业务术语', icon: <BookOpen size={20} /> },
+  { path: '/tags', label: '标签', icon: <Tag size={20} /> },
   { path: '/lineage', label: '血缘分析', icon: <GitBranch size={20} /> },
+  { path: '/dq/rules', label: '数据质量', icon: <ShieldCheck size={20} /> },
+  { path: '/alerts', label: '告警规则', icon: <AlertTriangle size={20} /> },
+  { path: '/notifications', label: '通知中心', icon: <Bell size={20} /> },
 ];
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {

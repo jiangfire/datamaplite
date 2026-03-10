@@ -413,6 +413,30 @@ CREATE INDEX IF NOT EXISTS idx_dq_results_rule ON dq_results(rule_id);
 CREATE INDEX IF NOT EXISTS idx_dq_results_batch ON dq_results(check_batch_id);
 CREATE INDEX IF NOT EXISTS idx_dq_results_status ON dq_results(status);
 CREATE INDEX IF NOT EXISTS idx_dq_results_checked_at ON dq_results(checked_at);
+
+-- 11. 标签表
+CREATE TABLE IF NOT EXISTS tags (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    color TEXT NOT NULL DEFAULT '#6366f1',
+    description TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);
+
+-- 12. 字段标签关联表
+CREATE TABLE IF NOT EXISTS column_tags (
+    id TEXT PRIMARY KEY,
+    column_id TEXT NOT NULL REFERENCES columns(id) ON DELETE CASCADE,
+    tag_id TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(column_id, tag_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_column_tags_column ON column_tags(column_id);
+CREATE INDEX IF NOT EXISTS idx_column_tags_tag ON column_tags(tag_id);
 `
 	_, err := db.ExecContext(ctx, schema)
 	return err

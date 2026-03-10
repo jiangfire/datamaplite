@@ -6,6 +6,11 @@ import {
   ColumnDetailPage,
   TermsPage,
   LineagePage,
+  DQRulesPage,
+  DQResultsPage,
+  TagsPage,
+  AlertRulesPage,
+  NotificationsPage,
 } from './pages';
 import './App.css';
 
@@ -28,6 +33,19 @@ const App = () => {
 
         {/* Lineage Analysis */}
         <Route path="/lineage" element={<LineagePage />} />
+
+        {/* Data Quality */}
+        <Route path="/dq/rules" element={<DQRulesPage />} />
+        <Route path="/dq/results" element={<DQResultsPage />} />
+
+        {/* Tags */}
+        <Route path="/tags" element={<TagsPage />} />
+
+        {/* Alert Rules */}
+        <Route path="/alerts" element={<AlertRulesPage />} />
+
+        {/* Notifications */}
+        <Route path="/notifications" element={<NotificationsPage />} />
 
         {/* Redirect unknown routes to home */}
         <Route path="*" element={<Navigate to="/" replace />} />
