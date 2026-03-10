@@ -29,3 +29,9 @@ log:
 scanner:
   mongodb_sample_size: 1000  # MongoDB抽样文档数
   max_lineage_depth: 10      # 血缘查询最大深度
+
+auth:
+  jwt_secret: "${DATAMAP_JWT_SECRET:-your-secret-key-change-in-production}"  # JWT签名密钥
+  access_token_ttl: 15m     # Access Token过期时间
+  refresh_token_ttl: 7d     # Refresh Token过期时间
+  bcrypt_cost: 10           # bcrypt密码加密强度 (4-31)
