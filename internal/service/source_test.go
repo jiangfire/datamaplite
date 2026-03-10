@@ -62,12 +62,18 @@ func (m *MockStore) CreateSchemaObject(ctx context.Context, obj *store.SchemaObj
 
 func (m *MockStore) GetSchemaObject(ctx context.Context, id string) (*store.SchemaObjectRow, error) {
 	args := m.Called(ctx, id)
-	return nil, args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.SchemaObjectRow), args.Error(1)
 }
 
 func (m *MockStore) GetSchemaObjectByName(ctx context.Context, sourceID string, name string, schema *string) (*store.SchemaObjectRow, error) {
 	args := m.Called(ctx, sourceID, name, schema)
-	return nil, args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.SchemaObjectRow), args.Error(1)
 }
 
 func (m *MockStore) ListSchemaObjectsBySource(ctx context.Context, sourceID string) ([]*store.SchemaObjectRow, error) {
@@ -90,17 +96,26 @@ func (m *MockStore) CreateColumn(ctx context.Context, col *store.ColumnCreate) e
 
 func (m *MockStore) GetColumn(ctx context.Context, id string) (*store.ColumnRow, error) {
 	args := m.Called(ctx, id)
-	return nil, args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.ColumnRow), args.Error(1)
 }
 
 func (m *MockStore) ListColumnsByObject(ctx context.Context, objectID string) ([]*store.ColumnRow, error) {
 	args := m.Called(ctx, objectID)
-	return nil, args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*store.ColumnRow), args.Error(1)
 }
 
 func (m *MockStore) SearchColumns(ctx context.Context, query string, limit int) ([]*store.ColumnSearchRow, error) {
 	args := m.Called(ctx, query, limit)
-	return nil, args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*store.ColumnSearchRow), args.Error(1)
 }
 
 func (m *MockStore) DeleteColumnsByObject(ctx context.Context, objectID string) error {
@@ -115,7 +130,10 @@ func (m *MockStore) CreateSchemaChange(ctx context.Context, change *store.Schema
 
 func (m *MockStore) ListSchemaChangesBySource(ctx context.Context, sourceID string, limit int) ([]*store.SchemaChangeRow, error) {
 	args := m.Called(ctx, sourceID, limit)
-	return nil, args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*store.SchemaChangeRow), args.Error(1)
 }
 
 func (m *MockStore) CreateColumnMapping(ctx context.Context, mapping *store.ColumnMappingCreate) error {
@@ -125,7 +143,10 @@ func (m *MockStore) CreateColumnMapping(ctx context.Context, mapping *store.Colu
 
 func (m *MockStore) GetColumnMappings(ctx context.Context, columnID string) ([]*store.ColumnMappingRow, error) {
 	args := m.Called(ctx, columnID)
-	return nil, args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*store.ColumnMappingRow), args.Error(1)
 }
 
 func (m *MockStore) DeleteColumnMapping(ctx context.Context, id string) error {
@@ -135,12 +156,18 @@ func (m *MockStore) DeleteColumnMapping(ctx context.Context, id string) error {
 
 func (m *MockStore) GetLineageUpward(ctx context.Context, columnID string, depth int) ([]*store.LineageEdgeRow, error) {
 	args := m.Called(ctx, columnID, depth)
-	return nil, args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*store.LineageEdgeRow), args.Error(1)
 }
 
 func (m *MockStore) GetLineageDownward(ctx context.Context, columnID string, depth int) ([]*store.LineageEdgeRow, error) {
 	args := m.Called(ctx, columnID, depth)
-	return nil, args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*store.LineageEdgeRow), args.Error(1)
 }
 
 func (m *MockStore) CreateLineageEdge(ctx context.Context, edge *store.LineageEdgeCreate) error {
@@ -155,12 +182,18 @@ func (m *MockStore) CreateBusinessTerm(ctx context.Context, term *store.Business
 
 func (m *MockStore) GetBusinessTerm(ctx context.Context, id string) (*store.BusinessTermRow, error) {
 	args := m.Called(ctx, id)
-	return nil, args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.BusinessTermRow), args.Error(1)
 }
 
 func (m *MockStore) ListBusinessTerms(ctx context.Context, category string) ([]*store.BusinessTermRow, error) {
 	args := m.Called(ctx, category)
-	return nil, args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*store.BusinessTermRow), args.Error(1)
 }
 
 func (m *MockStore) UpdateBusinessTerm(ctx context.Context, id string, updates *store.BusinessTermUpdate) error {
@@ -180,7 +213,15 @@ func (m *MockStore) AssignTermToColumn(ctx context.Context, columnID string, ter
 
 func (m *MockStore) GetObjectWithColumns(ctx context.Context, objectID string) (*store.SchemaObjectRow, []*store.ColumnRow, error) {
 	args := m.Called(ctx, objectID)
-	return nil, nil, args.Error(2)
+	var obj *store.SchemaObjectRow
+	var cols []*store.ColumnRow
+	if args.Get(0) != nil {
+		obj = args.Get(0).(*store.SchemaObjectRow)
+	}
+	if args.Get(1) != nil {
+		cols = args.Get(1).([]*store.ColumnRow)
+	}
+	return obj, cols, args.Error(2)
 }
 
 func (m *MockStore) WithTx(ctx context.Context, fn func(store.Store) error) error {
@@ -191,6 +232,105 @@ func (m *MockStore) WithTx(ctx context.Context, fn func(store.Store) error) erro
 func (m *MockStore) Close() error {
 	args := m.Called()
 	return args.Error(0)
+}
+
+func (m *MockStore) CreateUser(ctx context.Context, user *store.UserCreate) (string, error) {
+	args := m.Called(ctx, user)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockStore) GetUserByID(ctx context.Context, id string) (*store.UserRow, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.UserRow), args.Error(1)
+}
+
+func (m *MockStore) GetUserByUsername(ctx context.Context, username string) (*store.UserRow, error) {
+	args := m.Called(ctx, username)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.UserRow), args.Error(1)
+}
+
+func (m *MockStore) ListUsers(ctx context.Context) ([]*store.UserRow, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*store.UserRow), args.Error(1)
+}
+
+func (m *MockStore) UpdateUser(ctx context.Context, id string, updates *store.UserUpdate) error {
+	args := m.Called(ctx, id, updates)
+	return args.Error(0)
+}
+
+func (m *MockStore) DeleteUser(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *MockStore) CreateDQRule(ctx context.Context, rule *store.DQRuleCreate) (string, error) {
+	args := m.Called(ctx, rule)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockStore) GetDQRule(ctx context.Context, id string) (*store.DQRuleRow, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.DQRuleRow), args.Error(1)
+}
+
+func (m *MockStore) ListDQRules(ctx context.Context, filter *store.DQRuleFilter) ([]*store.DQRuleRow, error) {
+	args := m.Called(ctx, filter)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*store.DQRuleRow), args.Error(1)
+}
+
+func (m *MockStore) UpdateDQRule(ctx context.Context, id string, updates *store.DQRuleUpdate) error {
+	args := m.Called(ctx, id, updates)
+	return args.Error(0)
+}
+
+func (m *MockStore) DeleteDQRule(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *MockStore) CreateDQResult(ctx context.Context, result *store.DQResultCreate) error {
+	args := m.Called(ctx, result)
+	return args.Error(0)
+}
+
+func (m *MockStore) ListDQResults(ctx context.Context, filter *store.DQResultFilter) ([]*store.DQResultRow, error) {
+	args := m.Called(ctx, filter)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*store.DQResultRow), args.Error(1)
+}
+
+func (m *MockStore) GetLatestDQResult(ctx context.Context, ruleID string) (*store.DQResultRow, error) {
+	args := m.Called(ctx, ruleID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.DQResultRow), args.Error(1)
+}
+
+func (m *MockStore) GetDQStats(ctx context.Context) (*store.DQStatsRow, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.DQStatsRow), args.Error(1)
 }
 
 // MockScanner 模拟Scanner接口

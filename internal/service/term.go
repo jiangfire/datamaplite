@@ -110,6 +110,10 @@ func (s *DDLService) GenerateDDL(ctx context.Context, objectID string, targetTyp
 		return nil, fmt.Errorf("failed to get object: %w", err)
 	}
 
+	if len(cols) == 0 {
+		return nil, fmt.Errorf("no columns found for object")
+	}
+
 	var sql string
 	switch targetType {
 	case "mysql":
