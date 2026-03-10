@@ -9,7 +9,7 @@ import (
 // SchemaHandler Schema处理器
 type SchemaHandler struct {
 	*Handler
-	metadataService *service.MetadataService
+	metadataService MetadataService
 }
 
 // NewSchemaHandler 创建Schema处理器

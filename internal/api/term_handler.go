@@ -9,8 +9,8 @@ import (
 // TermHandler 业务术语处理器
 type TermHandler struct {
 	*Handler
-	termService *service.TermService
-	ddlService  *service.DDLService
+	termService TermService
+	ddlService  DDLService
 }
 
 // NewTermHandler 创建业务术语处理器

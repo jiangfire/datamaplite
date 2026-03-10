@@ -12,8 +12,8 @@ import (
 // SourceHandler 数据源处理器
 type SourceHandler struct {
 	*Handler
-	sourceService   *service.SourceService
-	metadataService *service.MetadataService
+	sourceService   SourceService
+	metadataService MetadataService
 }
 
 // NewSourceHandler 创建数据源处理器

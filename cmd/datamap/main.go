@@ -19,6 +19,16 @@ import (
 	"go.uber.org/zap"
 )
 
+func initAuthService(cfg config.AuthConfig, store store.Store) *service.AuthService {
+	authCfg := &service.AuthConfig{
+		JWTSecret:       cfg.JWTSecret,
+		AccessTokenTTL:  cfg.AccessTokenTTL,
+		RefreshTokenTTL: cfg.RefreshTokenTTL,
+		BcryptCost:      cfg.BcryptCost,
+	}
+	return service.NewAuthService(store, authCfg)
+}
+
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
@@ -82,12 +92,16 @@ func run() error {
 	metadataService := service.NewMetadataService(store)
 	termService := service.NewTermService(store)
 	ddlService := service.NewDDLService(store)
+	authService := initAuthService(cfg.Auth, store)
+	dqService := service.NewDQService(store)
 
 	// 初始化API层
 	sourceHandler := api.NewSourceHandler(sourceService, metadataService)
 	schemaHandler := api.NewSchemaHandler(metadataService)
 	termHandler := api.NewTermHandler(termService, ddlService)
-	router := api.NewRouter(sourceHandler, schemaHandler, termHandler)
+	authHandler := api.NewAuthHandler(authService)
+	dqHandler := api.NewDQHandler(dqService)
+	router := api.NewRouter(sourceHandler, schemaHandler, termHandler, authHandler, dqHandler, authService)
 
 	// 配置Gin
 	if cfg.Log.Level != "debug" {

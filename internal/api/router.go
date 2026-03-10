@@ -2,6 +2,7 @@ package api
 
 import (
 	"git.neolidy.top/neo/fuckcmdb/internal/model"
+	"git.neolidy.top/neo/fuckcmdb/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
@@ -10,14 +11,20 @@ type Router struct {
 	sourceHandler *SourceHandler
 	schemaHandler *SchemaHandler
 	termHandler   *TermHandler
+	authHandler   *AuthHandler
+	dqHandler     *DQHandler
+	authService   *service.AuthService
 }
 
 // NewRouter 创建路由注册器
-func NewRouter(sourceHandler *SourceHandler, schemaHandler *SchemaHandler, termHandler *TermHandler) *Router {
+func NewRouter(sourceHandler *SourceHandler, schemaHandler *SchemaHandler, termHandler *TermHandler, authHandler *AuthHandler, dqHandler *DQHandler, authService *service.AuthService) *Router {
 	return &Router{
 		sourceHandler: sourceHandler,
 		schemaHandler: schemaHandler,
 		termHandler:   termHandler,
+		authHandler:   authHandler,
+		dqHandler:     dqHandler,
+		authService:   authService,
 	}
 }
 
@@ -31,46 +38,77 @@ func (r *Router) Register(engine *gin.Engine) {
 	// API v1
 	v1 := engine.Group("/api/v1")
 	{
-		// 数据源管理
-		sources := v1.Group("/sources")
+		// 认证相关（公开）
+		auth := v1.Group("/auth")
 		{
-			sources.GET("", r.sourceHandler.ListSources)
-			sources.POST("", r.sourceHandler.CreateSource)
-			sources.GET("/:id", r.sourceHandler.GetSource)
-			sources.PUT("/:id", r.sourceHandler.UpdateSource)
-			sources.DELETE("/:id", r.sourceHandler.DeleteSource)
-			sources.POST("/:id/test", r.sourceHandler.TestConnection)
-			sources.POST("/:id/sync", r.sourceHandler.TriggerSync)
-			sources.GET("/:id/schema", r.sourceHandler.GetSchemaTree)
-			sources.GET("/:id/changes", r.sourceHandler.ListSchemaChanges)
+			auth.POST("/login", r.authHandler.Login)
+			auth.POST("/refresh", r.authHandler.RefreshToken)
 		}
 
-		// 全局搜索
-		v1.GET("/columns/search", r.schemaHandler.SearchColumns)
-
-		// Schema浏览器
-		columns := v1.Group("/columns")
+		// 需要认证的路由
+		authorized := v1.Group("")
+		authorized.Use(AuthMiddleware(r.authService))
 		{
-			columns.GET("/:id", r.schemaHandler.GetColumnDetail)
-			columns.GET("/:id/mappings", r.schemaHandler.GetColumnMappings)
-			columns.POST("/:id/mappings", r.schemaHandler.CreateColumnMapping)
-			columns.DELETE("/:id/mappings/:mappingId", r.schemaHandler.DeleteColumnMapping)
-			columns.GET("/:id/lineage", r.schemaHandler.GetLineage)
-			columns.GET("/:id/impact", r.schemaHandler.GetImpactAnalysis)
-			columns.POST("/:id/term", r.termHandler.AssignTermToColumn)
-		}
+			// 当前用户信息
+			authorized.GET("/auth/me", r.authHandler.GetCurrentUser)
 
-		// 业务术语管理
-		terms := v1.Group("/terms")
-		{
-			terms.GET("", r.termHandler.ListTerms)
-			terms.POST("", r.termHandler.CreateTerm)
-			terms.GET("/:id", r.termHandler.GetTerm)
-			terms.PUT("/:id", r.termHandler.UpdateTerm)
-			terms.DELETE("/:id", r.termHandler.DeleteTerm)
-		}
+			// 用户注册（需要管理员权限）
+			authorized.POST("/auth/register", AdminMiddleware(), r.authHandler.Register)
 
-		// DDL生成
-		v1.POST("/ddl/generate", r.termHandler.GenerateDDL)
+			// 数据源管理
+			sources := authorized.Group("/sources")
+			{
+				sources.GET("", r.sourceHandler.ListSources)
+				sources.POST("", r.sourceHandler.CreateSource)
+				sources.GET("/:id", r.sourceHandler.GetSource)
+				sources.PUT("/:id", r.sourceHandler.UpdateSource)
+				sources.DELETE("/:id", r.sourceHandler.DeleteSource)
+				sources.POST("/:id/test", r.sourceHandler.TestConnection)
+				sources.POST("/:id/sync", r.sourceHandler.TriggerSync)
+				sources.GET("/:id/schema", r.sourceHandler.GetSchemaTree)
+				sources.GET("/:id/changes", r.sourceHandler.ListSchemaChanges)
+			}
+
+			// 全局搜索
+			authorized.GET("/columns/search", r.schemaHandler.SearchColumns)
+
+			// Schema浏览器
+			columns := authorized.Group("/columns")
+			{
+				columns.GET("/:id", r.schemaHandler.GetColumnDetail)
+				columns.GET("/:id/mappings", r.schemaHandler.GetColumnMappings)
+				columns.POST("/:id/mappings", r.schemaHandler.CreateColumnMapping)
+				columns.DELETE("/:id/mappings/:mappingId", r.schemaHandler.DeleteColumnMapping)
+				columns.GET("/:id/lineage", r.schemaHandler.GetLineage)
+				columns.GET("/:id/impact", r.schemaHandler.GetImpactAnalysis)
+				columns.POST("/:id/term", r.termHandler.AssignTermToColumn)
+			}
+
+			// 业务术语管理
+			terms := authorized.Group("/terms")
+			{
+				terms.GET("", r.termHandler.ListTerms)
+				terms.POST("", r.termHandler.CreateTerm)
+				terms.GET("/:id", r.termHandler.GetTerm)
+				terms.PUT("/:id", r.termHandler.UpdateTerm)
+				terms.DELETE("/:id", r.termHandler.DeleteTerm)
+			}
+
+			// 数据质量管理
+			dq := authorized.Group("/dq")
+			{
+				dq.GET("/rules", r.dqHandler.ListRules)
+				dq.POST("/rules", r.dqHandler.CreateRule)
+				dq.GET("/rules/:id", r.dqHandler.GetRule)
+				dq.PUT("/rules/:id", r.dqHandler.UpdateRule)
+				dq.DELETE("/rules/:id", r.dqHandler.DeleteRule)
+				dq.POST("/check", r.dqHandler.CheckRules)
+				dq.GET("/results", r.dqHandler.GetResults)
+				dq.GET("/stats", r.dqHandler.GetStats)
+			}
+
+			// DDL生成
+			authorized.POST("/ddl/generate", r.termHandler.GenerateDDL)
+		}
 	}
 }
