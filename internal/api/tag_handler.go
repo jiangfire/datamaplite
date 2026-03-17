@@ -165,3 +165,61 @@ func (h *TagHandler) GetColumnsByTag(c *gin.Context) {
 		Data:    columns,
 	})
 }
+
+// AssignTagsToColumn 为字段分配标签
+func (h *TagHandler) AssignTagsToColumn(c *gin.Context) {
+	columnID := c.Param("id")
+
+	var req struct {
+		TagIDs []string `json:"tag_ids" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, model.BaseResponse{
+			Success: false,
+			Error: &model.ErrorInfo{
+				Code:    "INVALID_REQUEST",
+				Message: err.Error(),
+			},
+		})
+		return
+	}
+
+	for _, tagID := range req.TagIDs {
+		if err := h.tagService.AddTagToColumn(c.Request.Context(), columnID, tagID); err != nil {
+			c.JSON(http.StatusInternalServerError, model.BaseResponse{
+				Success: false,
+				Error: &model.ErrorInfo{
+					Code:    "ASSIGN_FAILED",
+					Message: err.Error(),
+				},
+			})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, model.BaseResponse{
+		Success: true,
+	})
+}
+
+// GetColumnTags 获取字段的所有标签
+func (h *TagHandler) GetColumnTags(c *gin.Context) {
+	columnID := c.Param("id")
+
+	tags, err := h.tagService.GetColumnTags(c.Request.Context(), columnID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.BaseResponse{
+			Success: false,
+			Error: &model.ErrorInfo{
+				Code:    "LIST_FAILED",
+				Message: err.Error(),
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.BaseResponse{
+		Success: true,
+		Data:    tags,
+	})
+}

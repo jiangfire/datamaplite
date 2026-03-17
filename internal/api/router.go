@@ -88,6 +88,8 @@ func (r *Router) Register(engine *gin.Engine) {
 				columns.GET("/:id/lineage", r.schemaHandler.GetLineage)
 				columns.GET("/:id/impact", r.schemaHandler.GetImpactAnalysis)
 				columns.POST("/:id/term", r.termHandler.AssignTermToColumn)
+				columns.POST("/:id/tags", r.tagHandler.AssignTagsToColumn)
+				columns.GET("/:id/tags", r.tagHandler.GetColumnTags)
 			}
 
 			// 业务术语管理

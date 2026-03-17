@@ -21,13 +21,14 @@ type SQLiteStore struct {
 
 // NewSQLiteStore 创建SQLite存储实例
 func NewSQLiteStore(ctx context.Context, cfg *config.DatabaseConfig, log *zap.Logger) (*SQLiteStore, error) {
-	// 确保数据目录存在
-	dataDir := "./data"
+	// 使用配置中的路径
+	dbPath := cfg.SQLitePath
+	dataDir := filepath.Dir(dbPath)
+
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create data directory: %w", err)
 	}
 
-	dbPath := filepath.Join(dataDir, "datamap.db")
 	dsn := fmt.Sprintf("%s?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)", dbPath)
 
 	db, err := sql.Open("sqlite3", dsn)
@@ -35,9 +36,9 @@ func NewSQLiteStore(ctx context.Context, cfg *config.DatabaseConfig, log *zap.Lo
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	// 设置连接池
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
+	// 使用配置中的连接池设置
+	db.SetMaxOpenConns(int(cfg.SQLiteMaxConns))
+	db.SetMaxIdleConns(int(cfg.SQLiteMinConns))
 
 	// 测试连接
 	if err := db.PingContext(ctx); err != nil {

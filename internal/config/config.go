@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
@@ -39,6 +40,11 @@ type DatabaseConfig struct {
 	MinConns        int32         `mapstructure:"min_conns"`
 	MaxConnLifetime time.Duration `mapstructure:"max_conn_lifetime"`
 	MaxConnIdleTime time.Duration `mapstructure:"max_conn_idle_time"`
+
+	// SQLite-specific
+	SQLitePath     string `mapstructure:"sqlite_path"`
+	SQLiteMaxConns int32  `mapstructure:"sqlite_max_conns"`
+	SQLiteMinConns int32  `mapstructure:"sqlite_min_conns"`
 }
 
 // LogConfig 日志配置
@@ -76,10 +82,20 @@ func Load() (*Config, error) {
 	// 环境变量覆盖
 	viper.SetEnvPrefix("DATAMAP")
 	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
-	// 读取配置文件
+	// 显式绑定关键的嵌套环境变量
+	viper.BindEnv("auth.jwt_secret")
+	viper.BindEnv("server.port")
+	viper.BindEnv("database.type")
+	viper.BindEnv("database.sqlite_path")
+
+	// 读取配置文件（可选 - 如果不存在则忽略）
 	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			// 配置文件未找到 - 使用默认值和环境变量
+		} else {
+			// 配置文件存在但读取失败
 			return nil, fmt.Errorf("failed to read config file: %w", err)
 		}
 	}
@@ -117,6 +133,11 @@ func setDefaults() {
 	viper.SetDefault("database.max_conn_lifetime", "1h")
 	viper.SetDefault("database.max_conn_idle_time", "30m")
 
+	// SQLite-specific defaults
+	viper.SetDefault("database.sqlite_path", "./data/datamap.db")
+	viper.SetDefault("database.sqlite_max_conns", 25)
+	viper.SetDefault("database.sqlite_min_conns", 5)
+
 	// Log defaults
 	viper.SetDefault("log.level", "info")
 	viper.SetDefault("log.format", "console")
@@ -126,10 +147,10 @@ func setDefaults() {
 	viper.SetDefault("scanner.mongodb_sample_size", 1000)
 	viper.SetDefault("scanner.max_lineage_depth", 10)
 
-	// Auth defaults
-	viper.SetDefault("auth.jwt_secret", "your-secret-key-change-in-production")
+	// Auth defaults - NO default secret (force production to set it)
+	viper.SetDefault("auth.jwt_secret", "")
 	viper.SetDefault("auth.access_token_ttl", "15m")
-	viper.SetDefault("auth.refresh_token_ttl", "7d")
+	viper.SetDefault("auth.refresh_token_ttl", "168h") // 7 days
 	viper.SetDefault("auth.bcrypt_cost", 10)
 }
 
@@ -151,6 +172,11 @@ func (c *Config) Validate() error {
 	if c.Log.Level != "debug" && c.Log.Level != "info" &&
 		c.Log.Level != "warn" && c.Log.Level != "error" {
 		return fmt.Errorf("invalid log level: %s", c.Log.Level)
+	}
+
+	// 要求设置 JWT secret
+	if c.Auth.JWTSecret == "" {
+		return fmt.Errorf("auth.jwt_secret is required (set DATAMAP_AUTH_JWT_SECRET)")
 	}
 
 	return nil
