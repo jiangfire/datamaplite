@@ -8,6 +8,7 @@ interface SourceCardProps {
   source: DataSource;
   onDelete: (id: string) => void;
   onSync: (id: string) => void;
+  onEdit: (source: DataSource) => void;
   syncing: boolean;
 }
 
@@ -45,6 +46,7 @@ export const SourceCard: React.FC<SourceCardProps> = ({
   source,
   onDelete,
   onSync,
+  onEdit,
   syncing,
 }) => {
   const [showActions, setShowActions] = useState(false);
@@ -110,14 +112,16 @@ export const SourceCard: React.FC<SourceCardProps> = ({
                   <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} />
                   同步元数据
                 </button>
-                <Link
-                  to={`/sources/${source.id}/edit`}
-                  onClick={() => setShowActions(false)}
+                <button
+                  onClick={() => {
+                    onEdit(source);
+                    setShowActions(false);
+                  }}
                   className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                 >
                   <Edit size={16} />
                   编辑
-                </Link>
+                </button>
                 <button
                   onClick={handleDelete}
                   className={`w-full px-4 py-2 text-left text-sm flex items-center gap-2 ${

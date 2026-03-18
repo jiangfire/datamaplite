@@ -115,6 +115,16 @@ func (s *SQLiteStore) ListSchemaObjectsBySource(ctx context.Context, sourceID st
 	return objects, rows.Err()
 }
 
+// DeleteSchemaObject 删除单个 Schema 对象
+func (s *SQLiteStore) DeleteSchemaObject(ctx context.Context, id string) error {
+	query := `DELETE FROM schema_objects WHERE id = ?`
+	_, err := s.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete schema object: %w", err)
+	}
+	return nil
+}
+
 // DeleteSchemaObjectsBySource 删除数据源的所有Schema对象
 func (s *SQLiteStore) DeleteSchemaObjectsBySource(ctx context.Context, sourceID string) error {
 	query := `DELETE FROM schema_objects WHERE source_id = ?`
@@ -228,6 +238,15 @@ func (t *SQLiteTxStore) ListSchemaObjectsBySource(ctx context.Context, sourceID 
 		objects = append(objects, &obj)
 	}
 	return objects, rows.Err()
+}
+
+func (t *SQLiteTxStore) DeleteSchemaObject(ctx context.Context, id string) error {
+	query := `DELETE FROM schema_objects WHERE id = ?`
+	_, err := t.tx.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete schema object: %w", err)
+	}
+	return nil
 }
 
 func (t *SQLiteTxStore) DeleteSchemaObjectsBySource(ctx context.Context, sourceID string) error {

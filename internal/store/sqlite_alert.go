@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"strconv"
 	"strings"
 )
 
@@ -32,7 +33,7 @@ func (s *SQLiteStore) CreateAlertRule(ctx context.Context, rule *AlertRuleCreate
 		return "", err
 	}
 
-	return string(id), nil
+	return strconv.FormatInt(id, 10), nil
 }
 
 // GetAlertRule 获取告警规则
@@ -256,11 +257,13 @@ func (s *SQLiteStore) CreateNotification(ctx context.Context, notification *Noti
 		return "", err
 	}
 
+	notificationID := strconv.FormatInt(id, 10)
+
 	// 为所有用户创建未读记录
 	userQuery := `SELECT id FROM users`
 	rows, err := s.db.QueryContext(ctx, userQuery)
 	if err != nil {
-		return string(id), err
+		return notificationID, err
 	}
 	defer rows.Close()
 
@@ -274,10 +277,10 @@ func (s *SQLiteStore) CreateNotification(ctx context.Context, notification *Noti
 			INSERT INTO user_notifications (user_id, notification_id, is_read)
 			VALUES (?, ?, 0)
 			ON CONFLICT (user_id, notification_id) DO NOTHING`
-		s.db.ExecContext(ctx, userNotifQuery, userID, id)
+		s.db.ExecContext(ctx, userNotifQuery, userID, notificationID)
 	}
 
-	return string(id), nil
+	return notificationID, nil
 }
 
 // GetNotification 获取通知

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, Check, CheckCheck, Clock, Database, Trash2, AlertTriangle, Plus, Minus, Edit3, Type } from 'lucide-react';
+import { Bell, Check, CheckCheck, Clock, Database, Plus, Minus, Edit3, Type } from 'lucide-react';
 import { Layout, Button, Card, CardContent } from '../components';
 import { useNotifications } from '../hooks';
 
@@ -33,7 +33,7 @@ const getChangeTypeLabel = (changeType: string) => {
 
 export const NotificationsPage: React.FC = () => {
   const [unreadOnly, setUnreadOnly] = useState(false);
-  const { notifications, stats, loading, error, refetch, markAsRead, markAllAsRead } =
+  const { notifications, stats, loading, error, markAsRead, markAllAsRead } =
     useNotifications(unreadOnly);
 
   const handleMarkAsRead = async (id: string) => {

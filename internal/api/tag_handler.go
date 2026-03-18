@@ -171,7 +171,8 @@ func (h *TagHandler) AssignTagsToColumn(c *gin.Context) {
 	columnID := c.Param("id")
 
 	var req struct {
-		TagIDs []string `json:"tag_ids" binding:"required"`
+		TagID  string   `json:"tag_id"`
+		TagIDs []string `json:"tag_ids"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, model.BaseResponse{
@@ -179,6 +180,20 @@ func (h *TagHandler) AssignTagsToColumn(c *gin.Context) {
 			Error: &model.ErrorInfo{
 				Code:    "INVALID_REQUEST",
 				Message: err.Error(),
+			},
+		})
+		return
+	}
+
+	if req.TagID != "" {
+		req.TagIDs = append(req.TagIDs, req.TagID)
+	}
+	if len(req.TagIDs) == 0 {
+		c.JSON(http.StatusBadRequest, model.BaseResponse{
+			Success: false,
+			Error: &model.ErrorInfo{
+				Code:    "INVALID_REQUEST",
+				Message: "tag_id or tag_ids is required",
 			},
 		})
 		return
@@ -195,6 +210,38 @@ func (h *TagHandler) AssignTagsToColumn(c *gin.Context) {
 			})
 			return
 		}
+	}
+
+	c.JSON(http.StatusOK, model.BaseResponse{
+		Success: true,
+	})
+}
+
+// RemoveTagFromColumn 从字段移除标签
+func (h *TagHandler) RemoveTagFromColumn(c *gin.Context) {
+	columnID := c.Param("id")
+	tagID := c.Param("tagId")
+
+	if columnID == "" || tagID == "" {
+		c.JSON(http.StatusBadRequest, model.BaseResponse{
+			Success: false,
+			Error: &model.ErrorInfo{
+				Code:    "INVALID_REQUEST",
+				Message: "column id and tag id are required",
+			},
+		})
+		return
+	}
+
+	if err := h.tagService.RemoveTagFromColumn(c.Request.Context(), columnID, tagID); err != nil {
+		c.JSON(http.StatusInternalServerError, model.BaseResponse{
+			Success: false,
+			Error: &model.ErrorInfo{
+				Code:    "REMOVE_FAILED",
+				Message: err.Error(),
+			},
+		})
+		return
 	}
 
 	c.JSON(http.StatusOK, model.BaseResponse{

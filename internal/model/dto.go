@@ -4,7 +4,6 @@ import (
 	"time"
 )
 
-
 // BaseResponse 基础响应
 type BaseResponse struct {
 	Success bool        `json:"success"`
@@ -28,7 +27,7 @@ type ListResponse struct {
 type CreateSourceRequest struct {
 	Name        string         `json:"name" validate:"required,max=100"`
 	Description string         `json:"description"`
-	Type        DataSourceType `json:"type" validate:"required,oneof=mysql postgres mongodb oracle mssql"`
+	Type        DataSourceType `json:"type" validate:"required,oneof=mysql postgres mongodb"`
 	Host        string         `json:"host" validate:"required,max=255"`
 	Port        int            `json:"port" validate:"required,min=1,max=65535"`
 	Database    string         `json:"database" validate:"required,max=255"`
@@ -66,17 +65,23 @@ type SourceResponse struct {
 
 // SourceListItem 数据源列表项（精简）
 type SourceListItem struct {
-	ID     string           `json:"id"`
-	Name   string           `json:"name"`
-	Type   DataSourceType   `json:"type"`
-	Host   string           `json:"host"`
-	Port   int              `json:"port"`
-	Status DataSourceStatus `json:"status"`
+	ID            string           `json:"id"`
+	Name          string           `json:"name"`
+	Description   *string          `json:"description"`
+	Type          DataSourceType   `json:"type"`
+	Host          string           `json:"host"`
+	Port          int              `json:"port"`
+	Database      string           `json:"database"`
+	Status        DataSourceStatus `json:"status"`
+	LastSyncAt    *string          `json:"last_sync_at"`
+	LastSyncError *string          `json:"last_sync_error"`
+	CreatedAt     string           `json:"created_at"`
+	UpdatedAt     string           `json:"updated_at"`
 }
 
 // ConnectionTestRequest 连接测试请求
 type ConnectionTestRequest struct {
-	Type     DataSourceType `json:"type" validate:"required,oneof=mysql postgres mongodb oracle mssql"`
+	Type     DataSourceType `json:"type" validate:"required,oneof=mysql postgres mongodb"`
 	Host     string         `json:"host" validate:"required,max=255"`
 	Port     int            `json:"port" validate:"required,min=1,max=65535"`
 	Database string         `json:"database" validate:"required,max=255"`
@@ -304,20 +309,20 @@ type LineageResponse struct {
 
 // ImpactAnalysisResponse 影响分析响应
 type ImpactAnalysisResponse struct {
-	ColumnID      string          `json:"column_id"`
-	ImpactObjects []ImpactObject  `json:"impact_objects"`
-	TotalObjects  int             `json:"total_objects"`
+	ColumnID      string         `json:"column_id"`
+	ImpactObjects []ImpactObject `json:"impact_objects"`
+	TotalObjects  int            `json:"total_objects"`
 }
 
 // ImpactObject 影响对象
 type ImpactObject struct {
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	Type         string `json:"type"` // object | column
-	ObjectName   string `json:"object_name,omitempty"`
-	SourceName   string `json:"source_name"`
-	ImpactPath   string `json:"impact_path"`
-	Distance     int    `json:"distance"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Type       string `json:"type"` // object | column
+	ObjectName string `json:"object_name,omitempty"`
+	SourceName string `json:"source_name"`
+	ImpactPath string `json:"impact_path"`
+	Distance   int    `json:"distance"`
 }
 
 // PaginationQuery 分页查询

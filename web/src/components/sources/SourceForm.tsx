@@ -23,8 +23,6 @@ const dataSourceTypes = [
   { value: 'mysql', label: 'MySQL' },
   { value: 'postgres', label: 'PostgreSQL' },
   { value: 'mongodb', label: 'MongoDB' },
-  { value: 'oracle', label: 'Oracle' },
-  { value: 'mssql', label: 'SQL Server' },
 ];
 
 const defaultPorts: Record<DataSourceType, number> = {

@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"git.neolidy.top/neo/fuckcmdb/internal/config"
 	"github.com/google/uuid"
@@ -38,6 +39,11 @@ func NewPostgresStore(ctx context.Context, cfg *config.DatabaseConfig, log *zap.
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
+	if err := runPostgresMigrations(ctx, pool); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("failed to run postgres migrations: %w", err)
+	}
+
 	log.Info("PostgreSQL connected",
 		zap.String("host", cfg.Host),
 		zap.Int32("max_conns", cfg.MaxConns),
@@ -48,6 +54,47 @@ func NewPostgresStore(ctx context.Context, cfg *config.DatabaseConfig, log *zap.
 		pool: pool,
 		log:  log,
 	}, nil
+}
+
+func runPostgresMigrations(ctx context.Context, pool *pgxpool.Pool) error {
+	const version = "001_init_schema"
+
+	if _, err := pool.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS schema_migrations (
+			version TEXT PRIMARY KEY,
+			applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)
+	`); err != nil {
+		return err
+	}
+
+	var applied bool
+	if err := pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version = $1)`, version).Scan(&applied); err != nil {
+		return err
+	}
+	if applied {
+		return nil
+	}
+
+	migrationSQL, err := os.ReadFile("migrations/001_init_schema.sql")
+	if err != nil {
+		return err
+	}
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, string(migrationSQL)); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO schema_migrations (version) VALUES ($1)`, version); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
 
 // Close 关闭存储连接

@@ -176,8 +176,8 @@ func NewNotificationHandler(notifService *service.NotificationService, logger *z
 
 // ListNotifications 列出通知
 func (h *NotificationHandler) ListNotifications(c *gin.Context) {
-	userID := c.GetString("userID")
-	if userID == "" {
+	authCtx, exists := GetAuthContext(c)
+	if !exists {
 		c.JSON(http.StatusUnauthorized, model.BaseResponse{
 			Success: false,
 			Error: &model.ErrorInfo{
@@ -187,6 +187,7 @@ func (h *NotificationHandler) ListNotifications(c *gin.Context) {
 		})
 		return
 	}
+	userID := authCtx.UserID
 
 	unreadOnly := c.Query("unread_only") == "true"
 	limit := 50
@@ -212,8 +213,8 @@ func (h *NotificationHandler) ListNotifications(c *gin.Context) {
 
 // GetNotificationStats 获取通知统计
 func (h *NotificationHandler) GetNotificationStats(c *gin.Context) {
-	userID := c.GetString("userID")
-	if userID == "" {
+	authCtx, exists := GetAuthContext(c)
+	if !exists {
 		c.JSON(http.StatusUnauthorized, model.BaseResponse{
 			Success: false,
 			Error: &model.ErrorInfo{
@@ -223,6 +224,7 @@ func (h *NotificationHandler) GetNotificationStats(c *gin.Context) {
 		})
 		return
 	}
+	userID := authCtx.UserID
 
 	stats, err := h.notifService.GetNotificationStats(c.Request.Context(), userID)
 	if err != nil {
@@ -245,8 +247,8 @@ func (h *NotificationHandler) GetNotificationStats(c *gin.Context) {
 
 // MarkAsRead 标记通知已读
 func (h *NotificationHandler) MarkAsRead(c *gin.Context) {
-	userID := c.GetString("userID")
-	if userID == "" {
+	authCtx, exists := GetAuthContext(c)
+	if !exists {
 		c.JSON(http.StatusUnauthorized, model.BaseResponse{
 			Success: false,
 			Error: &model.ErrorInfo{
@@ -256,6 +258,7 @@ func (h *NotificationHandler) MarkAsRead(c *gin.Context) {
 		})
 		return
 	}
+	userID := authCtx.UserID
 
 	var req model.MarkAsReadRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

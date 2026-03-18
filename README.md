@@ -4,7 +4,7 @@
 
 ## 功能特性
 
-- **多数据源支持**: MySQL, PostgreSQL, MongoDB, Oracle, SQL Server
+- **多数据源支持**: MySQL, PostgreSQL, MongoDB
 - **Schema 浏览器**: 可视化展示表结构和字段信息
 - **全局搜索**: 跨数据源字段搜索，支持模糊匹配
 - **字段映射**: 建立同义不同名字段之间的关系
@@ -33,7 +33,6 @@ make docker-up
 访问:
 - Web UI: http://localhost
 - API: http://localhost:8080
-- API 文档: http://localhost:8080/swagger/index.html
 
 ## 开发
 
@@ -139,6 +138,7 @@ datamap-lite/
 - Go 1.25
 - Gin Web Framework
 - PostgreSQL (pgx)
+- SQLite（本地开发）
 - golang-migrate
 - Zap (日志)
 - Viper (配置)

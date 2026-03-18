@@ -37,6 +37,7 @@ wget https://raw.githubusercontent.com/yourusername/datamap-lite/main/.env.examp
 
 # 编辑 .env 配置
 echo "ENCRYPTION_KEY=your-32-byte-encryption-key-here!!" >> .env
+echo "JWT_SECRET=replace-this-jwt-secret" >> .env
 
 # 使用官方镜像
 docker-compose up -d
@@ -49,11 +50,13 @@ docker-compose up -d
 
 2. **运行**
 ```bash
-export DATABASE_HOST=localhost
-export DATABASE_PORT=5432
-export DATABASE_NAME=datamap
-export DATABASE_USER=datamap
-export DATABASE_PASSWORD=yourpassword
+export DATAMAP_DATABASE_TYPE=postgres
+export DATAMAP_DATABASE_HOST=localhost
+export DATAMAP_DATABASE_PORT=5432
+export DATAMAP_DATABASE_DATABASE=datamap
+export DATAMAP_DATABASE_USERNAME=datamap
+export DATAMAP_DATABASE_PASSWORD=yourpassword
+export DATAMAP_AUTH_JWT_SECRET=replace-this-jwt-secret
 export DATAMAP_ENCRYPTION_KEY=your-32-byte-key-here!!
 
 ./datamap
@@ -77,6 +80,7 @@ export DATAMAP_ENCRYPTION_KEY=your-32-byte-key-here!!
 # 在 .env 文件中设置强密码
 DB_PASSWORD=$(openssl rand -base64 32)
 ENCRYPTION_KEY=$(openssl rand -base64 24 | head -c 32)
+JWT_SECRET=$(openssl rand -base64 32)
 ```
 
 2. **使用 HTTPS**
@@ -206,10 +210,13 @@ docker-compose down -v --rmi local
 | `DB_USER` | 数据库用户名 | datamap |
 | `DB_PASSWORD` | 数据库密码 | datamap123 |
 | `DB_NAME` | 数据库名称 | datamap |
-| `ENCRYPTION_KEY` | AES加密密钥(32字节) | change-me... |
+| `ENCRYPTION_KEY` | Docker Compose 使用的 AES 加密密钥(32字节) | change-me... |
+| `JWT_SECRET` | Docker Compose 使用的 JWT 签名密钥 | change-me... |
 | `API_PORT` | API端口 | 8080 |
 | `WEB_PORT` | Web端口 | 80 |
 | `LOG_LEVEL` | 日志级别 | info |
+
+首次启动会自动创建默认管理员账号 `admin / admin123`，上线后请立即修改或重建。
 
 ## 获取更多帮助
 

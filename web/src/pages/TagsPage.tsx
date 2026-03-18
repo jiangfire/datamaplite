@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Tag, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Tag, Trash2 } from 'lucide-react';
 import { Layout, Button, Card, CardContent } from '../components';
 import { useTags } from '../hooks';
 import type { TagCreate } from '../types';
@@ -11,7 +11,7 @@ const PRESET_COLORS = [
 ];
 
 export const TagsPage: React.FC = () => {
-  const { tags, loading, error, refetch, createTag, deleteTag } = useTags();
+  const { tags, loading, error, createTag, deleteTag } = useTags();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [newTagDesc, setNewTagDesc] = useState('');

@@ -248,44 +248,140 @@ func (s *SourceService) TriggerSync(ctx context.Context, sourceID string) error 
 
 // saveSchema 保存Schema信息
 func (s *SourceService) saveSchema(ctx context.Context, sourceID string, schemaInfo *scanner.SchemaInfo) error {
-	return s.store.WithTx(ctx, func(txStore store.Store) error {
+	detectedChanges := make([]*SchemaChangeInfo, 0)
+
+	err := s.store.WithTx(ctx, func(txStore store.Store) error {
 		// 获取现有对象用于变更检测
 		existingObjs, err := txStore.ListSchemaObjectsBySource(ctx, sourceID)
 		if err != nil {
 			return err
 		}
 
-		existingMap := make(map[string]string) // name -> id
+		existingMap := make(map[string]*store.SchemaObjectRow)
+		existingColumns := make(map[string]map[string]*store.ColumnRow)
 		for _, obj := range existingObjs {
-			existingMap[obj.Name] = obj.ID
-		}
+			existingMap[s.schemaObjectKey(obj.Schema, obj.Name)] = obj
 
-		// 删除旧的Schema数据
-		if err := txStore.DeleteSchemaObjectsBySource(ctx, sourceID); err != nil {
-			return err
-		}
-
-		// 创建新对象
-		for _, obj := range schemaInfo.Objects {
-			objCreate := &store.SchemaObjectCreate{
-				SourceID:    sourceID,
-				Name:        obj.Name,
-				Type:        obj.Type,
-				Schema:      obj.Schema,
-				Description: obj.Description,
-				RowCount:    obj.RowCount,
-				SizeBytes:   obj.SizeBytes,
-			}
-
-			objID, err := txStore.CreateSchemaObject(ctx, objCreate)
+			cols, err := txStore.ListColumnsByObject(ctx, obj.ID)
 			if err != nil {
 				return err
 			}
 
-			// 创建字段
+			columnMap := make(map[string]*store.ColumnRow, len(cols))
+			for _, col := range cols {
+				columnMap[col.Name] = col
+			}
+			existingColumns[obj.ID] = columnMap
+		}
+
+		currentKeys := make(map[string]struct{}, len(schemaInfo.Objects))
+
+		// 创建或更新对象
+		for _, obj := range schemaInfo.Objects {
+			objectKey := s.schemaObjectKey(obj.Schema, obj.Name)
+			currentKeys[objectKey] = struct{}{}
+
+			existingObj, exists := existingMap[objectKey]
+			objectID := ""
+			if exists {
+				objectID = existingObj.ID
+			} else {
+				objCreate := &store.SchemaObjectCreate{
+					SourceID:    sourceID,
+					Name:        obj.Name,
+					Type:        obj.Type,
+					Schema:      obj.Schema,
+					Description: obj.Description,
+					RowCount:    obj.RowCount,
+					SizeBytes:   obj.SizeBytes,
+					ColumnCount: len(obj.Columns),
+				}
+
+				objectID, err = txStore.CreateSchemaObject(ctx, objCreate)
+				if err != nil {
+					return err
+				}
+
+				if err := s.recordSchemaChange(ctx, txStore, &detectedChanges, &store.SchemaChangeCreate{
+					SourceID:   sourceID,
+					ObjectID:   &objectID,
+					ChangeType: "add_object",
+					ObjectType: "object",
+					ObjectName: obj.Name,
+					NewValue:   &obj.Type,
+				}); err != nil {
+					return err
+				}
+			}
+
+			oldColumns := existingColumns[objectID]
+			if oldColumns == nil {
+				oldColumns = map[string]*store.ColumnRow{}
+			}
+			newColumns := make(map[string]scanner.ColumnInfo, len(obj.Columns))
+			for _, col := range obj.Columns {
+				newColumns[col.Name] = col
+			}
+
+			for _, col := range obj.Columns {
+				oldCol, exists := oldColumns[col.Name]
+				if !exists {
+					newValue := s.columnSignatureFromScanner(col)
+					if err := s.recordSchemaChange(ctx, txStore, &detectedChanges, &store.SchemaChangeCreate{
+						SourceID:   sourceID,
+						ObjectID:   &objectID,
+						ChangeType: "add_column",
+						ObjectType: "column",
+						ObjectName: fmt.Sprintf("%s.%s", obj.Name, col.Name),
+						NewValue:   &newValue,
+					}); err != nil {
+						return err
+					}
+					continue
+				}
+
+				oldValue := s.columnSignatureFromStore(oldCol)
+				newValue := s.columnSignatureFromScanner(col)
+				if oldValue != newValue {
+					if err := s.recordSchemaChange(ctx, txStore, &detectedChanges, &store.SchemaChangeCreate{
+						SourceID:   sourceID,
+						ObjectID:   &objectID,
+						ChangeType: "alter_column",
+						ObjectType: "column",
+						ObjectName: fmt.Sprintf("%s.%s", obj.Name, col.Name),
+						OldValue:   &oldValue,
+						NewValue:   &newValue,
+					}); err != nil {
+						return err
+					}
+				}
+			}
+
+			for oldColName, oldCol := range oldColumns {
+				if _, exists := newColumns[oldColName]; exists {
+					continue
+				}
+				oldValue := s.columnSignatureFromStore(oldCol)
+				if err := s.recordSchemaChange(ctx, txStore, &detectedChanges, &store.SchemaChangeCreate{
+					SourceID:   sourceID,
+					ObjectID:   &objectID,
+					ChangeType: "drop_column",
+					ObjectType: "column",
+					ObjectName: fmt.Sprintf("%s.%s", obj.Name, oldColName),
+					OldValue:   &oldValue,
+				}); err != nil {
+					return err
+				}
+			}
+
+			// 使用对象稳定 ID，避免对象级规则和告警失效
+			if err := txStore.DeleteColumnsByObject(ctx, objectID); err != nil {
+				return err
+			}
+
 			for _, col := range obj.Columns {
 				colCreate := &store.ColumnCreate{
-					ObjectID:         objID,
+					ObjectID:         objectID,
 					Name:             col.Name,
 					DataType:         col.DataType,
 					FullDataType:     col.FullDataType,
@@ -302,43 +398,40 @@ func (s *SourceService) saveSchema(ctx context.Context, sourceID string, schemaI
 					return err
 				}
 			}
+		}
 
-			// 检测变更（新对象）
-			if _, exists := existingMap[obj.Name]; !exists {
-				change := &store.SchemaChangeCreate{
-					SourceID:   sourceID,
-					ChangeType: "add_object",
-					ObjectType: "object",
-					ObjectName: obj.Name,
-					NewValue:   &obj.Type,
-				}
-				if err := txStore.CreateSchemaChange(ctx, change); err != nil {
-					// 非致命错误，继续
-				}
+		// 删除已不存在的对象
+		for objectKey, oldObj := range existingMap {
+			if _, exists := currentKeys[objectKey]; exists {
+				continue
+			}
+
+			oldValue := oldObj.Type
+			if err := s.recordSchemaChange(ctx, txStore, &detectedChanges, &store.SchemaChangeCreate{
+				SourceID:   sourceID,
+				ChangeType: "drop_object",
+				ObjectType: "object",
+				ObjectName: oldObj.Name,
+				OldValue:   &oldValue,
+			}); err != nil {
+				return err
+			}
+
+			if err := txStore.DeleteSchemaObject(ctx, oldObj.ID); err != nil {
+				return err
 			}
 		}
 
 		return nil
 	})
+	if err != nil {
+		return err
+	}
 
 	// 触发告警
 	if s.alertService != nil {
-		// 获取刚创建的变更记录（最近50条）
-		changes, _ := s.store.ListSchemaChangesBySource(ctx, sourceID, 50)
-		for _, change := range changes {
-			schemaChange := &SchemaChangeInfo{
-				ID:         change.ID,
-				SourceID:   change.SourceID,
-				ObjectID:   change.ObjectID,
-				ChangeType: change.ChangeType,
-				ObjectType: change.ObjectType,
-				ObjectName: change.ObjectName,
-				OldValue:   change.OldValue,
-				NewValue:   change.NewValue,
-				DetectedAt: change.DetectedAt,
-			}
-			// 异步触发告警
-			go s.alertService.ProcessSchemaChange(context.Background(), schemaChange)
+		for _, change := range detectedChanges {
+			go s.alertService.ProcessSchemaChange(context.Background(), change)
 		}
 	}
 
@@ -358,6 +451,8 @@ func (s *SourceService) toSourceResponse(src *store.DataSourceRow) *model.Source
 		Description:   src.Description,
 		LastSyncAt:    nil,
 		LastSyncError: src.LastSyncError,
+		CreatedAt:     src.CreatedAt,
+		UpdatedAt:     src.UpdatedAt,
 	}
 
 	resp.LastSyncAt = src.LastSyncAt
@@ -368,11 +463,63 @@ func (s *SourceService) toSourceResponse(src *store.DataSourceRow) *model.Source
 // toSourceListItem 转换为列表项
 func (s *SourceService) toSourceListItem(src *store.DataSourceRow) *model.SourceListItem {
 	return &model.SourceListItem{
-		ID:     src.ID,
-		Name:   src.Name,
-		Type:   model.DataSourceType(src.Type),
-		Host:   src.Host,
-		Port:   src.Port,
-		Status: model.DataSourceStatus(src.Status),
+		ID:            src.ID,
+		Name:          src.Name,
+		Description:   src.Description,
+		Type:          model.DataSourceType(src.Type),
+		Host:          src.Host,
+		Port:          src.Port,
+		Database:      src.Database,
+		Status:        model.DataSourceStatus(src.Status),
+		LastSyncAt:    src.LastSyncAt,
+		LastSyncError: src.LastSyncError,
+		CreatedAt:     src.CreatedAt,
+		UpdatedAt:     src.UpdatedAt,
 	}
+}
+
+func (s *SourceService) recordSchemaChange(ctx context.Context, txStore store.Store, detected *[]*SchemaChangeInfo, change *store.SchemaChangeCreate) error {
+	if err := txStore.CreateSchemaChange(ctx, change); err != nil {
+		return err
+	}
+
+	changes, err := txStore.ListSchemaChangesBySource(ctx, change.SourceID, 1)
+	if err != nil || len(changes) == 0 {
+		return err
+	}
+
+	latest := changes[0]
+	*detected = append(*detected, &SchemaChangeInfo{
+		ID:         latest.ID,
+		SourceID:   latest.SourceID,
+		ObjectID:   latest.ObjectID,
+		ChangeType: latest.ChangeType,
+		ObjectType: latest.ObjectType,
+		ObjectName: latest.ObjectName,
+		OldValue:   latest.OldValue,
+		NewValue:   latest.NewValue,
+		DetectedAt: latest.DetectedAt,
+	})
+	return nil
+}
+
+func (s *SourceService) schemaObjectKey(schema *string, name string) string {
+	if schema == nil || *schema == "" {
+		return name
+	}
+	return *schema + "." + name
+}
+
+func (s *SourceService) columnSignatureFromScanner(col scanner.ColumnInfo) string {
+	return fmt.Sprintf(
+		"type=%s full=%s nullable=%t pk=%t unique=%t default=%v parent=%v desc=%v",
+		col.DataType, col.FullDataType, col.IsNullable, col.IsPrimaryKey, col.IsUnique, col.DefaultValue, col.ParentColumnPath, col.Description,
+	)
+}
+
+func (s *SourceService) columnSignatureFromStore(col *store.ColumnRow) string {
+	return fmt.Sprintf(
+		"type=%s full=%s nullable=%t pk=%t unique=%t default=%v parent=%v desc=%v",
+		col.DataType, col.FullDataType, col.IsNullable, col.IsPrimaryKey, col.IsUnique, col.DefaultValue, col.ParentColumnPath, col.Description,
+	)
 }

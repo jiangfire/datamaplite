@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Bell, Edit2, Trash2, Webhook, Mail, AlertCircle } from 'lucide-react';
+import { Plus, Bell, Edit2, Trash2, Webhook, Mail } from 'lucide-react';
 import { Layout, Button, Card, CardContent } from '../components';
 import { useAlerts } from '../hooks';
 import type { AlertRuleCreate } from '../types';
@@ -15,7 +15,7 @@ const CHANGE_TYPE_OPTIONS = [
 ];
 
 export const AlertRulesPage: React.FC = () => {
-  const { rules, loading, error, refetch, createRule, updateRule, deleteRule } = useAlerts();
+  const { rules, loading, error, createRule, updateRule, deleteRule } = useAlerts();
   const [showForm, setShowForm] = useState(false);
   const [editingRule, setEditingRule] = useState<string | null>(null);
   const [formData, setFormData] = useState<AlertRuleCreate>({

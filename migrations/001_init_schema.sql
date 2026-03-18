@@ -1,5 +1,8 @@
 -- DataMap-Lite Phase 1 数据库初始化脚本
 
+-- 启用 pgcrypto 扩展用于 UUID
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- 启用 pg_trgm 扩展用于模糊搜索
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
@@ -145,6 +148,33 @@ CREATE INDEX idx_schema_changes_source ON schema_changes(source_id);
 CREATE INDEX idx_schema_changes_detected ON schema_changes(detected_at DESC);
 CREATE INDEX idx_schema_changes_ack ON schema_changes(acknowledged);
 
+-- 8. 用户表
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username VARCHAR(100) NOT NULL UNIQUE,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+COMMENT ON TABLE users IS '系统用户表';
+
+CREATE INDEX idx_users_username ON users(username);
+CREATE INDEX idx_users_role ON users(role);
+
+-- 默认管理员用户: admin / admin123
+INSERT INTO users (id, username, email, password_hash, role)
+VALUES (
+    '11111111-1111-1111-1111-111111111111',
+    'admin',
+    'admin@datamap.local',
+    '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+    'admin'
+)
+ON CONFLICT (username) DO NOTHING;
+
 -- 创建更新时间触发器函数
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -167,7 +197,10 @@ CREATE TRIGGER update_schema_objects_updated_at BEFORE UPDATE ON schema_objects
 CREATE TRIGGER update_columns_updated_at BEFORE UPDATE ON columns
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- 8. 数据质量规则表
+CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- 9. 数据质量规则表
 CREATE TABLE IF NOT EXISTS dq_rules (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     source_id UUID REFERENCES data_sources(id) ON DELETE CASCADE,
@@ -192,7 +225,7 @@ CREATE INDEX idx_dq_rules_column ON dq_rules(column_id);
 CREATE INDEX idx_dq_rules_type ON dq_rules(rule_type);
 CREATE INDEX idx_dq_rules_active ON dq_rules(is_active);
 
--- 9. 数据质量检测结果表
+-- 10. 数据质量检测结果表
 CREATE TABLE IF NOT EXISTS dq_results (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     rule_id UUID NOT NULL REFERENCES dq_rules(id) ON DELETE CASCADE,
@@ -220,7 +253,7 @@ CREATE INDEX idx_dq_results_checked_at ON dq_results(checked_at DESC);
 CREATE TRIGGER update_dq_rules_updated_at BEFORE UPDATE ON dq_rules
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- 10. 标签表
+-- 11. 标签表
 CREATE TABLE IF NOT EXISTS tags (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(100) NOT NULL UNIQUE,
@@ -234,7 +267,7 @@ COMMENT ON TABLE tags IS '字段标签表';
 
 CREATE INDEX idx_tags_name ON tags(name);
 
--- 11. 字段标签关联表（多对多）
+-- 12. 字段标签关联表（多对多）
 CREATE TABLE IF NOT EXISTS column_tags (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     column_id UUID NOT NULL REFERENCES columns(id) ON DELETE CASCADE,
@@ -252,7 +285,7 @@ CREATE INDEX idx_column_tags_tag ON column_tags(tag_id);
 CREATE TRIGGER update_tags_updated_at BEFORE UPDATE ON tags
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- 12. 告警规则表
+-- 13. 告警规则表
 CREATE TABLE IF NOT EXISTS alert_rules (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     source_id UUID REFERENCES data_sources(id) ON DELETE CASCADE,
@@ -277,7 +310,7 @@ CREATE INDEX idx_alert_rules_source ON alert_rules(source_id);
 CREATE INDEX idx_alert_rules_object ON alert_rules(object_id);
 CREATE INDEX idx_alert_rules_active ON alert_rules(is_active);
 
--- 13. 通知记录表
+-- 14. 通知记录表
 CREATE TABLE IF NOT EXISTS notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     rule_id UUID REFERENCES alert_rules(id) ON DELETE CASCADE,
@@ -302,7 +335,7 @@ CREATE INDEX idx_notifications_change ON notifications(change_id);
 CREATE INDEX idx_notifications_source ON notifications(source_id);
 CREATE INDEX idx_notifications_created_at ON notifications(created_at DESC);
 
--- 14. 用户通知状态表
+-- 15. 用户通知状态表
 CREATE TABLE IF NOT EXISTS user_notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

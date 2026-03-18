@@ -97,7 +97,7 @@ export const DQRuleCard: React.FC<DQRuleCardProps> = ({
                 <Badge variant={severityColors[rule.severity]}>
                   {severityLabels[rule.severity]}
                 </Badge>
-                {!rule.is_active && <Badge variant="ghost">已禁用</Badge>}
+                {!rule.is_active && <Badge variant="neutral">已禁用</Badge>}
               </div>
               {rule.description && (
                 <p className="text-sm text-slate-600 mt-2 line-clamp-2">{rule.description}</p>

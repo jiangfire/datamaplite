@@ -116,6 +116,16 @@ func (s *PostgresStore) ListSchemaObjectsBySource(ctx context.Context, sourceID 
 	return objects, rows.Err()
 }
 
+// DeleteSchemaObject 删除单个 Schema 对象
+func (s *PostgresStore) DeleteSchemaObject(ctx context.Context, id string) error {
+	query := `DELETE FROM schema_objects WHERE id = $1`
+	_, err := s.pool.Exec(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete schema object: %w", err)
+	}
+	return nil
+}
+
 // DeleteSchemaObjectsBySource 删除数据源的所有Schema对象
 func (s *PostgresStore) DeleteSchemaObjectsBySource(ctx context.Context, sourceID string) error {
 	query := `DELETE FROM schema_objects WHERE source_id = $1`
@@ -230,6 +240,15 @@ func (t *PostgresTxStore) ListSchemaObjectsBySource(ctx context.Context, sourceI
 		objects = append(objects, &obj)
 	}
 	return objects, rows.Err()
+}
+
+func (t *PostgresTxStore) DeleteSchemaObject(ctx context.Context, id string) error {
+	query := `DELETE FROM schema_objects WHERE id = $1`
+	_, err := t.tx.Exec(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete schema object: %w", err)
+	}
+	return nil
 }
 
 func (t *PostgresTxStore) DeleteSchemaObjectsBySource(ctx context.Context, sourceID string) error {

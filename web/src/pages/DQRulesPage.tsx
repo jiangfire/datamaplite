@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Shield, Filter, Play, CheckCircle } from 'lucide-react';
+import { Plus, Shield, Play, CheckCircle } from 'lucide-react';
 import {
   Layout,
   Button,

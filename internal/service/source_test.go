@@ -89,6 +89,11 @@ func (m *MockStore) DeleteSchemaObjectsBySource(ctx context.Context, sourceID st
 	return args.Error(0)
 }
 
+func (m *MockStore) DeleteSchemaObject(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
 func (m *MockStore) CreateColumn(ctx context.Context, col *store.ColumnCreate) error {
 	args := m.Called(ctx, col)
 	return args.Error(0)

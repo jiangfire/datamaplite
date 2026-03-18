@@ -547,29 +547,31 @@ func TestConfigValidation(t *testing.T) {
 		cfg     config.Config
 		wantErr bool
 	}{
-		{
-			name: "valid postgres config",
-			cfg: config.Config{
-				Server: config.ServerConfig{Port: 8080},
-				Database: config.DatabaseConfig{
-					Type:     "postgres",
-					Host:     "localhost",
-					Port:     5432,
+			{
+				name: "valid postgres config",
+				cfg: config.Config{
+					Server: config.ServerConfig{Port: 8080},
+					Auth:   config.AuthConfig{JWTSecret: "test-secret"},
+					Database: config.DatabaseConfig{
+						Type:     "postgres",
+						Host:     "localhost",
+						Port:     5432,
 					Database: "datamap",
 				},
 				Log: config.LogConfig{Level: "info"},
 			},
 			wantErr: false,
 		},
-		{
-			name: "valid sqlite config",
-			cfg: config.Config{
-				Server:   config.ServerConfig{Port: 8080},
-				Database: config.DatabaseConfig{Type: "sqlite"},
-				Log:      config.LogConfig{Level: "info"},
+			{
+				name: "valid sqlite config",
+				cfg: config.Config{
+					Server:   config.ServerConfig{Port: 8080},
+					Auth:     config.AuthConfig{JWTSecret: "test-secret"},
+					Database: config.DatabaseConfig{Type: "sqlite"},
+					Log:      config.LogConfig{Level: "info"},
+				},
+				wantErr: false,
 			},
-			wantErr: false,
-		},
 		{
 			name: "invalid port",
 			cfg: config.Config{

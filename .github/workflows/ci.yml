@@ -62,11 +62,13 @@ jobs:
 
     - name: Run tests
       env:
-        DATABASE_HOST: localhost
-        DATABASE_PORT: 5432
-        DATABASE_NAME: datamap_test
-        DATABASE_USER: datamap
-        DATABASE_PASSWORD: datamap_test
+        DATAMAP_DATABASE_TYPE: postgres
+        DATAMAP_DATABASE_HOST: localhost
+        DATAMAP_DATABASE_PORT: 5432
+        DATAMAP_DATABASE_DATABASE: datamap_test
+        DATAMAP_DATABASE_USERNAME: datamap
+        DATAMAP_DATABASE_PASSWORD: datamap_test
+        DATAMAP_AUTH_JWT_SECRET: test-jwt-secret
         DATAMAP_ENCRYPTION_KEY: test-encryption-key-32bytes-long!!
       run: |
         go test -v -race -coverprofile=coverage.out ./...
@@ -154,8 +156,13 @@ jobs:
 
     - name: Run API tests
       run: |
+        TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login \
+          -H "Content-Type: application/json" \
+          -d '{"username":"admin","password":"admin123"}' | python -c "import sys,json; print(json.load(sys.stdin)['data']['access_token'])")
+
         # Test creating a data source
         curl -X POST http://localhost:8080/api/v1/sources \
+          -H "Authorization: Bearer $TOKEN" \
           -H "Content-Type: application/json" \
           -d '{
             "name": "test-mysql",

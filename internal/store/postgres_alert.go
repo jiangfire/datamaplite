@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"strings"
 )
 
@@ -157,47 +158,47 @@ func (s *PostgresStore) UpdateAlertRule(ctx context.Context, id string, updates 
 	argIdx := 1
 
 	if updates.Name != nil {
-		setParts = append(setParts, `name = $`+string(rune('0'+argIdx)))
+		setParts = append(setParts, fmt.Sprintf("name = $%d", argIdx))
 		args = append(args, *updates.Name)
 		argIdx++
 	}
 	if updates.Description != nil {
-		setParts = append(setParts, `description = $`+string(rune('0'+argIdx)))
+		setParts = append(setParts, fmt.Sprintf("description = $%d", argIdx))
 		args = append(args, *updates.Description)
 		argIdx++
 	}
 	if updates.SourceID != nil {
-		setParts = append(setParts, `source_id = $`+string(rune('0'+argIdx)))
+		setParts = append(setParts, fmt.Sprintf("source_id = $%d", argIdx))
 		args = append(args, *updates.SourceID)
 		argIdx++
 	}
 	if updates.ObjectID != nil {
-		setParts = append(setParts, `object_id = $`+string(rune('0'+argIdx)))
+		setParts = append(setParts, fmt.Sprintf("object_id = $%d", argIdx))
 		args = append(args, *updates.ObjectID)
 		argIdx++
 	}
 	if updates.ChangeTypes != nil {
-		setParts = append(setParts, `change_types = $`+string(rune('0'+argIdx)))
+		setParts = append(setParts, fmt.Sprintf("change_types = $%d", argIdx))
 		args = append(args, *updates.ChangeTypes)
 		argIdx++
 	}
 	if updates.NotifyWebhook != nil {
-		setParts = append(setParts, `notify_webhook = $`+string(rune('0'+argIdx)))
+		setParts = append(setParts, fmt.Sprintf("notify_webhook = $%d", argIdx))
 		args = append(args, *updates.NotifyWebhook)
 		argIdx++
 	}
 	if updates.WebhookURL != nil {
-		setParts = append(setParts, `webhook_url = $`+string(rune('0'+argIdx)))
+		setParts = append(setParts, fmt.Sprintf("webhook_url = $%d", argIdx))
 		args = append(args, *updates.WebhookURL)
 		argIdx++
 	}
 	if updates.NotifyInApp != nil {
-		setParts = append(setParts, `notify_in_app = $`+string(rune('0'+argIdx)))
+		setParts = append(setParts, fmt.Sprintf("notify_in_app = $%d", argIdx))
 		args = append(args, *updates.NotifyInApp)
 		argIdx++
 	}
 	if updates.IsActive != nil {
-		setParts = append(setParts, `is_active = $`+string(rune('0'+argIdx)))
+		setParts = append(setParts, fmt.Sprintf("is_active = $%d", argIdx))
 		args = append(args, *updates.IsActive)
 		argIdx++
 	}
@@ -207,7 +208,7 @@ func (s *PostgresStore) UpdateAlertRule(ctx context.Context, id string, updates 
 	}
 
 	query += strings.Join(setParts, ", ")
-	query += ` WHERE id = $` + string(rune('0'+argIdx))
+	query += fmt.Sprintf(", updated_at = NOW() WHERE id = $%d", argIdx)
 	args = append(args, id)
 
 	_, err := s.pool.Exec(ctx, query, args...)
@@ -323,7 +324,7 @@ func (s *PostgresStore) ListNotifications(ctx context.Context, userID string, un
 	query += ` ORDER BY n.created_at DESC`
 
 	if limit > 0 {
-		query += ` LIMIT $` + string(rune('0'+argIdx))
+		query += fmt.Sprintf(" LIMIT $%d", argIdx)
 		args = append(args, limit)
 		argIdx++
 	}

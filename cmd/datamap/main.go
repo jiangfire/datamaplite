@@ -78,13 +78,11 @@ func run() error {
 		return fmt.Errorf("failed to init store: %w", err)
 	}
 	defer store.Close()
-	if err != nil {
-		return fmt.Errorf("failed to init store: %w", err)
-	}
 
 	// 初始化扫描器注册表
 	registry := scanner.NewRegistry()
 	registry.Register("mysql", scanner.NewMySQLScanner())
+	registry.Register("postgres", scanner.NewPostgresScanner())
 	registry.Register("mongodb", scanner.NewMongoDBScanner(cfg.Scanner.MongoDBSampleSize))
 
 	// 初始化服务层
@@ -93,7 +91,7 @@ func run() error {
 	termService := service.NewTermService(store)
 	ddlService := service.NewDDLService(store)
 	authService := initAuthService(cfg.Auth, store)
-	dqService := service.NewDQService(store)
+	dqService := service.NewDQService(store, cipher)
 	tagService := service.NewTagService(store)
 	alertService := service.NewAlertService(store, logger)
 	notifService := service.NewNotificationService(store, logger)

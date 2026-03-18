@@ -215,15 +215,13 @@ func (s *SQLiteStore) WithTx(ctx context.Context, fn func(Store) error) error {
 
 // runSQLiteMigrations 运行SQLite数据库迁移
 func runSQLiteMigrations(ctx context.Context, db *sql.DB) error {
-	// 读取迁移文件
-	migrationSQL, err := os.ReadFile("migrations/001_init_schema.sql")
-	if err != nil {
-		// 如果文件不存在，使用内置迁移
-		return runSQLiteBuiltinMigrations(ctx, db)
+	// 优先读取 SQLite 专用迁移文件
+	if migrationSQL, err := os.ReadFile("migrations/001_init_schema_sqlite.sql"); err == nil {
+		_, execErr := db.ExecContext(ctx, string(migrationSQL))
+		return execErr
 	}
 
-	_, err = db.ExecContext(ctx, string(migrationSQL))
-	return err
+	return runSQLiteBuiltinMigrations(ctx, db)
 }
 
 // runSQLiteBuiltinMigrations 运行内置迁移（SQLite适配版）
@@ -438,6 +436,64 @@ CREATE TABLE IF NOT EXISTS column_tags (
 
 CREATE INDEX IF NOT EXISTS idx_column_tags_column ON column_tags(column_id);
 CREATE INDEX IF NOT EXISTS idx_column_tags_tag ON column_tags(tag_id);
+
+-- 13. 告警规则表
+CREATE TABLE IF NOT EXISTS alert_rules (
+    id TEXT PRIMARY KEY,
+    source_id TEXT REFERENCES data_sources(id) ON DELETE CASCADE,
+    object_id TEXT REFERENCES schema_objects(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    description TEXT,
+    change_types TEXT NOT NULL DEFAULT 'all',
+    notify_webhook INTEGER NOT NULL DEFAULT 0,
+    webhook_url TEXT,
+    notify_in_app INTEGER NOT NULL DEFAULT 1,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_alert_rules_source ON alert_rules(source_id);
+CREATE INDEX IF NOT EXISTS idx_alert_rules_object ON alert_rules(object_id);
+CREATE INDEX IF NOT EXISTS idx_alert_rules_active ON alert_rules(is_active);
+
+-- 14. 通知记录表
+CREATE TABLE IF NOT EXISTS notifications (
+    id TEXT PRIMARY KEY,
+    rule_id TEXT REFERENCES alert_rules(id) ON DELETE CASCADE,
+    change_id TEXT NOT NULL REFERENCES schema_changes(id) ON DELETE CASCADE,
+    source_id TEXT NOT NULL REFERENCES data_sources(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    change_type TEXT NOT NULL,
+    object_type TEXT NOT NULL,
+    object_name TEXT NOT NULL,
+    old_value TEXT,
+    new_value TEXT,
+    webhook_sent INTEGER NOT NULL DEFAULT 0,
+    webhook_error TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_rule ON notifications(rule_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_change ON notifications(change_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_source ON notifications(source_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);
+
+-- 15. 用户通知状态表
+CREATE TABLE IF NOT EXISTS user_notifications (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    notification_id TEXT NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
+    is_read INTEGER NOT NULL DEFAULT 0,
+    read_at TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(user_id, notification_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_notifications_user ON user_notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_notifications_notification ON user_notifications(notification_id);
+CREATE INDEX IF NOT EXISTS idx_user_notifications_unread ON user_notifications(user_id, is_read);
 `
 	_, err := db.ExecContext(ctx, schema)
 	return err

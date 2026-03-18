@@ -90,6 +90,7 @@ func (r *Router) Register(engine *gin.Engine) {
 				columns.POST("/:id/term", r.termHandler.AssignTermToColumn)
 				columns.POST("/:id/tags", r.tagHandler.AssignTagsToColumn)
 				columns.GET("/:id/tags", r.tagHandler.GetColumnTags)
+				columns.DELETE("/:id/tags/:tagId", r.tagHandler.RemoveTagFromColumn)
 			}
 
 			// 业务术语管理

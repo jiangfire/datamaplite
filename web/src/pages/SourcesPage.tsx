@@ -11,13 +11,20 @@ import {
 import { useSources, useSyncSource } from '../hooks';
 
 export const SourcesPage: React.FC = () => {
-  const { sources, loading, error, refetch, createSource, deleteSource } = useSources();
+  const { sources, loading, error, refetch, createSource, updateSource, deleteSource } = useSources();
   const { sync, syncing } = useSyncSource();
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [editingSource, setEditingSource] = useState<(typeof sources)[number] | null>(null);
 
   const handleCreate = async (data: Parameters<typeof createSource>[0]) => {
     await createSource(data);
     setShowCreateForm(false);
+  };
+
+  const handleEdit = async (data: Parameters<typeof updateSource>[1]) => {
+    if (!editingSource) return;
+    await updateSource(editingSource.id, data);
+    setEditingSource(null);
   };
 
   const handleSync = async (id: string) => {
@@ -82,6 +89,7 @@ export const SourcesPage: React.FC = () => {
               source={source}
               onDelete={deleteSource}
               onSync={handleSync}
+              onEdit={setEditingSource}
               syncing={syncing}
             />
           ))}
@@ -94,6 +102,14 @@ export const SourcesPage: React.FC = () => {
         onClose={() => setShowCreateForm(false)}
         onSubmit={handleCreate}
         mode="create"
+      />
+
+      <SourceForm
+        isOpen={!!editingSource}
+        onClose={() => setEditingSource(null)}
+        onSubmit={handleEdit}
+        initialData={editingSource || undefined}
+        mode="edit"
       />
     </Layout>
   );

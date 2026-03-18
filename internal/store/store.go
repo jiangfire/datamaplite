@@ -23,6 +23,7 @@ type Store interface {
 	GetSchemaObject(ctx context.Context, id string) (*SchemaObjectRow, error)
 	GetSchemaObjectByName(ctx context.Context, sourceID string, name string, schema *string) (*SchemaObjectRow, error)
 	ListSchemaObjectsBySource(ctx context.Context, sourceID string) ([]*SchemaObjectRow, error)
+	DeleteSchemaObject(ctx context.Context, id string) error
 	DeleteSchemaObjectsBySource(ctx context.Context, sourceID string) error
 
 	// Column
@@ -409,26 +410,26 @@ type DQResultCreate struct {
 
 // DQResultRow 数据质量结果行
 type DQResultRow struct {
-	ID            string
-	RuleID        string
-	CheckBatchID  string
-	ColumnID      *string
-	Status        string
-	TotalRows     int64
-	FailedRows    int64
-	PassRate      float64
-	SampleErrors  string
-	ErrorMessage  *string
-	CheckedAt     string
+	ID           string
+	RuleID       string
+	CheckBatchID string
+	ColumnID     *string
+	Status       string
+	TotalRows    int64
+	FailedRows   int64
+	PassRate     float64
+	SampleErrors string
+	ErrorMessage *string
+	CheckedAt    string
 }
 
 // DQResultFilter 数据质量结果过滤条件
 type DQResultFilter struct {
-	RuleID       *string
-	BatchID      *string
-	ColumnID     *string
-	Status       *string
-	Limit        int
+	RuleID   *string
+	BatchID  *string
+	ColumnID *string
+	Status   *string
+	Limit    int
 }
 
 // DQStatsRow 数据质量统计行
@@ -511,9 +512,26 @@ type AlertRuleUpdate struct {
 
 // NotificationCreate 创建通知参数
 type NotificationCreate struct {
+	RuleID     *string
+	ChangeID   string
+	SourceID   string
+	Title      string
+	Message    string
+	ChangeType string
+	ObjectType string
+	ObjectName string
+	OldValue   *string
+	NewValue   *string
+}
+
+// NotificationRow 通知行
+type NotificationRow struct {
+	ID           string
 	RuleID       *string
+	RuleName     *string
 	ChangeID     string
 	SourceID     string
+	SourceName   string
 	Title        string
 	Message      string
 	ChangeType   string
@@ -521,28 +539,11 @@ type NotificationCreate struct {
 	ObjectName   string
 	OldValue     *string
 	NewValue     *string
-}
-
-// NotificationRow 通知行
-type NotificationRow struct {
-	ID            string
-	RuleID        *string
-	RuleName      *string
-	ChangeID      string
-	SourceID      string
-	SourceName    string
-	Title         string
-	Message       string
-	ChangeType    string
-	ObjectType    string
-	ObjectName    string
-	OldValue      *string
-	NewValue      *string
-	WebhookSent   bool
-	WebhookError  *string
-	IsRead        bool
-	ReadAt        *string
-	CreatedAt     string
+	WebhookSent  bool
+	WebhookError *string
+	IsRead       bool
+	ReadAt       *string
+	CreatedAt    string
 }
 
 // NotificationStatsRow 通知统计行
