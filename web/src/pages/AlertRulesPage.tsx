@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plus, Bell, Edit2, Trash2, Webhook, Mail } from 'lucide-react';
 import { Layout, Button, Card, CardContent } from '../components';
 import { useAlerts } from '../hooks';
-import type { AlertRuleCreate } from '../types';
+import { sourceService } from '../services';
+import type { AlertRuleCreate, DataSource, SchemaTree } from '../types';
 
 const CHANGE_TYPE_OPTIONS = [
   { value: 'all', label: '全部变更' },
@@ -15,10 +16,15 @@ const CHANGE_TYPE_OPTIONS = [
 ];
 
 export const AlertRulesPage: React.FC = () => {
-  const { rules, loading, error, createRule, updateRule, deleteRule } = useAlerts();
+  const { rules, loading, error, createRule, updateRule, deleteRule } =
+    useAlerts();
+  const [sources, setSources] = useState<DataSource[]>([]);
+  const [schemaTree, setSchemaTree] = useState<SchemaTree | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingRule, setEditingRule] = useState<string | null>(null);
   const [formData, setFormData] = useState<AlertRuleCreate>({
+    source_id: '',
+    object_id: '',
     name: '',
     description: '',
     change_types: 'all',
@@ -28,11 +34,50 @@ export const AlertRulesPage: React.FC = () => {
     is_active: true,
   });
 
+  useEffect(() => {
+    const fetchSources = async () => {
+      const data = await sourceService.listSources();
+      setSources(data);
+    };
+
+    fetchSources();
+  }, []);
+
+  useEffect(() => {
+    if (!showForm || !formData.source_id) {
+      return;
+    }
+
+    const fetchSchemaTree = async () => {
+      try {
+        const data = await sourceService.getSchemaTree(formData.source_id!);
+        setSchemaTree(data);
+      } catch {
+        setSchemaTree(null);
+      }
+    };
+
+    fetchSchemaTree();
+  }, [formData.source_id, showForm]);
+
+  const objectOptions = useMemo(
+    () =>
+      (
+        showForm && formData.source_id ? (schemaTree?.objects ?? []) : []
+      ).map((object) => ({
+          value: object.id,
+          label: `${object.schema ? `${object.schema}.` : ''}${object.name}`,
+        })),
+    [formData.source_id, schemaTree, showForm],
+  );
+
   const handleSubmit = async () => {
     if (!formData.name.trim()) return;
 
     const data: AlertRuleCreate = {
       ...formData,
+      source_id: formData.source_id || undefined,
+      object_id: formData.object_id || undefined,
       webhook_url: formData.notify_webhook ? formData.webhook_url : undefined,
     };
 
@@ -44,7 +89,10 @@ export const AlertRulesPage: React.FC = () => {
     }
 
     setShowForm(false);
+    setSchemaTree(null);
     setFormData({
+      source_id: '',
+      object_id: '',
       name: '',
       description: '',
       change_types: 'all',
@@ -55,9 +103,12 @@ export const AlertRulesPage: React.FC = () => {
     });
   };
 
-  const handleEdit = (rule: typeof rules[0]) => {
+  const handleEdit = (rule: (typeof rules)[0]) => {
     setEditingRule(rule.id);
+    setSchemaTree(null);
     setFormData({
+      source_id: rule.source_id || '',
+      object_id: rule.object_id || '',
       name: rule.name,
       description: rule.description || '',
       change_types: rule.change_types,
@@ -71,10 +122,13 @@ export const AlertRulesPage: React.FC = () => {
 
   const getChangeTypeLabel = (types: string) => {
     if (types === 'all') return '全部变更';
-    return types.split(',').map(t => {
-      const option = CHANGE_TYPE_OPTIONS.find(o => o.value === t.trim());
-      return option?.label || t;
-    }).join(', ');
+    return types
+      .split(',')
+      .map((t) => {
+        const option = CHANGE_TYPE_OPTIONS.find((o) => o.value === t.trim());
+        return option?.label || t;
+      })
+      .join(', ');
   };
 
   return (
@@ -84,7 +138,13 @@ export const AlertRulesPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-900">告警规则</h1>
           <p className="text-slate-500 mt-1">管理Schema变更告警规则</p>
         </div>
-        <Button onClick={() => { setEditingRule(null); setShowForm(true); }}>
+        <Button
+          onClick={() => {
+            setEditingRule(null);
+            setSchemaTree(null);
+            setShowForm(true);
+          }}
+        >
           <Plus size={18} className="mr-2" />
           创建规则
         </Button>
@@ -98,34 +158,97 @@ export const AlertRulesPage: React.FC = () => {
             </h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm text-slate-600 mb-1">规则名称</label>
+                <label className="block text-sm text-slate-600 mb-1">
+                  数据源
+                </label>
+                <select
+                  value={formData.source_id || ''}
+                  onChange={(e) =>
+                    {
+                      setSchemaTree(null);
+                      setFormData({
+                        ...formData,
+                        source_id: e.target.value || undefined,
+                        object_id: '',
+                      });
+                    }
+                  }
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="">全部数据源</option>
+                  {sources.map((source) => (
+                    <option key={source.id} value={source.id}>
+                      {source.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-slate-600 mb-1">
+                  对象
+                </label>
+                <select
+                  value={formData.object_id || ''}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      object_id: e.target.value || undefined,
+                    })
+                  }
+                  className="w-full px-3 py-2 border rounded-lg"
+                  disabled={!formData.source_id}
+                >
+                  <option value="">全部对象</option>
+                  {objectOptions.map((object) => (
+                    <option key={object.value} value={object.value}>
+                      {object.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-slate-600 mb-1">
+                  规则名称
+                </label>
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
                   className="w-full px-3 py-2 border rounded-lg"
                   placeholder="例如：生产库表结构变更告警"
                 />
               </div>
               <div>
-                <label className="block text-sm text-slate-600 mb-1">描述</label>
+                <label className="block text-sm text-slate-600 mb-1">
+                  描述
+                </label>
                 <input
                   type="text"
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
                   className="w-full px-3 py-2 border rounded-lg"
                   placeholder="可选描述"
                 />
               </div>
               <div>
-                <label className="block text-sm text-slate-600 mb-1">监控变更类型</label>
+                <label className="block text-sm text-slate-600 mb-1">
+                  监控变更类型
+                </label>
                 <select
                   value={formData.change_types}
-                  onChange={(e) => setFormData({ ...formData, change_types: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, change_types: e.target.value })
+                  }
                   className="w-full px-3 py-2 border rounded-lg"
                 >
-                  {CHANGE_TYPE_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  {CHANGE_TYPE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -134,7 +257,12 @@ export const AlertRulesPage: React.FC = () => {
                   <input
                     type="checkbox"
                     checked={formData.notify_in_app}
-                    onChange={(e) => setFormData({ ...formData, notify_in_app: e.target.checked })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        notify_in_app: e.target.checked,
+                      })
+                    }
                     className="rounded"
                   />
                   <span className="text-sm">站内通知</span>
@@ -143,7 +271,12 @@ export const AlertRulesPage: React.FC = () => {
                   <input
                     type="checkbox"
                     checked={formData.notify_webhook}
-                    onChange={(e) => setFormData({ ...formData, notify_webhook: e.target.checked })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        notify_webhook: e.target.checked,
+                      })
+                    }
                     className="rounded"
                   />
                   <span className="text-sm">Webhook</span>
@@ -152,7 +285,9 @@ export const AlertRulesPage: React.FC = () => {
                   <input
                     type="checkbox"
                     checked={formData.is_active}
-                    onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, is_active: e.target.checked })
+                    }
                     className="rounded"
                   />
                   <span className="text-sm">启用</span>
@@ -160,19 +295,33 @@ export const AlertRulesPage: React.FC = () => {
               </div>
               {formData.notify_webhook && (
                 <div>
-                  <label className="block text-sm text-slate-600 mb-1">Webhook URL</label>
+                  <label className="block text-sm text-slate-600 mb-1">
+                    Webhook URL
+                  </label>
                   <input
                     type="url"
                     value={formData.webhook_url}
-                    onChange={(e) => setFormData({ ...formData, webhook_url: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, webhook_url: e.target.value })
+                    }
                     className="w-full px-3 py-2 border rounded-lg"
                     placeholder="https://example.com/webhook"
                   />
                 </div>
               )}
               <div className="flex gap-2 pt-2">
-                <Button variant="secondary" onClick={() => setShowForm(false)}>取消</Button>
-                <Button onClick={handleSubmit}>{editingRule ? '保存' : '创建'}</Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setSchemaTree(null);
+                    setShowForm(false);
+                  }}
+                >
+                  取消
+                </Button>
+                <Button onClick={handleSubmit}>
+                  {editingRule ? '保存' : '创建'}
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -182,7 +331,11 @@ export const AlertRulesPage: React.FC = () => {
       {loading ? (
         <div className="text-center py-12">加载中...</div>
       ) : error ? (
-        <Card><CardContent className="p-8 text-center text-red-500">{error}</CardContent></Card>
+        <Card>
+          <CardContent className="p-8 text-center text-red-500">
+            {error}
+          </CardContent>
+        </Card>
       ) : rules.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center">
@@ -202,11 +355,15 @@ export const AlertRulesPage: React.FC = () => {
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-medium">{rule.name}</h3>
                       {!rule.is_active && (
-                        <span className="px-2 py-0.5 text-xs bg-slate-200 text-slate-600 rounded">已禁用</span>
+                        <span className="px-2 py-0.5 text-xs bg-slate-200 text-slate-600 rounded">
+                          已禁用
+                        </span>
                       )}
                     </div>
                     {rule.description && (
-                      <p className="text-sm text-slate-500 mb-2">{rule.description}</p>
+                      <p className="text-sm text-slate-500 mb-2">
+                        {rule.description}
+                      </p>
                     )}
                     <div className="flex flex-wrap gap-2 text-xs">
                       <span className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded">

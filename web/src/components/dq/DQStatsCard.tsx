@@ -66,7 +66,9 @@ export const DQStatsCard: React.FC<DQStatsCardProps> = ({ stats }) => {
                   {item.icon}
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-slate-900">{item.value}</div>
+                  <div className="text-2xl font-bold text-slate-900">
+                    {item.value}
+                  </div>
                   <div className="text-xs text-slate-500">{item.label}</div>
                 </div>
               </div>

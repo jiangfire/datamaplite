@@ -44,7 +44,9 @@ export const useSchemaChanges = (sourceId: string | undefined) => {
         const data = await sourceService.getSchemaChanges(sourceId);
         setChanges(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch changes');
+        setError(
+          err instanceof Error ? err.message : 'Failed to fetch changes',
+        );
       } finally {
         setLoading(false);
       }

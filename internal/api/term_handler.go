@@ -86,7 +86,7 @@ func (h *TermHandler) UpdateTerm(c *gin.Context) {
 		return
 	}
 
-	h.JSON(c, gin.H{"success": true})
+	h.Success(c)
 }
 
 // DeleteTerm 删除业务术语
@@ -102,7 +102,7 @@ func (h *TermHandler) DeleteTerm(c *gin.Context) {
 		return
 	}
 
-	h.JSON(c, gin.H{"success": true})
+	h.Success(c)
 }
 
 // AssignTermToColumn 分配术语到字段
@@ -123,7 +123,7 @@ func (h *TermHandler) AssignTermToColumn(c *gin.Context) {
 		return
 	}
 
-	h.JSON(c, gin.H{"success": true})
+	h.Success(c)
 }
 
 // GenerateDDL 生成DDL

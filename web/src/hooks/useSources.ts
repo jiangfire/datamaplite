@@ -25,31 +25,19 @@ export const useSources = () => {
   }, [fetchSources]);
 
   const createSource = async (data: DataSourceCreate) => {
-    try {
-      const newSource = await sourceService.createSource(data);
-      setSources((prev) => [...prev, newSource]);
-      return newSource;
-    } catch (err) {
-      throw err;
-    }
+    const newSource = await sourceService.createSource(data);
+    setSources((prev) => [...prev, newSource]);
+    return newSource;
   };
 
   const updateSource = async (id: string, data: DataSourceUpdate) => {
-    try {
-      await sourceService.updateSource(id, data);
-      await fetchSources();
-    } catch (err) {
-      throw err;
-    }
+    await sourceService.updateSource(id, data);
+    await fetchSources();
   };
 
   const deleteSource = async (id: string) => {
-    try {
-      await sourceService.deleteSource(id);
-      setSources((prev) => prev.filter((s) => s.id !== id));
-    } catch (err) {
-      throw err;
-    }
+    await sourceService.deleteSource(id);
+    setSources((prev) => prev.filter((s) => s.id !== id));
   };
 
   return {

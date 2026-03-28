@@ -4,33 +4,52 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"sync"
+	"time"
 
 	"git.neolidy.top/neo/fuckcmdb/internal/crypto"
 	"git.neolidy.top/neo/fuckcmdb/internal/model"
 	"git.neolidy.top/neo/fuckcmdb/internal/scanner"
 	"git.neolidy.top/neo/fuckcmdb/internal/store"
+	"github.com/google/uuid"
 )
 
 // SourceService 数据源服务
 type SourceService struct {
-	store        store.Store
-	cipher       *crypto.Cipher
-	registry     *scanner.Registry
-	alertService *AlertService
+	store                  store.Store
+	cipher                 *crypto.Cipher
+	registry               *scanner.Registry
+	alertService           *AlertService
+	governanceEventService *GovernanceEventService
+	ownerID                string
+	syncLeaseTTL           time.Duration
+	syncLeaseStaleAfter    time.Duration
+	syncMu                 sync.Mutex
+	syncInFlight           map[string]struct{}
 }
 
 // NewSourceService 创建数据源服务
 func NewSourceService(store store.Store, cipher *crypto.Cipher, registry *scanner.Registry) *SourceService {
 	return &SourceService{
-		store:    store,
-		cipher:   cipher,
-		registry: registry,
+		store:               store,
+		cipher:              cipher,
+		registry:            registry,
+		ownerID:             "sync_owner_" + uuid.NewString(),
+		syncLeaseTTL:        10 * time.Second,
+		syncLeaseStaleAfter: 20 * time.Second,
+		syncInFlight:        make(map[string]struct{}),
 	}
 }
 
 // SetAlertService 设置告警服务（用于解决循环依赖）
 func (s *SourceService) SetAlertService(alertService *AlertService) {
 	s.alertService = alertService
+}
+
+// SetGovernanceEventService 设置治理事件发送服务。
+func (s *SourceService) SetGovernanceEventService(governanceEventService *GovernanceEventService) {
+	s.governanceEventService = governanceEventService
 }
 
 // CreateSource 创建数据源
@@ -72,21 +91,17 @@ func (s *SourceService) CreateSource(ctx context.Context, req *model.CreateSourc
 		ConnectionConfig: encryptedConfig,
 	}
 
-	if err := s.store.CreateDataSource(ctx, create); err != nil {
+	sourceID, err := s.store.CreateDataSource(ctx, create)
+	if err != nil {
 		return nil, fmt.Errorf("failed to create data source: %w", err)
 	}
 
-	// 返回创建后的数据源
-	sources, err := s.store.ListDataSources(ctx)
+	src, err := s.store.GetDataSource(ctx, sourceID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("source created but not found: %w", err)
 	}
 
-	if len(sources) > 0 {
-		return s.toSourceResponse(sources[0]), nil
-	}
-
-	return nil, fmt.Errorf("source created but not found")
+	return s.toSourceResponse(src), nil
 }
 
 // ListSources 列出所有数据源
@@ -194,6 +209,43 @@ func (s *SourceService) TestConnection(ctx context.Context, dbType string, confi
 	return sc.TestConnection(ctx, config)
 }
 
+// GetSyncLease 获取数据源当前同步租约。
+func (s *SourceService) GetSyncLease(ctx context.Context, sourceID string) (*store.SyncLeaseRow, error) {
+	return s.store.GetSyncLease(ctx, sourceID)
+}
+
+// ForceReleaseStaleSyncLease 释放陈旧同步租约，避免实例异常退出后只能等待 TTL。
+func (s *SourceService) ForceReleaseStaleSyncLease(ctx context.Context, sourceID string, staleAfter time.Duration) error {
+	sourceID = strings.TrimSpace(sourceID)
+	if sourceID == "" {
+		return fmt.Errorf("source id is required")
+	}
+	if staleAfter <= 0 {
+		staleAfter = s.syncLeaseStaleAfter
+	}
+	if staleAfter <= 0 {
+		staleAfter = 20 * time.Second
+	}
+
+	lease, err := s.store.GetSyncLease(ctx, sourceID)
+	if err != nil {
+		return err
+	}
+	if lease == nil {
+		return nil
+	}
+
+	updatedAt := parseTime(lease.UpdatedAt)
+	if updatedAt.IsZero() {
+		return fmt.Errorf("invalid sync lease updated_at for source %s: %s", sourceID, lease.UpdatedAt)
+	}
+	if time.Since(updatedAt.UTC()) < staleAfter {
+		return fmt.Errorf("sync lease still fresh for source %s", sourceID)
+	}
+
+	return s.store.ForceReleaseSyncLease(ctx, sourceID)
+}
+
 // TriggerSync 触发同步
 func (s *SourceService) TriggerSync(ctx context.Context, sourceID string) error {
 	src, err := s.store.GetDataSource(ctx, sourceID)
@@ -201,35 +253,64 @@ func (s *SourceService) TriggerSync(ctx context.Context, sourceID string) error 
 		return err
 	}
 
+	acquired, err := s.beginSync(ctx, sourceID)
+	if err != nil {
+		return err
+	}
+	if !acquired {
+		return fmt.Errorf("source sync already in progress: %s", sourceID)
+	}
+
 	// 解密连接配置
 	configJSON, err := s.cipher.Decrypt(src.ConnectionConfig)
 	if err != nil {
+		s.endSync(sourceID)
 		return fmt.Errorf("failed to decrypt connection config: %w", err)
 	}
 
 	connConfig, err := scanner.ConnectionConfigFromJSON(configJSON)
 	if err != nil {
+		s.endSync(sourceID)
 		return err
 	}
 
 	// 获取扫描器
 	sc, err := s.registry.Get(src.Type)
 	if err != nil {
+		s.endSync(sourceID)
 		return err
 	}
 
 	// 更新状态为同步中
 	if err := s.store.UpdateDataSourceSyncStatus(ctx, sourceID, "syncing", nil); err != nil {
+		s.endSync(sourceID)
 		return err
 	}
 
+	auditMeta := GovernanceAuditMetaFromContext(ctx)
+
 	// 异步执行同步（实际应用中应该使用后台任务队列）
 	go func() {
-		bgCtx := context.Background()
+		defer s.endSync(sourceID)
+
+		stopLeaseRenewal := s.startSyncLeaseRenewal(sourceID)
+		defer stopLeaseRenewal()
+
+		bgCtx := WithGovernanceAuditMeta(context.Background(), auditMeta)
 		schemaInfo, err := sc.ScanSchema(bgCtx, *connConfig)
 		if err != nil {
 			errMsg := err.Error()
 			s.store.UpdateDataSourceSyncStatus(bgCtx, sourceID, "error", &errMsg)
+			return
+		}
+		leaseOwned, err := s.syncLeaseOwned(bgCtx, sourceID)
+		if err != nil {
+			errMsg := err.Error()
+			s.store.UpdateDataSourceSyncStatus(bgCtx, sourceID, "error", &errMsg)
+			return
+		}
+		if !leaseOwned {
+			s.handleLostSyncLease(bgCtx, sourceID)
 			return
 		}
 
@@ -239,11 +320,139 @@ func (s *SourceService) TriggerSync(ctx context.Context, sourceID string) error 
 			s.store.UpdateDataSourceSyncStatus(bgCtx, sourceID, "error", &errMsg)
 			return
 		}
+		leaseOwned, err = s.syncLeaseOwned(bgCtx, sourceID)
+		if err != nil {
+			errMsg := err.Error()
+			s.store.UpdateDataSourceSyncStatus(bgCtx, sourceID, "error", &errMsg)
+			return
+		}
+		if !leaseOwned {
+			s.handleLostSyncLease(bgCtx, sourceID)
+			return
+		}
 
 		s.store.UpdateDataSourceSyncStatus(bgCtx, sourceID, "active", nil)
 	}()
 
 	return nil
+}
+
+func (s *SourceService) beginSync(ctx context.Context, sourceID string) (bool, error) {
+	s.syncMu.Lock()
+	if s.syncInFlight == nil {
+		s.syncInFlight = make(map[string]struct{})
+	}
+	if _, exists := s.syncInFlight[sourceID]; exists {
+		s.syncMu.Unlock()
+		return false, nil
+	}
+	s.syncInFlight[sourceID] = struct{}{}
+	s.syncMu.Unlock()
+
+	now := time.Now().UTC()
+	acquired, err := s.store.TryAcquireSyncLease(
+		ctx,
+		sourceID,
+		s.ownerID,
+		now.Format(time.RFC3339Nano),
+		now.Add(s.syncLeaseTTL).Format(time.RFC3339Nano),
+	)
+	if err != nil {
+		s.releaseLocalSync(sourceID)
+		return false, err
+	}
+	if !acquired {
+		s.releaseLocalSync(sourceID)
+		return false, nil
+	}
+
+	return true, nil
+}
+
+func (s *SourceService) endSync(sourceID string) {
+	s.releaseLocalSync(sourceID)
+	_ = s.store.ReleaseSyncLease(context.Background(), sourceID, s.ownerID)
+}
+
+func (s *SourceService) releaseLocalSync(sourceID string) {
+	s.syncMu.Lock()
+	defer s.syncMu.Unlock()
+	delete(s.syncInFlight, sourceID)
+}
+
+func (s *SourceService) startSyncLeaseRenewal(sourceID string) func() {
+	if s.syncLeaseTTL <= 0 {
+		return func() {}
+	}
+
+	stopCh := make(chan struct{})
+	interval := s.syncLeaseTTL / 2
+	if interval <= 0 {
+		interval = time.Second
+	}
+
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				leaseUntil := time.Now().UTC().Add(s.syncLeaseTTL).Format(time.RFC3339Nano)
+				_ = s.store.RenewSyncLease(context.Background(), sourceID, s.ownerID, leaseUntil)
+			case <-stopCh:
+				return
+			}
+		}
+	}()
+
+	return func() {
+		close(stopCh)
+	}
+}
+
+func (s *SourceService) syncLeaseOwned(ctx context.Context, sourceID string) (bool, error) {
+	lease, err := s.store.GetSyncLease(ctx, sourceID)
+	if err != nil {
+		return false, err
+	}
+	if lease == nil {
+		return false, nil
+	}
+	if lease.OwnerID != s.ownerID {
+		return false, nil
+	}
+	leaseUntil := parseTime(lease.LeaseUntil)
+	if leaseUntil.IsZero() {
+		return false, fmt.Errorf("invalid sync lease lease_until for source %s: %s", sourceID, lease.LeaseUntil)
+	}
+	if !leaseUntil.After(time.Now().UTC()) {
+		return false, nil
+	}
+	return true, nil
+}
+
+func (s *SourceService) handleLostSyncLease(ctx context.Context, sourceID string) {
+	lease, err := s.store.GetSyncLease(ctx, sourceID)
+	if err != nil {
+		return
+	}
+	if lease != nil && lease.OwnerID != s.ownerID {
+		leaseUntil := parseTime(lease.LeaseUntil)
+		if !leaseUntil.IsZero() && leaseUntil.After(time.Now().UTC()) {
+			return
+		}
+	}
+	source, err := s.store.GetDataSource(ctx, sourceID)
+	if err != nil {
+		return
+	}
+	if source == nil || source.Status != "syncing" {
+		return
+	}
+
+	errMsg := fmt.Sprintf("sync lease lost for source %s", sourceID)
+	_ = s.store.UpdateDataSourceSyncStatus(context.WithoutCancel(ctx), sourceID, "error", &errMsg)
 }
 
 // saveSchema 保存Schema信息
@@ -285,6 +494,18 @@ func (s *SourceService) saveSchema(ctx context.Context, sourceID string, schemaI
 			objectID := ""
 			if exists {
 				objectID = existingObj.ID
+				if s.objectNeedsUpdate(existingObj, obj) {
+					if err := txStore.UpdateSchemaObject(ctx, objectID, &store.SchemaObjectUpdate{
+						Type:        obj.Type,
+						Schema:      obj.Schema,
+						Description: obj.Description,
+						RowCount:    obj.RowCount,
+						SizeBytes:   obj.SizeBytes,
+						ColumnCount: len(obj.Columns),
+					}); err != nil {
+						return err
+					}
+				}
 			} else {
 				objCreate := &store.SchemaObjectCreate{
 					SourceID:    sourceID,
@@ -337,6 +558,10 @@ func (s *SourceService) saveSchema(ctx context.Context, sourceID string, schemaI
 					}); err != nil {
 						return err
 					}
+
+					if err := txStore.CreateColumn(ctx, s.toColumnCreate(objectID, col)); err != nil {
+						return err
+					}
 					continue
 				}
 
@@ -355,12 +580,17 @@ func (s *SourceService) saveSchema(ctx context.Context, sourceID string, schemaI
 						return err
 					}
 				}
+
+				if oldValue != newValue {
+					if err := txStore.UpdateColumn(ctx, oldCol.ID, s.toColumnUpdate(col)); err != nil {
+						return err
+					}
+				}
+
+				delete(oldColumns, col.Name)
 			}
 
 			for oldColName, oldCol := range oldColumns {
-				if _, exists := newColumns[oldColName]; exists {
-					continue
-				}
 				oldValue := s.columnSignatureFromStore(oldCol)
 				if err := s.recordSchemaChange(ctx, txStore, &detectedChanges, &store.SchemaChangeCreate{
 					SourceID:   sourceID,
@@ -372,29 +602,10 @@ func (s *SourceService) saveSchema(ctx context.Context, sourceID string, schemaI
 				}); err != nil {
 					return err
 				}
-			}
-
-			// 使用对象稳定 ID，避免对象级规则和告警失效
-			if err := txStore.DeleteColumnsByObject(ctx, objectID); err != nil {
-				return err
-			}
-
-			for _, col := range obj.Columns {
-				colCreate := &store.ColumnCreate{
-					ObjectID:         objectID,
-					Name:             col.Name,
-					DataType:         col.DataType,
-					FullDataType:     col.FullDataType,
-					IsNullable:       col.IsNullable,
-					DefaultValue:     col.DefaultValue,
-					IsPrimaryKey:     col.IsPrimaryKey,
-					IsUnique:         col.IsUnique,
-					OrdinalPosition:  col.OrdinalPosition,
-					Description:      col.Description,
-					ParentColumnPath: col.ParentColumnPath,
+				if err := txStore.DeleteLineageEdgesByNode(ctx, oldCol.ID); err != nil {
+					return err
 				}
-
-				if err := txStore.CreateColumn(ctx, colCreate); err != nil {
+				if err := txStore.DeleteColumn(ctx, oldCol.ID); err != nil {
 					return err
 				}
 			}
@@ -409,6 +620,7 @@ func (s *SourceService) saveSchema(ctx context.Context, sourceID string, schemaI
 			oldValue := oldObj.Type
 			if err := s.recordSchemaChange(ctx, txStore, &detectedChanges, &store.SchemaChangeCreate{
 				SourceID:   sourceID,
+				ObjectID:   &oldObj.ID,
 				ChangeType: "drop_object",
 				ObjectType: "object",
 				ObjectName: oldObj.Name,
@@ -417,6 +629,14 @@ func (s *SourceService) saveSchema(ctx context.Context, sourceID string, schemaI
 				return err
 			}
 
+			for _, oldCol := range existingColumns[oldObj.ID] {
+				if err := txStore.DeleteLineageEdgesByNode(ctx, oldCol.ID); err != nil {
+					return err
+				}
+			}
+			if err := txStore.DeleteLineageEdgesByNode(ctx, oldObj.ID); err != nil {
+				return err
+			}
 			if err := txStore.DeleteSchemaObject(ctx, oldObj.ID); err != nil {
 				return err
 			}
@@ -435,7 +655,83 @@ func (s *SourceService) saveSchema(ctx context.Context, sourceID string, schemaI
 		}
 	}
 
+	if s.governanceEventService != nil && s.governanceEventService.Enabled() {
+		sourceName := sourceID
+		if source, err := s.store.GetDataSource(ctx, sourceID); err == nil && source != nil {
+			sourceName = source.Name
+		}
+		auditMeta := GovernanceAuditMetaFromContext(ctx)
+
+		for _, change := range detectedChanges {
+			changeCopy := *change
+			go func() {
+				eventCtx := WithGovernanceAuditMeta(context.Background(), auditMeta)
+				if err := s.publishSchemaChangeEvent(eventCtx, sourceName, &changeCopy); err != nil {
+					return
+				}
+			}()
+		}
+	}
+
 	return nil
+}
+
+func (s *SourceService) publishSchemaChangeEvent(ctx context.Context, sourceName string, change *SchemaChangeInfo) error {
+	if change == nil || s.governanceEventService == nil || !s.governanceEventService.Enabled() {
+		return nil
+	}
+
+	auditMeta := GovernanceAuditMetaFromContext(ctx)
+	priority := "medium"
+	switch change.ChangeType {
+	case "drop_object", "drop_column":
+		priority = "high"
+	case "add_object", "add_column":
+		priority = "medium"
+	default:
+		priority = "medium"
+	}
+
+	payload := map[string]interface{}{
+		"title":         fmt.Sprintf("处理结构变更：%s", change.ObjectName),
+		"summary":       fmt.Sprintf("数据源 [%s] 检测到 %s 变更：%s", sourceName, change.ChangeType, change.ObjectName),
+		"display_name":  change.ObjectName,
+		"priority":      priority,
+		"change_type":   change.ChangeType,
+		"source_id":     change.SourceID,
+		"object_type":   change.ObjectType,
+		"object_name":   change.ObjectName,
+		"schema_change": change.ID,
+	}
+	if change.ObjectID != nil && *change.ObjectID != "" {
+		payload["object_id"] = *change.ObjectID
+	}
+	if change.OldValue != nil {
+		payload["old_value"] = *change.OldValue
+	}
+	if change.NewValue != nil {
+		payload["new_value"] = *change.NewValue
+	}
+
+	actorID := "system"
+	if auditMeta.ActorID != "" {
+		actorID = auditMeta.ActorID
+	}
+	traceID := "schema_change_" + change.ID
+	if auditMeta.TraceID != "" {
+		traceID = auditMeta.TraceID
+	}
+
+	return s.governanceEventService.Publish(ctx, GovernanceEvent{
+		EventID:      "schema_change_" + change.ID,
+		EventType:    "metadata.schema.changed",
+		OccurredAt:   change.DetectedAt,
+		ResourceType: "schema_change",
+		ResourceID:   change.ID,
+		ActorID:      actorID,
+		TraceID:      traceID,
+		Payload:      payload,
+	})
 }
 
 // toSourceResponse 转换为响应格式
@@ -479,26 +775,27 @@ func (s *SourceService) toSourceListItem(src *store.DataSourceRow) *model.Source
 }
 
 func (s *SourceService) recordSchemaChange(ctx context.Context, txStore store.Store, detected *[]*SchemaChangeInfo, change *store.SchemaChangeCreate) error {
+	if change.ID == "" {
+		change.ID = uuid.NewString()
+	}
+	if change.DetectedAt == "" {
+		change.DetectedAt = time.Now().UTC().Format(time.RFC3339Nano)
+	}
+
 	if err := txStore.CreateSchemaChange(ctx, change); err != nil {
 		return err
 	}
 
-	changes, err := txStore.ListSchemaChangesBySource(ctx, change.SourceID, 1)
-	if err != nil || len(changes) == 0 {
-		return err
-	}
-
-	latest := changes[0]
 	*detected = append(*detected, &SchemaChangeInfo{
-		ID:         latest.ID,
-		SourceID:   latest.SourceID,
-		ObjectID:   latest.ObjectID,
-		ChangeType: latest.ChangeType,
-		ObjectType: latest.ObjectType,
-		ObjectName: latest.ObjectName,
-		OldValue:   latest.OldValue,
-		NewValue:   latest.NewValue,
-		DetectedAt: latest.DetectedAt,
+		ID:         change.ID,
+		SourceID:   change.SourceID,
+		ObjectID:   change.ObjectID,
+		ChangeType: change.ChangeType,
+		ObjectType: change.ObjectType,
+		ObjectName: change.ObjectName,
+		OldValue:   change.OldValue,
+		NewValue:   change.NewValue,
+		DetectedAt: change.DetectedAt,
 	})
 	return nil
 }
@@ -512,14 +809,105 @@ func (s *SourceService) schemaObjectKey(schema *string, name string) string {
 
 func (s *SourceService) columnSignatureFromScanner(col scanner.ColumnInfo) string {
 	return fmt.Sprintf(
-		"type=%s full=%s nullable=%t pk=%t unique=%t default=%v parent=%v desc=%v",
-		col.DataType, col.FullDataType, col.IsNullable, col.IsPrimaryKey, col.IsUnique, col.DefaultValue, col.ParentColumnPath, col.Description,
+		"type=%s full=%s nullable=%t pk=%t unique=%t default=%v parent=%v desc=%v confidence=%f",
+		col.DataType,
+		col.FullDataType,
+		col.IsNullable,
+		col.IsPrimaryKey,
+		col.IsUnique,
+		stringValue(col.DefaultValue),
+		stringValue(col.ParentColumnPath),
+		stringValue(col.Description),
+		s.normalizeConfidence(col.Confidence),
 	)
 }
 
 func (s *SourceService) columnSignatureFromStore(col *store.ColumnRow) string {
 	return fmt.Sprintf(
-		"type=%s full=%s nullable=%t pk=%t unique=%t default=%v parent=%v desc=%v",
-		col.DataType, col.FullDataType, col.IsNullable, col.IsPrimaryKey, col.IsUnique, col.DefaultValue, col.ParentColumnPath, col.Description,
+		"type=%s full=%s nullable=%t pk=%t unique=%t default=%v parent=%v desc=%v confidence=%f",
+		col.DataType,
+		col.FullDataType,
+		col.IsNullable,
+		col.IsPrimaryKey,
+		col.IsUnique,
+		stringValue(col.DefaultValue),
+		stringValue(col.ParentColumnPath),
+		stringValue(col.Description),
+		col.Confidence,
 	)
+}
+
+func (s *SourceService) objectNeedsUpdate(existing *store.SchemaObjectRow, incoming scanner.ObjectInfo) bool {
+	return existing.Type != incoming.Type ||
+		!stringPtrEqual(existing.Schema, incoming.Schema) ||
+		!stringPtrEqual(existing.Description, incoming.Description) ||
+		!int64PtrEqual(existing.RowCount, incoming.RowCount) ||
+		!int64PtrEqual(existing.SizeBytes, incoming.SizeBytes) ||
+		existing.ColumnCount != len(incoming.Columns)
+}
+
+func (s *SourceService) toColumnCreate(objectID string, col scanner.ColumnInfo) *store.ColumnCreate {
+	return &store.ColumnCreate{
+		ObjectID:         objectID,
+		Name:             col.Name,
+		DataType:         col.DataType,
+		FullDataType:     col.FullDataType,
+		IsNullable:       col.IsNullable,
+		DefaultValue:     col.DefaultValue,
+		IsPrimaryKey:     col.IsPrimaryKey,
+		IsUnique:         col.IsUnique,
+		OrdinalPosition:  col.OrdinalPosition,
+		Description:      col.Description,
+		ParentColumnPath: col.ParentColumnPath,
+		Confidence:       s.normalizeConfidence(col.Confidence),
+	}
+}
+
+func (s *SourceService) toColumnUpdate(col scanner.ColumnInfo) *store.ColumnUpdate {
+	return &store.ColumnUpdate{
+		DataType:         col.DataType,
+		FullDataType:     col.FullDataType,
+		IsNullable:       col.IsNullable,
+		DefaultValue:     col.DefaultValue,
+		IsPrimaryKey:     col.IsPrimaryKey,
+		IsUnique:         col.IsUnique,
+		OrdinalPosition:  col.OrdinalPosition,
+		Description:      col.Description,
+		ParentColumnPath: col.ParentColumnPath,
+		Confidence:       s.normalizeConfidence(col.Confidence),
+	}
+}
+
+func (s *SourceService) normalizeConfidence(confidence float64) float64 {
+	if confidence <= 0 {
+		return 1.0
+	}
+	return confidence
+}
+
+func stringPtrEqual(a, b *string) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return *a == *b
+}
+
+func int64PtrEqual(a, b *int64) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return *a == *b
+}
+
+func stringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }

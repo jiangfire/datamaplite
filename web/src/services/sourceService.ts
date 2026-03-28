@@ -6,7 +6,6 @@ import type {
   SchemaTree,
   SchemaChange,
   ConnectionTestRequest,
-  ConnectionTestResponse,
   SyncResponse,
 } from '../types';
 
@@ -30,7 +29,7 @@ export const sourceService = {
 
   // Test connection
   testConnection: (id: string, config?: ConnectionTestRequest) =>
-    api.post<ConnectionTestResponse>(`/sources/${id}/test`, config),
+    api.post<void>(`/sources/${id}/test`, config),
 
   // Trigger sync
   triggerSync: (id: string) => api.post<SyncResponse>(`/sources/${id}/sync`),

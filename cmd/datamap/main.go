@@ -12,15 +12,18 @@ import (
 	"git.neolidy.top/neo/fuckcmdb/internal/api"
 	"git.neolidy.top/neo/fuckcmdb/internal/config"
 	"git.neolidy.top/neo/fuckcmdb/internal/crypto"
+	"git.neolidy.top/neo/fuckcmdb/internal/mcpserver"
 	"git.neolidy.top/neo/fuckcmdb/internal/scanner"
 	"git.neolidy.top/neo/fuckcmdb/internal/service"
 	"git.neolidy.top/neo/fuckcmdb/internal/store"
+	responsepkg "git.neolidy.top/neo/fuckcmdb/pkg/response"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
 func initAuthService(cfg config.AuthConfig, store store.Store) *service.AuthService {
 	authCfg := &service.AuthConfig{
+		Enabled:         cfg.Enabled,
 		JWTSecret:       cfg.JWTSecret,
 		AccessTokenTTL:  cfg.AccessTokenTTL,
 		RefreshTokenTTL: cfg.RefreshTokenTTL,
@@ -37,6 +40,9 @@ func main() {
 }
 
 func run() error {
+	appCtx, appCancel := context.WithCancel(context.Background())
+	defer appCancel()
+
 	// 加载配置
 	cfg, err := config.Load()
 	if err != nil {
@@ -95,9 +101,14 @@ func run() error {
 	tagService := service.NewTagService(store)
 	alertService := service.NewAlertService(store, logger)
 	notifService := service.NewNotificationService(store, logger)
+	governanceEventService := service.NewGovernanceEventService(cfg.Governance, logger)
+	governanceEventService.SetStore(store)
+	governanceEventService.StartOutboxDispatcher(appCtx, 0)
 
 	// 解决循环依赖：设置告警服务到数据源服务
 	sourceService.SetAlertService(alertService)
+	sourceService.SetGovernanceEventService(governanceEventService)
+	dqService.SetGovernanceEventService(governanceEventService)
 
 	// 初始化API层
 	sourceHandler := api.NewSourceHandler(sourceService, metadataService)
@@ -109,6 +120,13 @@ func run() error {
 	alertHandler := api.NewAlertHandler(alertService, notifService, logger)
 	notifHandler := api.NewNotificationHandler(notifService, logger)
 	router := api.NewRouter(sourceHandler, schemaHandler, termHandler, authHandler, dqHandler, tagHandler, alertHandler, notifHandler, authService)
+	mcpHandler := mcpserver.New(&mcpserver.Dependencies{
+		SourceService:       sourceService,
+		MetadataService:     metadataService,
+		TermService:         termService,
+		TagService:          tagService,
+		GovernancePublisher: governanceEventService,
+	}).HTTPHandler()
 
 	// 配置Gin
 	if cfg.Log.Level != "debug" {
@@ -122,6 +140,8 @@ func run() error {
 
 	// 注册路由
 	router.Register(engine)
+	engine.Any("/mcp", api.MCPAuthMiddleware(authService), api.GovernanceAuditMiddleware(), gin.WrapH(mcpHandler))
+	engine.Any("/mcp/", api.MCPAuthMiddleware(authService), api.GovernanceAuditMiddleware(), gin.WrapH(mcpHandler))
 
 	// 创建HTTP服务器
 	srv := &http.Server{
@@ -133,7 +153,10 @@ func run() error {
 
 	// 启动服务器（在goroutine中）
 	go func() {
-		logger.Info("HTTP server started", zap.String("addr", srv.Addr))
+		logger.Info("HTTP server started",
+			zap.String("addr", srv.Addr),
+			zap.String("mcp_endpoint", "/mcp"),
+		)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Fatal("failed to start server", zap.Error(err))
 		}
@@ -145,6 +168,7 @@ func run() error {
 	<-quit
 
 	logger.Info("shutting down server...")
+	appCancel()
 
 	// 优雅关闭
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), cfg.Server.ShutdownTimeout)
@@ -216,16 +240,10 @@ func errorHandlingMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()
 
-		if len(c.Errors) > 0 {
+		if len(c.Errors) > 0 && !c.Writer.Written() {
 			// 只处理第一个错误
 			err := c.Errors[0]
-			c.JSON(-1, gin.H{
-				"success": false,
-				"error": gin.H{
-					"code":    "INTERNAL_ERROR",
-					"message": err.Error(),
-				},
-			})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, responsepkg.Error(http.StatusInternalServerError, "INTERNAL_ERROR", err.Error()))
 		}
 	}
 }

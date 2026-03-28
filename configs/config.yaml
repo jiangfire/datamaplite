@@ -43,8 +43,16 @@ scanner:
   max_lineage_depth: 10        # DATAMAP_SCANNER_MAX_LINEAGE_DEPTH
 
 auth:
+  enabled: true                # DATAMAP_AUTH_ENABLED
   jwt_secret: ""               # DATAMAP_AUTH_JWT_SECRET (REQUIRED - must be set via env var)
   access_token_ttl: 15m        # DATAMAP_AUTH_ACCESS_TOKEN_TTL
   refresh_token_ttl: 168h      # DATAMAP_AUTH_REFRESH_TOKEN_TTL (7 days)
   bcrypt_cost: 10              # DATAMAP_AUTH_BCRYPT_COST (4-31)
+
+governance:
+  enabled: false               # DATAMAP_GOVERNANCE_ENABLED
+  endpoint: ""                 # DATAMAP_GOVERNANCE_ENDPOINT
+  integration_token: ""        # DATAMAP_GOVERNANCE_INTEGRATION_TOKEN
+  source_system: "fuckcmdb"    # DATAMAP_GOVERNANCE_SOURCE_SYSTEM
+  timeout: 5s                  # DATAMAP_GOVERNANCE_TIMEOUT
 

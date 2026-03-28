@@ -1,11 +1,19 @@
 import { useState } from 'react';
 import { Plus, BookOpen } from 'lucide-react';
-import { Layout, Button, Card, CardContent, TermCard, TermForm } from '../components';
+import {
+  Layout,
+  Button,
+  Card,
+  CardContent,
+  TermCard,
+  TermForm,
+} from '../components';
 import { useTerms } from '../hooks';
 import type { BusinessTerm, BusinessTermCreate } from '../types';
 
 export const TermsPage: React.FC = () => {
-  const { terms, loading, error, refetch, createTerm, updateTerm, deleteTerm } = useTerms();
+  const { terms, loading, error, refetch, createTerm, updateTerm, deleteTerm } =
+    useTerms();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingTerm, setEditingTerm] = useState<BusinessTerm | null>(null);
 
@@ -84,6 +92,7 @@ export const TermsPage: React.FC = () => {
 
       {/* Create Form Modal */}
       <TermForm
+        key={`create-${showCreateForm ? 'open' : 'closed'}`}
         isOpen={showCreateForm}
         onClose={() => setShowCreateForm(false)}
         onSubmit={handleCreate}
@@ -92,6 +101,7 @@ export const TermsPage: React.FC = () => {
 
       {/* Edit Form Modal */}
       <TermForm
+        key={editingTerm?.id ?? 'edit-empty'}
         isOpen={!!editingTerm}
         onClose={() => setEditingTerm(null)}
         onSubmit={handleEdit}

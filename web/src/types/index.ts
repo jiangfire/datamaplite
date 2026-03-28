@@ -1,7 +1,12 @@
 // DataMap-Lite Frontend Types
 
 // ============ DataSource Types ============
-export type DataSourceType = 'mysql' | 'postgres' | 'mongodb' | 'oracle' | 'mssql';
+export type DataSourceType =
+  | 'mysql'
+  | 'postgres'
+  | 'mongodb'
+  | 'oracle'
+  | 'mssql';
 export type DataSourceStatus = 'active' | 'inactive' | 'error' | 'syncing';
 
 export interface DataSource {
@@ -84,6 +89,7 @@ export interface ColumnDetail extends Column {
   source: SourceSummary;
   term?: TermSummary;
   mapped_columns?: MappedColumn[];
+  tags?: Tag[];
 }
 
 export interface ObjectSummary {
@@ -195,6 +201,12 @@ export interface BusinessTerm {
   name: string;
   description?: string;
   category?: string;
+  standard_code?: string;
+  domain?: string;
+  data_type_standard?: string;
+  validation_rule?: string;
+  owner?: string;
+  status?: string;
   created_at: string;
   updated_at: string;
 }
@@ -203,6 +215,12 @@ export interface BusinessTermCreate {
   name: string;
   description?: string;
   category?: string;
+  standard_code?: string;
+  domain?: string;
+  data_type_standard?: string;
+  validation_rule?: string;
+  owner?: string;
+  status?: string;
 }
 
 export interface AssignTermRequest {
@@ -243,11 +261,6 @@ export interface ConnectionTestRequest {
   password: string;
 }
 
-export interface ConnectionTestResponse {
-  success: boolean;
-  message: string;
-}
-
 // ============ Sync Types ============
 export interface SyncResponse {
   source_id: string;
@@ -257,12 +270,10 @@ export interface SyncResponse {
 
 // ============ API Response Types ============
 export interface ApiResponse<T> {
-  success: boolean;
+  code: number;
+  message?: string;
+  error_code?: string;
   data?: T;
-  error?: {
-    code: string;
-    message: string;
-  };
 }
 
 export interface ListResponse<T> {
@@ -270,8 +281,38 @@ export interface ListResponse<T> {
   items: T[];
 }
 
+// ============ Auth Types ============
+export type UserRole = 'admin' | 'user';
+
+export interface UserInfo {
+  id: string;
+  username: string;
+  email: string;
+  role: UserRole;
+  created_at: string;
+}
+
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+  user: UserInfo;
+}
+
 // ============ Data Quality Types ============
-export type DQRuleType = 'not_null' | 'unique' | 'regex' | 'range' | 'enum' | 'custom_sql' | 'referential';
+export type DQRuleType =
+  | 'not_null'
+  | 'unique'
+  | 'regex'
+  | 'range'
+  | 'enum'
+  | 'custom_sql'
+  | 'referential';
 export type DQSeverity = 'error' | 'warning' | 'info';
 export type DQResultStatus = 'passed' | 'failed' | 'error';
 

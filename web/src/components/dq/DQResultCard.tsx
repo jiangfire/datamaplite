@@ -31,7 +31,10 @@ const statusConfig: Record<
   },
 };
 
-export const DQResultCard: React.FC<DQResultCardProps> = ({ result, ruleName }) => {
+export const DQResultCard: React.FC<DQResultCardProps> = ({
+  result,
+  ruleName,
+}) => {
   const config = statusConfig[result.status];
   const passRatePercent = Math.round(result.pass_rate * 100);
 
@@ -39,11 +42,15 @@ export const DQResultCard: React.FC<DQResultCardProps> = ({ result, ruleName }) 
     <Card className="overflow-hidden">
       <CardContent className="p-0">
         {/* Header */}
-        <div className={`flex items-center gap-3 p-4 border-b ${config.bgColor}`}>
+        <div
+          className={`flex items-center gap-3 p-4 border-b ${config.bgColor}`}
+        >
           <div className={config.color}>{config.icon}</div>
           <div className="flex-1 min-w-0">
             {ruleName && (
-              <h4 className="font-semibold text-slate-900 truncate">{ruleName}</h4>
+              <h4 className="font-semibold text-slate-900 truncate">
+                {ruleName}
+              </h4>
             )}
             <div className="flex items-center gap-2 text-sm">
               <span className={config.color}>{config.label}</span>
@@ -105,7 +112,9 @@ export const DQResultCard: React.FC<DQResultCardProps> = ({ result, ruleName }) 
         {/* Sample Errors */}
         {result.sample_errors && result.sample_errors.length > 0 && (
           <div className="p-4">
-            <div className="text-sm font-medium text-slate-700 mb-2">错误样本</div>
+            <div className="text-sm font-medium text-slate-700 mb-2">
+              错误样本
+            </div>
             <div className="space-y-2 max-h-40 overflow-y-auto">
               {result.sample_errors.map((error, index) => (
                 <div

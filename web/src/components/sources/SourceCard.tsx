@@ -1,5 +1,12 @@
 import { Link } from 'react-router-dom';
-import { Database, MoreVertical, RefreshCw, Trash2, Edit, Check } from 'lucide-react';
+import {
+  Database,
+  MoreVertical,
+  RefreshCw,
+  Trash2,
+  Edit,
+  Check,
+} from 'lucide-react';
 import { Card, CardContent, Badge } from '../ui';
 import type { DataSource, DataSourceType, DataSourceStatus } from '../../types';
 import { useState } from 'react';
@@ -28,7 +35,10 @@ const typeLabels: Record<DataSourceType, string> = {
   mssql: 'SQL Server',
 };
 
-const statusVariants: Record<DataSourceStatus, 'success' | 'warning' | 'error' | 'neutral'> = {
+const statusVariants: Record<
+  DataSourceStatus,
+  'success' | 'warning' | 'error' | 'neutral'
+> = {
   active: 'success',
   inactive: 'neutral',
   error: 'error',
@@ -69,7 +79,9 @@ export const SourceCard: React.FC<SourceCardProps> = ({
           {/* Icon & Info */}
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-100 flex items-center justify-center text-2xl">
-              {typeIcons[source.type] || <Database size={24} className="text-indigo-600" />}
+              {typeIcons[source.type] || (
+                <Database size={24} className="text-indigo-600" />
+              )}
             </div>
             <div>
               <Link
@@ -85,7 +97,9 @@ export const SourceCard: React.FC<SourceCardProps> = ({
                 <Badge variant={statusVariants[source.status]}>
                   {statusLabels[source.status]}
                 </Badge>
-                <span className="text-xs text-slate-400">{source.database}</span>
+                <span className="text-xs text-slate-400">
+                  {source.database}
+                </span>
               </div>
             </div>
           </div>
@@ -109,7 +123,10 @@ export const SourceCard: React.FC<SourceCardProps> = ({
                   disabled={syncing || source.status === 'syncing'}
                   className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 disabled:opacity-50"
                 >
-                  <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} />
+                  <RefreshCw
+                    size={16}
+                    className={syncing ? 'animate-spin' : ''}
+                  />
                   同步元数据
                 </button>
                 <button
@@ -142,7 +159,9 @@ export const SourceCard: React.FC<SourceCardProps> = ({
         <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
           <span>创建于 {new Date(source.created_at).toLocaleDateString()}</span>
           {source.last_sync_at && (
-            <span>上次同步 {new Date(source.last_sync_at).toLocaleString()}</span>
+            <span>
+              上次同步 {new Date(source.last_sync_at).toLocaleString()}
+            </span>
           )}
         </div>
       </CardContent>

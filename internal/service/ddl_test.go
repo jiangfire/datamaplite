@@ -27,10 +27,10 @@ func TestDDLService_GenerateDDL_MySQL(t *testing.T) {
 
 	mockStore.On("GetObjectWithColumns", ctx, objectID).Return(
 		&store.SchemaObjectRow{
-			ID:       objectID,
-			Name:     "users",
-			Type:     "table",
-			Schema:   strPtr("public"),
+			ID:     objectID,
+			Name:   "users",
+			Type:   "table",
+			Schema: strPtr("public"),
 		},
 		[]*store.ColumnRow{
 			{
@@ -82,10 +82,10 @@ func TestDDLService_GenerateDDL_PostgreSQL(t *testing.T) {
 
 	mockStore.On("GetObjectWithColumns", ctx, objectID).Return(
 		&store.SchemaObjectRow{
-			ID:       objectID,
-			Name:     "users",
-			Type:     "table",
-			Schema:   strPtr("public"),
+			ID:     objectID,
+			Name:   "users",
+			Type:   "table",
+			Schema: strPtr("public"),
 		},
 		[]*store.ColumnRow{
 			{

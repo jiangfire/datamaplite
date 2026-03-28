@@ -1,21 +1,6 @@
 package model
 
-import (
-	"time"
-)
-
-// BaseResponse 基础响应
-type BaseResponse struct {
-	Success bool        `json:"success"`
-	Data    interface{} `json:"data,omitempty"`
-	Error   *ErrorInfo  `json:"error,omitempty"`
-}
-
-// ErrorInfo 错误信息
-type ErrorInfo struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-}
+import "time"
 
 // ListResponse 列表响应
 type ListResponse struct {
@@ -87,12 +72,6 @@ type ConnectionTestRequest struct {
 	Database string         `json:"database" validate:"required,max=255"`
 	Username string         `json:"username" validate:"required,max=100"`
 	Password string         `json:"password" validate:"required,max=255"`
-}
-
-// ConnectionTestResponse 连接测试结果
-type ConnectionTestResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
 }
 
 // SyncResponse 同步响应
@@ -203,19 +182,31 @@ type ColumnSearchResult struct {
 
 // BusinessTermRequest 业务术语请求
 type BusinessTermRequest struct {
-	Name        string `json:"name" validate:"required,max=100"`
-	Description string `json:"description,omitempty"`
-	Category    string `json:"category,omitempty"`
+	Name             string `json:"name" validate:"required,max=100"`
+	Description      string `json:"description,omitempty"`
+	Category         string `json:"category,omitempty"`
+	StandardCode     string `json:"standard_code,omitempty"`
+	Domain           string `json:"domain,omitempty"`
+	DataTypeStandard string `json:"data_type_standard,omitempty"`
+	ValidationRule   string `json:"validation_rule,omitempty"`
+	Owner            string `json:"owner,omitempty"`
+	Status           string `json:"status,omitempty"`
 }
 
 // BusinessTermResponse 业务术语响应
 type BusinessTermResponse struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-	Category    string `json:"category,omitempty"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
+	ID               string `json:"id"`
+	Name             string `json:"name"`
+	Description      string `json:"description,omitempty"`
+	Category         string `json:"category,omitempty"`
+	StandardCode     string `json:"standard_code,omitempty"`
+	Domain           string `json:"domain,omitempty"`
+	DataTypeStandard string `json:"data_type_standard,omitempty"`
+	ValidationRule   string `json:"validation_rule,omitempty"`
+	Owner            string `json:"owner,omitempty"`
+	Status           string `json:"status,omitempty"`
+	CreatedAt        string `json:"created_at"`
+	UpdatedAt        string `json:"updated_at"`
 }
 
 // AssignTermRequest 分配术语请求

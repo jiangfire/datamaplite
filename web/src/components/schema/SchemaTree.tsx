@@ -35,7 +35,9 @@ const ColumnItem: React.FC<{ column: Column }> = ({ column }) => {
       >
         {column.name}
       </Link>
-      <span className="text-xs text-slate-400 font-mono">{column.data_type}</span>
+      <span className="text-xs text-slate-400 font-mono">
+        {column.data_type}
+      </span>
       {!column.is_nullable && (
         <span className="text-xs text-slate-300">NOT NULL</span>
       )}
@@ -43,7 +45,11 @@ const ColumnItem: React.FC<{ column: Column }> = ({ column }) => {
   );
 };
 
-const ObjectNode: React.FC<ObjectNodeProps> = ({ object, expanded, onToggle }) => {
+const ObjectNode: React.FC<ObjectNodeProps> = ({
+  object,
+  expanded,
+  onToggle,
+}) => {
   return (
     <div className="border-b border-slate-100 last:border-0">
       <button
@@ -77,7 +83,9 @@ const ObjectNode: React.FC<ObjectNodeProps> = ({ object, expanded, onToggle }) =
 };
 
 export const SchemaTree: React.FC<SchemaTreeProps> = ({ objects }) => {
-  const [expandedObjects, setExpandedObjects] = useState<Set<string>>(new Set());
+  const [expandedObjects, setExpandedObjects] = useState<Set<string>>(
+    new Set(),
+  );
 
   const toggleObject = (id: string) => {
     setExpandedObjects((prev) => {

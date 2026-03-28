@@ -55,10 +55,19 @@ These must be set in production environments:
 
 ## Authentication
 
+- `DATAMAP_AUTH_ENABLED` - Enable JWT authentication (`true` or `false`, default: `false`)
 - `DATAMAP_AUTH_JWT_SECRET` - JWT signing secret (REQUIRED, no default)
 - `DATAMAP_AUTH_ACCESS_TOKEN_TTL` - Access token TTL (default: `15m`)
 - `DATAMAP_AUTH_REFRESH_TOKEN_TTL` - Refresh token TTL (default: `7d`)
 - `DATAMAP_AUTH_BCRYPT_COST` - Bcrypt cost factor (default: `10`, range: 4-31)
+
+## Governance Integration
+
+- `DATAMAP_GOVERNANCE_ENABLED` - Enable pushing governance events to `cornerstone` (`true` or `false`, default: `false`)
+- `DATAMAP_GOVERNANCE_ENDPOINT` - `cornerstone` inbound events endpoint, for example `http://localhost:8081/api/integrations/events`
+- `DATAMAP_GOVERNANCE_INTEGRATION_TOKEN` - Integration token used to call `cornerstone`
+- `DATAMAP_GOVERNANCE_SOURCE_SYSTEM` - Source system header value (default: `fuckcmdb`)
+- `DATAMAP_GOVERNANCE_TIMEOUT` - HTTP timeout for governance event delivery (default: `5s`)
 
 ## Examples
 
@@ -93,9 +102,9 @@ Create a `.env` file:
 
 ```env
 # Database
-POSTGRES_USER=datamap
-POSTGRES_PASSWORD=secure_password
-POSTGRES_DB=datamap
+DB_USER=datamap
+DB_PASSWORD=secure_password
+DB_NAME=datamap
 
 # Security
 JWT_SECRET=your-jwt-secret-here

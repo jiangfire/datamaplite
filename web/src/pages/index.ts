@@ -3,6 +3,7 @@ export { SourceDetailPage } from './SourceDetailPage';
 export { SearchPage } from './SearchPage';
 export { ColumnDetailPage } from './ColumnDetailPage';
 export { TermsPage } from './TermsPage';
+export { TermDetailPage } from './TermDetailPage';
 export { LineagePage } from './LineagePage';
 export { DQRulesPage } from './DQRulesPage';
 export { DQResultsPage } from './DQResultsPage';

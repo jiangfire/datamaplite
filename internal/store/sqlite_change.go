@@ -3,20 +3,27 @@ package store
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 )
 
 // CreateSchemaChange 创建变更记录
 func (s *SQLiteStore) CreateSchemaChange(ctx context.Context, change *SchemaChangeCreate) error {
+	if change.ID == "" {
+		change.ID = uuid.New().String()
+	}
+	if change.DetectedAt == "" {
+		change.DetectedAt = time.Now().UTC().Format(time.RFC3339Nano)
+	}
+
 	query := `
-		INSERT INTO schema_changes (id, source_id, object_id, change_type, object_type, object_name, old_value, new_value)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO schema_changes (id, source_id, object_id, change_type, object_type, object_name, old_value, new_value, detected_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	id := uuid.New().String()
 	_, err := s.db.ExecContext(ctx, query,
-		id, change.SourceID, change.ObjectID, change.ChangeType,
-		change.ObjectType, change.ObjectName, change.OldValue, change.NewValue,
+		change.ID, change.SourceID, change.ObjectID, change.ChangeType,
+		change.ObjectType, change.ObjectName, change.OldValue, change.NewValue, change.DetectedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create schema change: %w", err)
@@ -63,14 +70,20 @@ func (s *SQLiteStore) ListSchemaChangesBySource(ctx context.Context, sourceID st
 // Transaction implementations for SQLiteTxStore
 
 func (t *SQLiteTxStore) CreateSchemaChange(ctx context.Context, change *SchemaChangeCreate) error {
+	if change.ID == "" {
+		change.ID = uuid.New().String()
+	}
+	if change.DetectedAt == "" {
+		change.DetectedAt = time.Now().UTC().Format(time.RFC3339Nano)
+	}
+
 	query := `
-		INSERT INTO schema_changes (id, source_id, object_id, change_type, object_type, object_name, old_value, new_value)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO schema_changes (id, source_id, object_id, change_type, object_type, object_name, old_value, new_value, detected_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	id := uuid.New().String()
 	_, err := t.tx.ExecContext(ctx, query,
-		id, change.SourceID, change.ObjectID, change.ChangeType,
-		change.ObjectType, change.ObjectName, change.OldValue, change.NewValue,
+		change.ID, change.SourceID, change.ObjectID, change.ChangeType,
+		change.ObjectType, change.ObjectName, change.OldValue, change.NewValue, change.DetectedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create schema change: %w", err)

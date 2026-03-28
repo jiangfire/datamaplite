@@ -3,17 +3,20 @@ package store
 import (
 	"context"
 	"database/sql"
-	"strconv"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 // CreateAlertRule 创建告警规则
 func (s *SQLiteStore) CreateAlertRule(ctx context.Context, rule *AlertRuleCreate) (string, error) {
 	query := `
-		INSERT INTO alert_rules (source_id, object_id, name, description, change_types, notify_webhook, webhook_url, notify_in_app, is_active)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		INSERT INTO alert_rules (id, source_id, object_id, name, description, change_types, notify_webhook, webhook_url, notify_in_app, is_active)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
-	result, err := s.db.ExecContext(ctx, query,
+	id := uuid.New().String()
+	_, err := s.db.ExecContext(ctx, query,
+		id,
 		rule.SourceID,
 		rule.ObjectID,
 		rule.Name,
@@ -28,12 +31,7 @@ func (s *SQLiteStore) CreateAlertRule(ctx context.Context, rule *AlertRuleCreate
 		return "", err
 	}
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		return "", err
-	}
-
-	return strconv.FormatInt(id, 10), nil
+	return id, nil
 }
 
 // GetAlertRule 获取告警规则
@@ -127,12 +125,15 @@ func (s *SQLiteStore) ListMatchingAlertRules(ctx context.Context, sourceID strin
 		SELECT ar.id, ar.source_id, ar.object_id, ar.name, ar.description, ar.change_types,
 		       ar.notify_webhook, ar.webhook_url, ar.notify_in_app, ar.is_active, ar.created_at, ar.updated_at,
 		       ds.name as source_name, so.name as object_name
-		FROM alert_rules ar
-		LEFT JOIN data_sources ds ON ar.source_id = ds.id
-		LEFT JOIN schema_objects so ON ar.object_id = so.id
-		WHERE ar.is_active = 1
-		  AND (ar.source_id = ? OR ar.source_id IS NULL)
-		  AND (ar.change_types = 'all' OR INSTR(ar.change_types, ?) > 0)`
+	FROM alert_rules ar
+	LEFT JOIN data_sources ds ON ar.source_id = ds.id
+	LEFT JOIN schema_objects so ON ar.object_id = so.id
+	WHERE ar.is_active = 1
+	  AND (ar.source_id = ? OR ar.source_id IS NULL)
+	  AND (
+	      ar.change_types = 'all'
+	      OR INSTR(',' || REPLACE(ar.change_types, ' ', '') || ',', ',' || REPLACE(?, ' ', '') || ',') > 0
+	  )`
 
 	cleanChangeType := strings.TrimSpace(changeType)
 
@@ -233,10 +234,12 @@ func (s *SQLiteStore) DeleteAlertRule(ctx context.Context, id string) error {
 // CreateNotification 创建通知
 func (s *SQLiteStore) CreateNotification(ctx context.Context, notification *NotificationCreate) (string, error) {
 	query := `
-		INSERT INTO notifications (rule_id, change_id, source_id, title, message, change_type, object_type, object_name, old_value, new_value)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		INSERT INTO notifications (id, rule_id, change_id, source_id, title, message, change_type, object_type, object_name, old_value, new_value)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
-	result, err := s.db.ExecContext(ctx, query,
+	notificationID := uuid.New().String()
+	_, err := s.db.ExecContext(ctx, query,
+		notificationID,
 		notification.RuleID,
 		notification.ChangeID,
 		notification.SourceID,
@@ -252,32 +255,40 @@ func (s *SQLiteStore) CreateNotification(ctx context.Context, notification *Noti
 		return "", err
 	}
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		return "", err
-	}
+	if notification.NotifyInApp {
+		// 为所有用户创建未读记录
+		userQuery := `SELECT id FROM users`
+		rows, err := s.db.QueryContext(ctx, userQuery)
+		if err != nil {
+			return notificationID, err
+		}
+		userIDs := make([]string, 0)
 
-	notificationID := strconv.FormatInt(id, 10)
-
-	// 为所有用户创建未读记录
-	userQuery := `SELECT id FROM users`
-	rows, err := s.db.QueryContext(ctx, userQuery)
-	if err != nil {
-		return notificationID, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var userID string
-		if err := rows.Scan(&userID); err != nil {
-			continue
+		for rows.Next() {
+			var userID string
+			if err := rows.Scan(&userID); err != nil {
+				_ = rows.Close()
+				return notificationID, err
+			}
+			userIDs = append(userIDs, userID)
+		}
+		if err := rows.Err(); err != nil {
+			_ = rows.Close()
+			return notificationID, err
+		}
+		if err := rows.Close(); err != nil {
+			return notificationID, err
 		}
 
-		userNotifQuery := `
-			INSERT INTO user_notifications (user_id, notification_id, is_read)
-			VALUES (?, ?, 0)
-			ON CONFLICT (user_id, notification_id) DO NOTHING`
-		s.db.ExecContext(ctx, userNotifQuery, userID, notificationID)
+		for _, userID := range userIDs {
+			userNotifQuery := `
+				INSERT INTO user_notifications (id, user_id, notification_id, is_read)
+				VALUES (?, ?, ?, 0)
+				ON CONFLICT (user_id, notification_id) DO NOTHING`
+			if _, err := s.db.ExecContext(ctx, userNotifQuery, uuid.New().String(), userID, notificationID); err != nil {
+				return notificationID, err
+			}
+		}
 	}
 
 	return notificationID, nil
@@ -305,6 +316,43 @@ func (s *SQLiteStore) GetNotification(ctx context.Context, id string) (*Notifica
 		&n.OldValue, &n.NewValue, &n.WebhookSent, &n.WebhookError, &n.CreatedAt,
 	)
 	if err != nil {
+		return nil, err
+	}
+
+	if ruleName.Valid {
+		ruleNameVal := ruleName.String
+		n.RuleName = &ruleNameVal
+	}
+
+	return n, nil
+}
+
+// GetNotificationByRuleAndChange 根据规则和变更获取通知。
+func (s *SQLiteStore) GetNotificationByRuleAndChange(ctx context.Context, ruleID string, changeID string) (*NotificationRow, error) {
+	query := `
+		SELECT n.id, n.rule_id, r.name as rule_name, n.change_id, n.source_id, ds.name as source_name,
+		       n.title, n.message, n.change_type, n.object_type, n.object_name,
+		       n.old_value, n.new_value, n.webhook_sent, n.webhook_error, n.created_at
+		FROM notifications n
+		LEFT JOIN alert_rules r ON n.rule_id = r.id
+		JOIN data_sources ds ON n.source_id = ds.id
+		WHERE n.rule_id = ? AND n.change_id = ?
+		LIMIT 1`
+
+	row := s.db.QueryRowContext(ctx, query, ruleID, changeID)
+
+	n := &NotificationRow{}
+	var ruleName sql.NullString
+
+	err := row.Scan(
+		&n.ID, &n.RuleID, &ruleName, &n.ChangeID, &n.SourceID, &n.SourceName,
+		&n.Title, &n.Message, &n.ChangeType, &n.ObjectType, &n.ObjectName,
+		&n.OldValue, &n.NewValue, &n.WebhookSent, &n.WebhookError, &n.CreatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
 		return nil, err
 	}
 

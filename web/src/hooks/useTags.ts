@@ -25,31 +25,19 @@ export const useTags = () => {
   }, [fetchTags]);
 
   const createTag = async (data: TagCreate) => {
-    try {
-      const newTag = await tagService.createTag(data);
-      setTags((prev) => [...prev, newTag]);
-      return newTag;
-    } catch (err) {
-      throw err;
-    }
+    const newTag = await tagService.createTag(data);
+    setTags((prev) => [...prev, newTag]);
+    return newTag;
   };
 
   const updateTag = async (id: string, data: TagCreate) => {
-    try {
-      await tagService.updateTag(id, data);
-      await fetchTags();
-    } catch (err) {
-      throw err;
-    }
+    await tagService.updateTag(id, data);
+    await fetchTags();
   };
 
   const deleteTag = async (id: string) => {
-    try {
-      await tagService.deleteTag(id);
-      setTags((prev) => prev.filter((t) => t.id !== id));
-    } catch (err) {
-      throw err;
-    }
+    await tagService.deleteTag(id);
+    setTags((prev) => prev.filter((t) => t.id !== id));
   };
 
   return {
@@ -66,16 +54,19 @@ export const useTags = () => {
 export const useColumnTags = (columnId: string | null) => {
   const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchColumnTags = useCallback(async () => {
     if (!columnId) return;
     setLoading(true);
+    setError(null);
     try {
-      // 通过columnService获取字段详情，其中包含标签
-      // 这里简化处理，实际应该调用专门的API
-      setTags([]);
+      const data = await tagService.getColumnTags(columnId);
+      setTags(data);
     } catch (err) {
-      console.error('Failed to fetch column tags:', err);
+      setError(
+        err instanceof Error ? err.message : 'Failed to fetch column tags',
+      );
     } finally {
       setLoading(false);
     }
@@ -88,12 +79,14 @@ export const useColumnTags = (columnId: string | null) => {
   const addTag = async (tagId: string) => {
     if (!columnId) return;
     await tagService.addTagToColumn(columnId, tagId);
+    await fetchColumnTags();
   };
 
   const removeTag = async (tagId: string) => {
     if (!columnId) return;
     await tagService.removeTagFromColumn(columnId, tagId);
+    await fetchColumnTags();
   };
 
-  return { tags, loading, addTag, removeTag, refetch: fetchColumnTags };
+  return { tags, loading, error, addTag, removeTag, refetch: fetchColumnTags };
 };

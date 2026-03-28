@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"git.neolidy.top/neo/fuckcmdb/internal/config"
 	"github.com/google/uuid"
@@ -217,11 +218,16 @@ func (s *SQLiteStore) WithTx(ctx context.Context, fn func(Store) error) error {
 func runSQLiteMigrations(ctx context.Context, db *sql.DB) error {
 	// 优先读取 SQLite 专用迁移文件
 	if migrationSQL, err := os.ReadFile("migrations/001_init_schema_sqlite.sql"); err == nil {
-		_, execErr := db.ExecContext(ctx, string(migrationSQL))
-		return execErr
+		if _, execErr := db.ExecContext(ctx, string(migrationSQL)); execErr != nil {
+			return execErr
+		}
+		return runSQLitePostMigrations(ctx, db)
 	}
 
-	return runSQLiteBuiltinMigrations(ctx, db)
+	if err := runSQLiteBuiltinMigrations(ctx, db); err != nil {
+		return err
+	}
+	return runSQLitePostMigrations(ctx, db)
 }
 
 // runSQLiteBuiltinMigrations 运行内置迁移（SQLite适配版）
@@ -255,6 +261,12 @@ CREATE TABLE IF NOT EXISTS business_terms (
     name TEXT NOT NULL UNIQUE,
     description TEXT,
     category TEXT,
+    standard_code TEXT UNIQUE,
+    domain TEXT,
+    data_type_standard TEXT,
+    validation_rule TEXT,
+    owner TEXT,
+    status TEXT DEFAULT 'active',
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
 );
@@ -479,6 +491,7 @@ CREATE INDEX IF NOT EXISTS idx_notifications_rule ON notifications(rule_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_change ON notifications(change_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_source ON notifications(source_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_rule_change ON notifications(rule_id, change_id) WHERE rule_id IS NOT NULL;
 
 -- 15. 用户通知状态表
 CREATE TABLE IF NOT EXISTS user_notifications (
@@ -494,9 +507,148 @@ CREATE TABLE IF NOT EXISTS user_notifications (
 CREATE INDEX IF NOT EXISTS idx_user_notifications_user ON user_notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_notifications_notification ON user_notifications(notification_id);
 CREATE INDEX IF NOT EXISTS idx_user_notifications_unread ON user_notifications(user_id, is_read);
+
+-- 16. 同步租约表
+CREATE TABLE IF NOT EXISTS sync_leases (
+    source_id TEXT PRIMARY KEY REFERENCES data_sources(id) ON DELETE CASCADE,
+    owner_id TEXT NOT NULL,
+    lease_until TEXT NOT NULL,
+    updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_sync_leases_owner ON sync_leases(owner_id);
+CREATE INDEX IF NOT EXISTS idx_sync_leases_until ON sync_leases(lease_until);
+
+-- 17. 治理事件 outbox
+CREATE TABLE IF NOT EXISTS governance_outbox (
+    id TEXT PRIMARY KEY,
+    event_id TEXT NOT NULL UNIQUE,
+    event_type TEXT NOT NULL,
+    trace_id TEXT,
+    resource_type TEXT,
+    resource_id TEXT,
+    payload TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    next_attempt_at TEXT NOT NULL,
+    lease_owner TEXT,
+    lease_until TEXT,
+    last_error TEXT,
+    delivered_at TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_governance_outbox_status_next_attempt ON governance_outbox(status, next_attempt_at);
+CREATE INDEX IF NOT EXISTS idx_governance_outbox_event_id ON governance_outbox(event_id);
 `
 	_, err := db.ExecContext(ctx, schema)
 	return err
+}
+
+func runSQLitePostMigrations(ctx context.Context, db *sql.DB) error {
+	dedupeStatements := []string{
+		`DELETE FROM user_notifications
+		WHERE notification_id IN (
+			SELECT n.id
+			FROM notifications n
+			JOIN notifications keep
+			  ON keep.rule_id = n.rule_id
+			 AND keep.change_id = n.change_id
+			 AND n.rule_id IS NOT NULL
+			 AND (
+			 	keep.created_at < n.created_at OR
+			 	(keep.created_at = n.created_at AND keep.id < n.id)
+			 )
+		)`,
+		`DELETE FROM notifications
+		WHERE id IN (
+			SELECT n.id
+			FROM notifications n
+			JOIN notifications keep
+			  ON keep.rule_id = n.rule_id
+			 AND keep.change_id = n.change_id
+			 AND n.rule_id IS NOT NULL
+			 AND (
+			 	keep.created_at < n.created_at OR
+			 	(keep.created_at = n.created_at AND keep.id < n.id)
+			 )
+		)`,
+	}
+
+	for _, stmt := range dedupeStatements {
+		if _, err := db.ExecContext(ctx, stmt); err != nil {
+			return err
+		}
+	}
+
+	migrations := []string{
+		`ALTER TABLE business_terms ADD COLUMN standard_code TEXT`,
+		`ALTER TABLE business_terms ADD COLUMN domain TEXT`,
+		`ALTER TABLE business_terms ADD COLUMN data_type_standard TEXT`,
+		`ALTER TABLE business_terms ADD COLUMN validation_rule TEXT`,
+		`ALTER TABLE business_terms ADD COLUMN owner TEXT`,
+		`ALTER TABLE business_terms ADD COLUMN status TEXT DEFAULT 'active'`,
+	}
+
+	for _, migration := range migrations {
+		if _, err := db.ExecContext(ctx, migration); err != nil && !strings.Contains(err.Error(), "duplicate column name") {
+			return err
+		}
+	}
+
+	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS idx_business_terms_standard_code ON business_terms(standard_code)`); err != nil {
+		return err
+	}
+	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_rule_change ON notifications(rule_id, change_id) WHERE rule_id IS NOT NULL`); err != nil {
+		return err
+	}
+	if _, err := db.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS sync_leases (
+			source_id TEXT PRIMARY KEY REFERENCES data_sources(id) ON DELETE CASCADE,
+			owner_id TEXT NOT NULL,
+			lease_until TEXT NOT NULL,
+			updated_at TEXT DEFAULT (datetime('now'))
+		)
+	`); err != nil {
+		return err
+	}
+	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_sync_leases_owner ON sync_leases(owner_id)`); err != nil {
+		return err
+	}
+	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_sync_leases_until ON sync_leases(lease_until)`); err != nil {
+		return err
+	}
+	if _, err := db.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS governance_outbox (
+			id TEXT PRIMARY KEY,
+			event_id TEXT NOT NULL UNIQUE,
+			event_type TEXT NOT NULL,
+			trace_id TEXT,
+			resource_type TEXT,
+			resource_id TEXT,
+			payload TEXT NOT NULL,
+			status TEXT NOT NULL DEFAULT 'pending',
+			attempt_count INTEGER NOT NULL DEFAULT 0,
+			next_attempt_at TEXT NOT NULL,
+			lease_owner TEXT,
+			lease_until TEXT,
+			last_error TEXT,
+			delivered_at TEXT,
+			created_at TEXT DEFAULT (datetime('now')),
+			updated_at TEXT DEFAULT (datetime('now'))
+		)
+	`); err != nil {
+		return err
+	}
+	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_governance_outbox_status_next_attempt ON governance_outbox(status, next_attempt_at)`); err != nil {
+		return err
+	}
+	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_governance_outbox_event_id ON governance_outbox(event_id)`); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // SQLiteTxStore SQLite事务存储
@@ -872,7 +1024,7 @@ func (s *SQLiteStore) GetLatestDQResult(ctx context.Context, ruleID string) (*DQ
 		&result.SampleErrors, &result.ErrorMessage, &result.CheckedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("no dq result found for rule: %s", ruleID)
+			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get latest dq result: %w", err)
 	}
@@ -887,7 +1039,7 @@ func (s *SQLiteStore) GetDQStats(ctx context.Context) (*DQStatsRow, error) {
 			(SELECT COUNT(*) FROM dq_rules WHERE is_active = 1) as active_rules,
 			(SELECT COUNT(*) FROM dq_results) as total_checks,
 			(SELECT COUNT(*) FROM dq_results WHERE status = 'passed') as passed_checks,
-			(SELECT COUNT(*) FROM dq_results WHERE status = 'failed') as failed_checks
+			(SELECT COUNT(*) FROM dq_results WHERE status IN ('failed', 'error')) as failed_checks
 	`
 	row := s.db.QueryRowContext(ctx, query)
 	var stats DQStatsRow
@@ -1132,7 +1284,7 @@ func (t *SQLiteTxStore) GetLatestDQResult(ctx context.Context, ruleID string) (*
 		&result.SampleErrors, &result.ErrorMessage, &result.CheckedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("no dq result found for rule: %s", ruleID)
+			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get latest dq result: %w", err)
 	}
@@ -1147,7 +1299,7 @@ func (t *SQLiteTxStore) GetDQStats(ctx context.Context) (*DQStatsRow, error) {
 			(SELECT COUNT(*) FROM dq_rules WHERE is_active = 1) as active_rules,
 			(SELECT COUNT(*) FROM dq_results) as total_checks,
 			(SELECT COUNT(*) FROM dq_results WHERE status = 'passed') as passed_checks,
-			(SELECT COUNT(*) FROM dq_results WHERE status = 'failed') as failed_checks
+			(SELECT COUNT(*) FROM dq_results WHERE status IN ('failed', 'error')) as failed_checks
 	`
 	row := t.tx.QueryRowContext(ctx, query)
 	var stats DQStatsRow

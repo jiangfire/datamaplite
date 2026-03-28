@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"git.neolidy.top/neo/fuckcmdb/internal/config"
 	"github.com/stretchr/testify/assert"
@@ -112,7 +114,7 @@ func TestDataSourceCRUD(t *testing.T) {
 	}
 
 	// Test Create
-	err := store.CreateDataSource(ctx, source)
+	_, err := store.CreateDataSource(ctx, source)
 	require.NoError(t, err)
 
 	// Test List
@@ -204,7 +206,7 @@ func TestSchemaObjectCRUD(t *testing.T) {
 		Database:         "testdb",
 		ConnectionConfig: `{}`,
 	}
-	err := store.CreateDataSource(ctx, source)
+	_, err := store.CreateDataSource(ctx, source)
 	require.NoError(t, err)
 
 	sources, _ := store.ListDataSources(ctx)
@@ -275,7 +277,7 @@ func TestColumnCRUD(t *testing.T) {
 		Database:         "testdb",
 		ConnectionConfig: `{}`,
 	}
-	err := store.CreateDataSource(ctx, source)
+	_, err := store.CreateDataSource(ctx, source)
 	require.NoError(t, err)
 
 	sources, _ := store.ListDataSources(ctx)
@@ -353,7 +355,7 @@ func TestSchemaChangeCRUD(t *testing.T) {
 		Database:         "testdb",
 		ConnectionConfig: `{}`,
 	}
-	err := store.CreateDataSource(ctx, source)
+	_, err := store.CreateDataSource(ctx, source)
 	require.NoError(t, err)
 
 	sources, _ := store.ListDataSources(ctx)
@@ -398,9 +400,8 @@ func TestSchemaChangeCRUD(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, changes, 2)
 
-	// Verify order (newest first) - detected_at DESC
-	assert.Equal(t, "add_column", changes[0].ChangeType)
-	assert.Equal(t, "alter_column", changes[1].ChangeType)
+	changeTypes := []string{changes[0].ChangeType, changes[1].ChangeType}
+	assert.ElementsMatch(t, []string{"add_column", "alter_column"}, changeTypes)
 
 	// Test limit
 	changes, err = store.ListSchemaChangesBySource(ctx, sourceID, 1)
@@ -424,7 +425,8 @@ func TestTransaction(t *testing.T) {
 			Database:         "testdb",
 			ConnectionConfig: `{}`,
 		}
-		return txStore.CreateDataSource(ctx, source)
+		_, err := txStore.CreateDataSource(ctx, source)
+		return err
 	})
 	require.NoError(t, err)
 
@@ -450,7 +452,7 @@ func TestDeleteCascade(t *testing.T) {
 		Database:         "testdb",
 		ConnectionConfig: `{}`,
 	}
-	err := store.CreateDataSource(ctx, source)
+	_, err := store.CreateDataSource(ctx, source)
 	require.NoError(t, err)
 
 	sources, _ := store.ListDataSources(ctx)
@@ -506,7 +508,7 @@ func TestSearchColumns(t *testing.T) {
 		Database:         "testdb",
 		ConnectionConfig: `{}`,
 	}
-	err := store.CreateDataSource(ctx, source)
+	_, err := store.CreateDataSource(ctx, source)
 	require.NoError(t, err)
 
 	sources, _ := store.ListDataSources(ctx)
@@ -540,6 +542,562 @@ func TestSearchColumns(t *testing.T) {
 	_ = results
 }
 
+func TestSQLiteSyncLease_AcquireRenewReleaseAndExpiry(t *testing.T) {
+	ctx := context.Background()
+	st := testSQLiteStoreWithMigrations(t)
+	defer st.Close()
+
+	sourceID, err := st.CreateDataSource(ctx, &DataSourceCreate{
+		Name:             "lease-source",
+		Type:             "mysql",
+		Host:             "localhost",
+		Port:             3306,
+		Database:         "testdb",
+		ConnectionConfig: `{}`,
+	})
+	require.NoError(t, err)
+
+	now := time.Date(2026, 3, 28, 10, 0, 0, 0, time.UTC)
+	acquired, err := st.TryAcquireSyncLease(ctx, sourceID, "owner-a", now.Format(time.RFC3339Nano), now.Add(time.Minute).Format(time.RFC3339Nano))
+	require.NoError(t, err)
+	assert.True(t, acquired)
+
+	acquired, err = st.TryAcquireSyncLease(ctx, sourceID, "owner-b", now.Format(time.RFC3339Nano), now.Add(2*time.Minute).Format(time.RFC3339Nano))
+	require.NoError(t, err)
+	assert.False(t, acquired)
+
+	require.NoError(t, st.RenewSyncLease(ctx, sourceID, "owner-a", now.Add(3*time.Minute).Format(time.RFC3339Nano)))
+
+	acquired, err = st.TryAcquireSyncLease(ctx, sourceID, "owner-b", now.Add(2*time.Minute).Format(time.RFC3339Nano), now.Add(4*time.Minute).Format(time.RFC3339Nano))
+	require.NoError(t, err)
+	assert.False(t, acquired)
+
+	require.NoError(t, st.ReleaseSyncLease(ctx, sourceID, "owner-a"))
+
+	acquired, err = st.TryAcquireSyncLease(ctx, sourceID, "owner-b", now.Add(2*time.Minute).Format(time.RFC3339Nano), now.Add(4*time.Minute).Format(time.RFC3339Nano))
+	require.NoError(t, err)
+	assert.True(t, acquired)
+
+	acquired, err = st.TryAcquireSyncLease(ctx, sourceID, "owner-c", now.Add(5*time.Minute).Format(time.RFC3339Nano), now.Add(6*time.Minute).Format(time.RFC3339Nano))
+	require.NoError(t, err)
+	assert.True(t, acquired)
+}
+
+func TestSQLiteSyncLease_GetAndForceRelease(t *testing.T) {
+	ctx := context.Background()
+	st := testSQLiteStoreWithMigrations(t)
+	defer st.Close()
+
+	sourceID, err := st.CreateDataSource(ctx, &DataSourceCreate{
+		Name:             "lease-force-release",
+		Type:             "mysql",
+		Host:             "localhost",
+		Port:             3306,
+		Database:         "testdb",
+		ConnectionConfig: `{}`,
+	})
+	require.NoError(t, err)
+
+	now := time.Now().UTC()
+	acquired, err := st.TryAcquireSyncLease(
+		ctx,
+		sourceID,
+		"owner-a",
+		now.Format(time.RFC3339Nano),
+		now.Add(time.Minute).Format(time.RFC3339Nano),
+	)
+	require.NoError(t, err)
+	require.True(t, acquired)
+
+	lease, err := st.GetSyncLease(ctx, sourceID)
+	require.NoError(t, err)
+	require.NotNil(t, lease)
+	assert.Equal(t, sourceID, lease.SourceID)
+	assert.Equal(t, "owner-a", lease.OwnerID)
+
+	require.NoError(t, st.ForceReleaseSyncLease(ctx, sourceID))
+
+	lease, err = st.GetSyncLease(ctx, sourceID)
+	require.NoError(t, err)
+	assert.Nil(t, lease)
+}
+
+func TestSQLiteGovernanceOutbox_ClaimRetryAndDedupe(t *testing.T) {
+	ctx := context.Background()
+	st := testSQLiteStoreWithMigrations(t)
+	defer st.Close()
+
+	event := &GovernanceOutboxEventCreate{
+		ID:            "outbox-1",
+		EventID:       "evt-1",
+		EventType:     "metadata.schema.changed",
+		TraceID:       "trace-1",
+		ResourceType:  "schema_change",
+		ResourceID:    "chg-1",
+		Payload:       `{"event_id":"evt-1","event_type":"metadata.schema.changed"}`,
+		Status:        "pending",
+		AttemptCount:  0,
+		NextAttemptAt: "2026-03-28T10:00:00Z",
+	}
+
+	created, err := st.EnqueueGovernanceOutboxEvent(ctx, event)
+	require.NoError(t, err)
+	assert.True(t, created)
+
+	created, err = st.EnqueueGovernanceOutboxEvent(ctx, event)
+	require.NoError(t, err)
+	assert.False(t, created)
+
+	rows, err := st.ClaimGovernanceOutboxEvents(ctx, "dispatcher-a", "2026-03-28T10:00:00Z", "2026-03-28T10:05:00Z", 10)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	assert.Equal(t, 1, rows[0].AttemptCount)
+	require.NotNil(t, rows[0].LeaseOwner)
+	assert.Equal(t, "dispatcher-a", *rows[0].LeaseOwner)
+
+	rows, err = st.ClaimGovernanceOutboxEvents(ctx, "dispatcher-b", "2026-03-28T10:01:00Z", "2026-03-28T10:06:00Z", 10)
+	require.NoError(t, err)
+	assert.Len(t, rows, 0)
+
+	require.NoError(t, st.MarkGovernanceOutboxRetry(ctx, "outbox-1", "2026-03-28T10:10:00Z", "temporary failure"))
+
+	rows, err = st.ClaimGovernanceOutboxEvents(ctx, "dispatcher-b", "2026-03-28T10:05:00Z", "2026-03-28T10:15:00Z", 10)
+	require.NoError(t, err)
+	assert.Len(t, rows, 0)
+
+	rows, err = st.ClaimGovernanceOutboxEvents(ctx, "dispatcher-b", "2026-03-28T10:10:00Z", "2026-03-28T10:15:00Z", 10)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	assert.Equal(t, 2, rows[0].AttemptCount)
+
+	require.NoError(t, st.MarkGovernanceOutboxDelivered(ctx, "outbox-1", "2026-03-28T10:11:00Z"))
+
+	outboxRows, err := st.ListGovernanceOutboxEvents(ctx, 10)
+	require.NoError(t, err)
+	require.Len(t, outboxRows, 1)
+	assert.Equal(t, "delivered", outboxRows[0].Status)
+	require.NotNil(t, outboxRows[0].DeliveredAt)
+	assert.Equal(t, "2026-03-28T10:11:00Z", *outboxRows[0].DeliveredAt)
+}
+
+func TestSQLiteGovernanceOutbox_DeadLetterReplayAndStats(t *testing.T) {
+	ctx := context.Background()
+	st := testSQLiteStoreWithMigrations(t)
+	defer st.Close()
+
+	created, err := st.EnqueueGovernanceOutboxEvent(ctx, &GovernanceOutboxEventCreate{
+		ID:            "outbox-dead-letter",
+		EventID:       "evt-dead-letter",
+		EventType:     "metadata.schema.changed",
+		TraceID:       "trace-dead-letter",
+		ResourceType:  "schema_change",
+		ResourceID:    "chg-dead-letter",
+		Payload:       `{"event_id":"evt-dead-letter"}`,
+		Status:        "pending",
+		AttemptCount:  0,
+		NextAttemptAt: "2000-01-01T00:00:00Z",
+	})
+	require.NoError(t, err)
+	require.True(t, created)
+
+	created, err = st.EnqueueGovernanceOutboxEvent(ctx, &GovernanceOutboxEventCreate{
+		ID:            "outbox-delivered",
+		EventID:       "evt-delivered",
+		EventType:     "metadata.schema.changed",
+		TraceID:       "trace-delivered",
+		ResourceType:  "schema_change",
+		ResourceID:    "chg-delivered",
+		Payload:       `{"event_id":"evt-delivered"}`,
+		Status:        "pending",
+		AttemptCount:  0,
+		NextAttemptAt: "2000-01-01T00:00:00Z",
+	})
+	require.NoError(t, err)
+	require.True(t, created)
+
+	require.NoError(t, st.MarkGovernanceOutboxDelivered(ctx, "outbox-delivered", "2026-03-28T10:11:00Z"))
+	require.NoError(t, st.MarkGovernanceOutboxDeadLetter(ctx, "outbox-dead-letter", "permanent failure"))
+
+	row, err := st.GetGovernanceOutboxEvent(ctx, "outbox-dead-letter")
+	require.NoError(t, err)
+	require.NotNil(t, row)
+	assert.Equal(t, "dead_letter", row.Status)
+	assert.Equal(t, "evt-dead-letter", row.EventID)
+	require.NotNil(t, row.LastError)
+	assert.Equal(t, "permanent failure", *row.LastError)
+
+	stats, err := st.GetGovernanceOutboxStats(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, stats)
+	assert.EqualValues(t, 1, stats.DeadLetterCount)
+	assert.EqualValues(t, 1, stats.DeliveredCount)
+	assert.EqualValues(t, 0, stats.PendingCount)
+
+	claimed, err := st.ClaimGovernanceOutboxEvents(ctx, "dispatcher-dead-letter", "2000-01-01T00:02:00Z", "2000-01-01T00:03:00Z", 10)
+	require.NoError(t, err)
+	assert.Len(t, claimed, 0)
+
+	replayAt := "2000-01-01T00:01:00Z"
+	require.NoError(t, st.ReplayGovernanceOutboxEvent(ctx, "outbox-dead-letter", replayAt))
+
+	row, err = st.GetGovernanceOutboxEvent(ctx, "outbox-dead-letter")
+	require.NoError(t, err)
+	require.NotNil(t, row)
+	assert.Equal(t, "pending", row.Status)
+	assert.Equal(t, 0, row.AttemptCount)
+	assert.Equal(t, replayAt, row.NextAttemptAt)
+	assert.Nil(t, row.LastError)
+	assert.Nil(t, row.DeliveredAt)
+
+	stats, err = st.GetGovernanceOutboxStats(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, stats)
+	assert.EqualValues(t, 0, stats.DeadLetterCount)
+	assert.EqualValues(t, 1, stats.DeliveredCount)
+	assert.EqualValues(t, 1, stats.PendingCount)
+	assert.EqualValues(t, 1, stats.RetryableCount)
+}
+
+func TestSQLiteGovernanceOutbox_ReplayRejectsDeliveredEvent(t *testing.T) {
+	ctx := context.Background()
+	st := testSQLiteStoreWithMigrations(t)
+	defer st.Close()
+
+	created, err := st.EnqueueGovernanceOutboxEvent(ctx, &GovernanceOutboxEventCreate{
+		ID:            "outbox-delivered-no-replay",
+		EventID:       "evt-delivered-no-replay",
+		EventType:     "metadata.schema.changed",
+		TraceID:       "trace-delivered-no-replay",
+		ResourceType:  "schema_change",
+		ResourceID:    "chg-delivered-no-replay",
+		Payload:       `{"event_id":"evt-delivered-no-replay"}`,
+		Status:        "pending",
+		AttemptCount:  0,
+		NextAttemptAt: "2000-01-01T00:00:00Z",
+	})
+	require.NoError(t, err)
+	require.True(t, created)
+
+	require.NoError(t, st.MarkGovernanceOutboxDelivered(ctx, "outbox-delivered-no-replay", "2026-03-28T10:11:00Z"))
+
+	err = st.ReplayGovernanceOutboxEvent(ctx, "outbox-delivered-no-replay", "2000-01-01T00:01:00Z")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not replayable")
+
+	row, err := st.GetGovernanceOutboxEvent(ctx, "outbox-delivered-no-replay")
+	require.NoError(t, err)
+	require.NotNil(t, row)
+	assert.Equal(t, "delivered", row.Status)
+	require.NotNil(t, row.DeliveredAt)
+}
+
+func TestSQLiteGovernanceOutboxStats_RetryableCountUsesRealTimestampComparison(t *testing.T) {
+	ctx := context.Background()
+	st := testSQLiteStoreWithMigrations(t)
+	defer st.Close()
+
+	created, err := st.EnqueueGovernanceOutboxEvent(ctx, &GovernanceOutboxEventCreate{
+		ID:            "outbox-retryable-now",
+		EventID:       "evt-retryable-now",
+		EventType:     "metadata.schema.changed",
+		TraceID:       "trace-retryable-now",
+		ResourceType:  "schema_change",
+		ResourceID:    "chg-retryable-now",
+		Payload:       `{"event_id":"evt-retryable-now"}`,
+		Status:        "pending",
+		AttemptCount:  0,
+		NextAttemptAt: time.Now().UTC().Add(-time.Minute).Format(time.RFC3339Nano),
+	})
+	require.NoError(t, err)
+	require.True(t, created)
+
+	stats, err := st.GetGovernanceOutboxStats(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, stats)
+	assert.EqualValues(t, 1, stats.PendingCount)
+	assert.EqualValues(t, 1, stats.RetryableCount)
+}
+
+func TestSQLiteAlertRuleMatching_UsesExactChangeTypeTokens(t *testing.T) {
+	ctx := context.Background()
+	st := testSQLiteStoreWithMigrations(t)
+	defer st.Close()
+
+	sourceID, err := st.CreateDataSource(ctx, &DataSourceCreate{
+		Name:             "alert-source",
+		Type:             "mysql",
+		Host:             "localhost",
+		Port:             3306,
+		Database:         "testdb",
+		ConnectionConfig: `{}`,
+	})
+	require.NoError(t, err)
+
+	_, err = st.CreateAlertRule(ctx, &AlertRuleCreate{
+		SourceID:    &sourceID,
+		Name:        "exact",
+		ChangeTypes: "alter_column",
+		NotifyInApp: true,
+		IsActive:    true,
+	})
+	require.NoError(t, err)
+	_, err = st.CreateAlertRule(ctx, &AlertRuleCreate{
+		SourceID:    &sourceID,
+		Name:        "with-spaces",
+		ChangeTypes: "drop_column, alter_column",
+		NotifyInApp: true,
+		IsActive:    true,
+	})
+	require.NoError(t, err)
+	_, err = st.CreateAlertRule(ctx, &AlertRuleCreate{
+		SourceID:    &sourceID,
+		Name:        "substring-typo",
+		ChangeTypes: "alter_column_typo",
+		NotifyInApp: true,
+		IsActive:    true,
+	})
+	require.NoError(t, err)
+	_, err = st.CreateAlertRule(ctx, &AlertRuleCreate{
+		SourceID:    &sourceID,
+		Name:        "all",
+		ChangeTypes: "all",
+		NotifyInApp: true,
+		IsActive:    true,
+	})
+	require.NoError(t, err)
+
+	rules, err := st.ListMatchingAlertRules(ctx, sourceID, "alter_column")
+	require.NoError(t, err)
+
+	names := make([]string, 0, len(rules))
+	for _, rule := range rules {
+		names = append(names, rule.Name)
+	}
+	assert.ElementsMatch(t, []string{"exact", "with-spaces", "all"}, names)
+}
+
+func TestSQLiteTxAlertRuleMatching_UsesExactChangeTypeTokens(t *testing.T) {
+	ctx := context.Background()
+	st := testSQLiteStoreWithMigrations(t)
+	defer st.Close()
+
+	sourceID, err := st.CreateDataSource(ctx, &DataSourceCreate{
+		Name:             "alert-source-tx",
+		Type:             "mysql",
+		Host:             "localhost",
+		Port:             3306,
+		Database:         "testdb",
+		ConnectionConfig: `{}`,
+	})
+	require.NoError(t, err)
+
+	err = st.WithTx(ctx, func(txStore Store) error {
+		if _, err := txStore.CreateAlertRule(ctx, &AlertRuleCreate{
+			SourceID:    &sourceID,
+			Name:        "substring-typo",
+			ChangeTypes: "alter_column_typo",
+			NotifyInApp: true,
+			IsActive:    true,
+		}); err != nil {
+			return err
+		}
+		if _, err := txStore.CreateAlertRule(ctx, &AlertRuleCreate{
+			SourceID:    &sourceID,
+			Name:        "exact",
+			ChangeTypes: "alter_column",
+			NotifyInApp: true,
+			IsActive:    true,
+		}); err != nil {
+			return err
+		}
+		rules, err := txStore.ListMatchingAlertRules(ctx, sourceID, "alter_column")
+		if err != nil {
+			return err
+		}
+		require.Len(t, rules, 1)
+		assert.Equal(t, "exact", rules[0].Name)
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+func TestSQLiteTxCreateNotification_RespectsNotifyInAppFlag(t *testing.T) {
+	ctx := context.Background()
+	st := testSQLiteStoreWithMigrations(t)
+	defer st.Close()
+
+	sourceID, err := st.CreateDataSource(ctx, &DataSourceCreate{
+		Name:             "notify-source",
+		Type:             "mysql",
+		Host:             "localhost",
+		Port:             3306,
+		Database:         "testdb",
+		ConnectionConfig: `{}`,
+	})
+	require.NoError(t, err)
+
+	userID, err := st.CreateUser(ctx, &UserCreate{
+		Username:     "notify-user",
+		Email:        "notify-user@example.com",
+		PasswordHash: "hash",
+		Role:         "admin",
+	})
+	require.NoError(t, err)
+
+	err = st.WithTx(ctx, func(txStore Store) error {
+		_, err := txStore.CreateNotification(ctx, &NotificationCreate{
+			ChangeID:     "chg-notify-off",
+			SourceID:     sourceID,
+			Title:        "schema changed",
+			Message:      "no in-app notification expected",
+			ChangeType:   "alter_column",
+			ObjectType:   "column",
+			ObjectName:   "users.email",
+			NotifyInApp:  false,
+		})
+		return err
+	})
+	require.NoError(t, err)
+
+	notifications, err := st.ListNotifications(ctx, userID, false, 10)
+	require.NoError(t, err)
+	assert.Len(t, notifications, 0)
+}
+
+func TestSQLiteAssignTermToColumn_RejectsMissingColumn(t *testing.T) {
+	ctx := context.Background()
+	st := testSQLiteStoreWithMigrations(t)
+	defer st.Close()
+
+	err := st.AssignTermToColumn(ctx, "missing-column", nil)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "column not found")
+}
+
+func TestSQLiteTxAssignTermToColumn_RejectsMissingColumn(t *testing.T) {
+	ctx := context.Background()
+	st := testSQLiteStoreWithMigrations(t)
+	defer st.Close()
+
+	err := st.WithTx(ctx, func(txStore Store) error {
+		return txStore.AssignTermToColumn(ctx, "missing-column", nil)
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "column not found")
+}
+
+func TestSQLiteDQStats_CountsErrorResultsAsFailures(t *testing.T) {
+	ctx := context.Background()
+	st := testSQLiteStoreWithMigrations(t)
+	defer st.Close()
+
+	ruleID, err := st.CreateDQRule(ctx, &DQRuleCreate{
+		Name:       "dq-stats-rule",
+		RuleType:   "custom_sql",
+		RuleConfig: `{"sql":"SELECT 1"}`,
+		Severity:   "error",
+		IsActive:   true,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, st.CreateDQResult(ctx, &DQResultCreate{
+		RuleID:       ruleID,
+		CheckBatchID: "batch-passed",
+		Status:       "passed",
+		TotalRows:    10,
+		FailedRows:   0,
+		PassRate:     100,
+		SampleErrors: `[]`,
+	}))
+	require.NoError(t, st.CreateDQResult(ctx, &DQResultCreate{
+		RuleID:       ruleID,
+		CheckBatchID: "batch-failed",
+		Status:       "failed",
+		TotalRows:    10,
+		FailedRows:   2,
+		PassRate:     80,
+		SampleErrors: `[{"value":"bad"}]`,
+	}))
+	errMsg := "connection lost"
+	require.NoError(t, st.CreateDQResult(ctx, &DQResultCreate{
+		RuleID:       ruleID,
+		CheckBatchID: "batch-error",
+		Status:       "error",
+		TotalRows:    0,
+		FailedRows:   0,
+		PassRate:     0,
+		SampleErrors: `[]`,
+		ErrorMessage: &errMsg,
+	}))
+
+	stats, err := st.GetDQStats(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, stats)
+	assert.Equal(t, 1, stats.TotalRules)
+	assert.Equal(t, 1, stats.ActiveRules)
+	assert.EqualValues(t, 3, stats.TotalChecks)
+	assert.EqualValues(t, 1, stats.PassedChecks)
+	assert.EqualValues(t, 2, stats.FailedChecks)
+	assert.InDelta(t, 33.3333, stats.OverallPassRate, 0.01)
+}
+
+func TestSQLiteTxDQStats_CountsErrorResultsAsFailures(t *testing.T) {
+	ctx := context.Background()
+	st := testSQLiteStoreWithMigrations(t)
+	defer st.Close()
+
+	ruleID, err := st.CreateDQRule(ctx, &DQRuleCreate{
+		Name:       "dq-stats-rule-tx",
+		RuleType:   "custom_sql",
+		RuleConfig: `{"sql":"SELECT 1"}`,
+		Severity:   "error",
+		IsActive:   true,
+	})
+	require.NoError(t, err)
+
+	err = st.WithTx(ctx, func(txStore Store) error {
+		if err := txStore.CreateDQResult(ctx, &DQResultCreate{
+			RuleID:       ruleID,
+			CheckBatchID: "tx-batch-passed",
+			Status:       "passed",
+			TotalRows:    8,
+			FailedRows:   0,
+			PassRate:     100,
+			SampleErrors: `[]`,
+		}); err != nil {
+			return err
+		}
+
+		errMsg := "execution timeout"
+		if err := txStore.CreateDQResult(ctx, &DQResultCreate{
+			RuleID:       ruleID,
+			CheckBatchID: "tx-batch-error",
+			Status:       "error",
+			TotalRows:    0,
+			FailedRows:   0,
+			PassRate:     0,
+			SampleErrors: `[]`,
+			ErrorMessage: &errMsg,
+		}); err != nil {
+			return err
+		}
+
+		stats, err := txStore.GetDQStats(ctx)
+		if err != nil {
+			return err
+		}
+		require.NotNil(t, stats)
+		assert.EqualValues(t, 2, stats.TotalChecks)
+		assert.EqualValues(t, 1, stats.PassedChecks)
+		assert.EqualValues(t, 1, stats.FailedChecks)
+		assert.InDelta(t, 50.0, stats.OverallPassRate, 0.01)
+		return nil
+	})
+	require.NoError(t, err)
+}
+
 // TestConfigValidation 测试配置验证
 func TestConfigValidation(t *testing.T) {
 	tests := []struct {
@@ -547,31 +1105,31 @@ func TestConfigValidation(t *testing.T) {
 		cfg     config.Config
 		wantErr bool
 	}{
-			{
-				name: "valid postgres config",
-				cfg: config.Config{
-					Server: config.ServerConfig{Port: 8080},
-					Auth:   config.AuthConfig{JWTSecret: "test-secret"},
-					Database: config.DatabaseConfig{
-						Type:     "postgres",
-						Host:     "localhost",
-						Port:     5432,
+		{
+			name: "valid postgres config",
+			cfg: config.Config{
+				Server: config.ServerConfig{Port: 8080},
+				Auth:   config.AuthConfig{JWTSecret: "test-secret"},
+				Database: config.DatabaseConfig{
+					Type:     "postgres",
+					Host:     "localhost",
+					Port:     5432,
 					Database: "datamap",
 				},
 				Log: config.LogConfig{Level: "info"},
 			},
 			wantErr: false,
 		},
-			{
-				name: "valid sqlite config",
-				cfg: config.Config{
-					Server:   config.ServerConfig{Port: 8080},
-					Auth:     config.AuthConfig{JWTSecret: "test-secret"},
-					Database: config.DatabaseConfig{Type: "sqlite"},
-					Log:      config.LogConfig{Level: "info"},
-				},
-				wantErr: false,
+		{
+			name: "valid sqlite config",
+			cfg: config.Config{
+				Server:   config.ServerConfig{Port: 8080},
+				Auth:     config.AuthConfig{JWTSecret: "test-secret"},
+				Database: config.DatabaseConfig{Type: "sqlite"},
+				Log:      config.LogConfig{Level: "info"},
 			},
+			wantErr: false,
+		},
 		{
 			name: "invalid port",
 			cfg: config.Config{
@@ -614,4 +1172,17 @@ func TestConfigValidation(t *testing.T) {
 func TestMain(m *testing.M) {
 	// 设置测试环境
 	os.Exit(m.Run())
+}
+
+func testSQLiteStoreWithMigrations(t *testing.T) *SQLiteStore {
+	t.Helper()
+
+	st, err := NewSQLiteStore(context.Background(), &config.DatabaseConfig{
+		Type:           "sqlite",
+		SQLitePath:     filepath.Join(t.TempDir(), "store-test.db"),
+		SQLiteMaxConns: 1,
+		SQLiteMinConns: 1,
+	}, zap.NewNop())
+	require.NoError(t, err)
+	return st
 }

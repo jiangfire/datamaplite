@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // CreateAlertRule 创建告警规则
@@ -247,25 +249,38 @@ func (s *PostgresStore) CreateNotification(ctx context.Context, notification *No
 		return "", err
 	}
 
-	// 为所有用户创建未读记录
-	userQuery := `SELECT id FROM users`
-	rows, err := s.pool.Query(ctx, userQuery)
-	if err != nil {
-		return id, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var userID string
-		if err := rows.Scan(&userID); err != nil {
-			continue
+	if notification.NotifyInApp {
+		// 为所有用户创建未读记录
+		userQuery := `SELECT id FROM users`
+		rows, err := s.pool.Query(ctx, userQuery)
+		if err != nil {
+			return id, err
 		}
+		userIDs := make([]string, 0)
 
-		userNotifQuery := `
-			INSERT INTO user_notifications (user_id, notification_id, is_read)
-			VALUES ($1, $2, false)
-			ON CONFLICT (user_id, notification_id) DO NOTHING`
-		s.pool.Exec(ctx, userNotifQuery, userID, id)
+		for rows.Next() {
+			var userID string
+			if err := rows.Scan(&userID); err != nil {
+				rows.Close()
+				return id, err
+			}
+			userIDs = append(userIDs, userID)
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return id, err
+		}
+		rows.Close()
+
+		for _, userID := range userIDs {
+			userNotifQuery := `
+				INSERT INTO user_notifications (user_id, notification_id, is_read)
+				VALUES ($1, $2, false)
+				ON CONFLICT (user_id, notification_id) DO NOTHING`
+			if _, err := s.pool.Exec(ctx, userNotifQuery, userID, id); err != nil {
+				return id, err
+			}
+		}
 	}
 
 	return id, nil
@@ -298,6 +313,39 @@ func (s *PostgresStore) GetNotification(ctx context.Context, id string) (*Notifi
 
 	n.RuleName = ruleName
 
+	return n, nil
+}
+
+// GetNotificationByRuleAndChange 根据规则和变更获取通知。
+func (s *PostgresStore) GetNotificationByRuleAndChange(ctx context.Context, ruleID string, changeID string) (*NotificationRow, error) {
+	query := `
+		SELECT n.id, n.rule_id, r.name as rule_name, n.change_id, n.source_id, ds.name as source_name,
+		       n.title, n.message, n.change_type, n.object_type, n.object_name,
+		       n.old_value, n.new_value, n.webhook_sent, n.webhook_error, n.created_at
+		FROM notifications n
+		LEFT JOIN alert_rules r ON n.rule_id = r.id
+		JOIN data_sources ds ON n.source_id = ds.id
+		WHERE n.rule_id = $1 AND n.change_id = $2
+		LIMIT 1`
+
+	row := s.pool.QueryRow(ctx, query, ruleID, changeID)
+
+	n := &NotificationRow{}
+	var ruleName *string
+
+	err := row.Scan(
+		&n.ID, &n.RuleID, &ruleName, &n.ChangeID, &n.SourceID, &n.SourceName,
+		&n.Title, &n.Message, &n.ChangeType, &n.ObjectType, &n.ObjectName,
+		&n.OldValue, &n.NewValue, &n.WebhookSent, &n.WebhookError, &n.CreatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	n.RuleName = ruleName
 	return n, nil
 }
 

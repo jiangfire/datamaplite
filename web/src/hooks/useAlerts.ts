@@ -14,7 +14,9 @@ export const useAlerts = () => {
       const data = await alertService.listRules();
       setRules(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch alert rules');
+      setError(
+        err instanceof Error ? err.message : 'Failed to fetch alert rules',
+      );
     } finally {
       setLoading(false);
     }
@@ -25,31 +27,19 @@ export const useAlerts = () => {
   }, [fetchRules]);
 
   const createRule = async (data: AlertRuleCreate) => {
-    try {
-      const newRule = await alertService.createRule(data);
-      setRules((prev) => [...prev, newRule]);
-      return newRule;
-    } catch (err) {
-      throw err;
-    }
+    const newRule = await alertService.createRule(data);
+    setRules((prev) => [...prev, newRule]);
+    return newRule;
   };
 
   const updateRule = async (id: string, data: AlertRuleCreate) => {
-    try {
-      await alertService.updateRule(id, data);
-      await fetchRules();
-    } catch (err) {
-      throw err;
-    }
+    await alertService.updateRule(id, data);
+    await fetchRules();
   };
 
   const deleteRule = async (id: string) => {
-    try {
-      await alertService.deleteRule(id);
-      setRules((prev) => prev.filter((r) => r.id !== id));
-    } catch (err) {
-      throw err;
-    }
+    await alertService.deleteRule(id);
+    setRules((prev) => prev.filter((r) => r.id !== id));
   };
 
   return {

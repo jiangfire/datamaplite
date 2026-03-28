@@ -105,8 +105,26 @@ func (s *PostgresStore) GetLineageUpward(ctx context.Context, columnID string, d
 			WHERE l.depth < $2
 		)
 		SELECT l.id, l.source_id, l.target_id, l.source_type, l.target_type,
-		       l.transform_sql, l.job_name, l.created_at
+		       l.transform_sql, l.job_name, l.created_at,
+		       CASE WHEN l.source_type = 'column' THEN sc.name ELSE so.name END AS source_name,
+		       CASE WHEN l.target_type = 'column' THEN tc.name ELSE tob.name END AS target_name,
+		       CASE WHEN l.source_type = 'column' THEN COALESCE(sc.data_type, '') ELSE '' END AS source_data_type,
+		       CASE WHEN l.target_type = 'column' THEN COALESCE(tc.data_type, '') ELSE '' END AS target_data_type,
+		       CASE WHEN l.source_type = 'column' THEN COALESCE(sobj.name, '') ELSE COALESCE(so.name, '') END AS source_object_name,
+		       CASE WHEN l.target_type = 'column' THEN COALESCE(tobj_col.name, '') ELSE COALESCE(tob.name, '') END AS target_object_name,
+		       CASE WHEN l.source_type = 'column' THEN COALESCE(sds.name, '') ELSE COALESCE(sods.name, '') END AS source_source_name,
+		       CASE WHEN l.target_type = 'column' THEN COALESCE(tds.name, '') ELSE COALESCE(tods.name, '') END AS target_source_name
 		FROM lineage l
+		LEFT JOIN columns sc ON l.source_type = 'column' AND sc.id = l.source_id
+		LEFT JOIN schema_objects sobj ON sc.object_id = sobj.id
+		LEFT JOIN data_sources sds ON sobj.source_id = sds.id
+		LEFT JOIN schema_objects so ON l.source_type = 'object' AND so.id = l.source_id
+		LEFT JOIN data_sources sods ON so.source_id = sods.id
+		LEFT JOIN columns tc ON l.target_type = 'column' AND tc.id = l.target_id
+		LEFT JOIN schema_objects tobj_col ON tc.object_id = tobj_col.id
+		LEFT JOIN data_sources tds ON tobj_col.source_id = tds.id
+		LEFT JOIN schema_objects tob ON l.target_type = 'object' AND tob.id = l.target_id
+		LEFT JOIN data_sources tods ON tob.source_id = tods.id
 		ORDER BY l.depth, l.created_at
 	`
 
@@ -122,6 +140,8 @@ func (s *PostgresStore) GetLineageUpward(ctx context.Context, columnID string, d
 		err := rows.Scan(
 			&e.ID, &e.SourceID, &e.TargetID, &e.SourceType, &e.TargetType,
 			&e.TransformSQL, &e.JobName, &e.CreatedAt,
+			&e.SourceName, &e.TargetName, &e.SourceDataType, &e.TargetDataType,
+			&e.SourceObjectName, &e.TargetObjectName, &e.SourceSourceName, &e.TargetSourceName,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan lineage edge: %w", err)
@@ -153,8 +173,26 @@ func (s *PostgresStore) GetLineageDownward(ctx context.Context, columnID string,
 			WHERE l.depth < $2
 		)
 		SELECT l.id, l.source_id, l.target_id, l.source_type, l.target_type,
-		       l.transform_sql, l.job_name, l.created_at
+		       l.transform_sql, l.job_name, l.created_at,
+		       CASE WHEN l.source_type = 'column' THEN sc.name ELSE so.name END AS source_name,
+		       CASE WHEN l.target_type = 'column' THEN tc.name ELSE tob.name END AS target_name,
+		       CASE WHEN l.source_type = 'column' THEN COALESCE(sc.data_type, '') ELSE '' END AS source_data_type,
+		       CASE WHEN l.target_type = 'column' THEN COALESCE(tc.data_type, '') ELSE '' END AS target_data_type,
+		       CASE WHEN l.source_type = 'column' THEN COALESCE(sobj.name, '') ELSE COALESCE(so.name, '') END AS source_object_name,
+		       CASE WHEN l.target_type = 'column' THEN COALESCE(tobj_col.name, '') ELSE COALESCE(tob.name, '') END AS target_object_name,
+		       CASE WHEN l.source_type = 'column' THEN COALESCE(sds.name, '') ELSE COALESCE(sods.name, '') END AS source_source_name,
+		       CASE WHEN l.target_type = 'column' THEN COALESCE(tds.name, '') ELSE COALESCE(tods.name, '') END AS target_source_name
 		FROM lineage l
+		LEFT JOIN columns sc ON l.source_type = 'column' AND sc.id = l.source_id
+		LEFT JOIN schema_objects sobj ON sc.object_id = sobj.id
+		LEFT JOIN data_sources sds ON sobj.source_id = sds.id
+		LEFT JOIN schema_objects so ON l.source_type = 'object' AND so.id = l.source_id
+		LEFT JOIN data_sources sods ON so.source_id = sods.id
+		LEFT JOIN columns tc ON l.target_type = 'column' AND tc.id = l.target_id
+		LEFT JOIN schema_objects tobj_col ON tc.object_id = tobj_col.id
+		LEFT JOIN data_sources tds ON tobj_col.source_id = tds.id
+		LEFT JOIN schema_objects tob ON l.target_type = 'object' AND tob.id = l.target_id
+		LEFT JOIN data_sources tods ON tob.source_id = tods.id
 		ORDER BY l.depth, l.created_at
 	`
 
@@ -170,6 +208,8 @@ func (s *PostgresStore) GetLineageDownward(ctx context.Context, columnID string,
 		err := rows.Scan(
 			&e.ID, &e.SourceID, &e.TargetID, &e.SourceType, &e.TargetType,
 			&e.TransformSQL, &e.JobName, &e.CreatedAt,
+			&e.SourceName, &e.TargetName, &e.SourceDataType, &e.TargetDataType,
+			&e.SourceObjectName, &e.TargetObjectName, &e.SourceSourceName, &e.TargetSourceName,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan lineage edge: %w", err)
@@ -177,6 +217,15 @@ func (s *PostgresStore) GetLineageDownward(ctx context.Context, columnID string,
 		edges = append(edges, &e)
 	}
 	return edges, rows.Err()
+}
+
+// DeleteLineageEdgesByNode 删除与节点关联的血缘边
+func (s *PostgresStore) DeleteLineageEdgesByNode(ctx context.Context, nodeID string) error {
+	_, err := s.pool.Exec(ctx, `DELETE FROM lineage_edges WHERE source_id = $1 OR target_id = $1`, nodeID)
+	if err != nil {
+		return fmt.Errorf("failed to delete lineage edges: %w", err)
+	}
+	return nil
 }
 
 // Transaction implementations for PostgresTxStore
@@ -274,8 +323,26 @@ func (t *PostgresTxStore) GetLineageUpward(ctx context.Context, columnID string,
 			WHERE l.depth < $2
 		)
 		SELECT l.id, l.source_id, l.target_id, l.source_type, l.target_type,
-		       l.transform_sql, l.job_name, l.created_at
+		       l.transform_sql, l.job_name, l.created_at,
+		       CASE WHEN l.source_type = 'column' THEN sc.name ELSE so.name END AS source_name,
+		       CASE WHEN l.target_type = 'column' THEN tc.name ELSE tob.name END AS target_name,
+		       CASE WHEN l.source_type = 'column' THEN COALESCE(sc.data_type, '') ELSE '' END AS source_data_type,
+		       CASE WHEN l.target_type = 'column' THEN COALESCE(tc.data_type, '') ELSE '' END AS target_data_type,
+		       CASE WHEN l.source_type = 'column' THEN COALESCE(sobj.name, '') ELSE COALESCE(so.name, '') END AS source_object_name,
+		       CASE WHEN l.target_type = 'column' THEN COALESCE(tobj_col.name, '') ELSE COALESCE(tob.name, '') END AS target_object_name,
+		       CASE WHEN l.source_type = 'column' THEN COALESCE(sds.name, '') ELSE COALESCE(sods.name, '') END AS source_source_name,
+		       CASE WHEN l.target_type = 'column' THEN COALESCE(tds.name, '') ELSE COALESCE(tods.name, '') END AS target_source_name
 		FROM lineage l
+		LEFT JOIN columns sc ON l.source_type = 'column' AND sc.id = l.source_id
+		LEFT JOIN schema_objects sobj ON sc.object_id = sobj.id
+		LEFT JOIN data_sources sds ON sobj.source_id = sds.id
+		LEFT JOIN schema_objects so ON l.source_type = 'object' AND so.id = l.source_id
+		LEFT JOIN data_sources sods ON so.source_id = sods.id
+		LEFT JOIN columns tc ON l.target_type = 'column' AND tc.id = l.target_id
+		LEFT JOIN schema_objects tobj_col ON tc.object_id = tobj_col.id
+		LEFT JOIN data_sources tds ON tobj_col.source_id = tds.id
+		LEFT JOIN schema_objects tob ON l.target_type = 'object' AND tob.id = l.target_id
+		LEFT JOIN data_sources tods ON tob.source_id = tods.id
 		ORDER BY l.depth, l.created_at
 	`
 
@@ -291,6 +358,8 @@ func (t *PostgresTxStore) GetLineageUpward(ctx context.Context, columnID string,
 		err := rows.Scan(
 			&e.ID, &e.SourceID, &e.TargetID, &e.SourceType, &e.TargetType,
 			&e.TransformSQL, &e.JobName, &e.CreatedAt,
+			&e.SourceName, &e.TargetName, &e.SourceDataType, &e.TargetDataType,
+			&e.SourceObjectName, &e.TargetObjectName, &e.SourceSourceName, &e.TargetSourceName,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan lineage edge: %w", err)
@@ -321,8 +390,26 @@ func (t *PostgresTxStore) GetLineageDownward(ctx context.Context, columnID strin
 			WHERE l.depth < $2
 		)
 		SELECT l.id, l.source_id, l.target_id, l.source_type, l.target_type,
-		       l.transform_sql, l.job_name, l.created_at
+		       l.transform_sql, l.job_name, l.created_at,
+		       CASE WHEN l.source_type = 'column' THEN sc.name ELSE so.name END AS source_name,
+		       CASE WHEN l.target_type = 'column' THEN tc.name ELSE tob.name END AS target_name,
+		       CASE WHEN l.source_type = 'column' THEN COALESCE(sc.data_type, '') ELSE '' END AS source_data_type,
+		       CASE WHEN l.target_type = 'column' THEN COALESCE(tc.data_type, '') ELSE '' END AS target_data_type,
+		       CASE WHEN l.source_type = 'column' THEN COALESCE(sobj.name, '') ELSE COALESCE(so.name, '') END AS source_object_name,
+		       CASE WHEN l.target_type = 'column' THEN COALESCE(tobj_col.name, '') ELSE COALESCE(tob.name, '') END AS target_object_name,
+		       CASE WHEN l.source_type = 'column' THEN COALESCE(sds.name, '') ELSE COALESCE(sods.name, '') END AS source_source_name,
+		       CASE WHEN l.target_type = 'column' THEN COALESCE(tds.name, '') ELSE COALESCE(tods.name, '') END AS target_source_name
 		FROM lineage l
+		LEFT JOIN columns sc ON l.source_type = 'column' AND sc.id = l.source_id
+		LEFT JOIN schema_objects sobj ON sc.object_id = sobj.id
+		LEFT JOIN data_sources sds ON sobj.source_id = sds.id
+		LEFT JOIN schema_objects so ON l.source_type = 'object' AND so.id = l.source_id
+		LEFT JOIN data_sources sods ON so.source_id = sods.id
+		LEFT JOIN columns tc ON l.target_type = 'column' AND tc.id = l.target_id
+		LEFT JOIN schema_objects tobj_col ON tc.object_id = tobj_col.id
+		LEFT JOIN data_sources tds ON tobj_col.source_id = tds.id
+		LEFT JOIN schema_objects tob ON l.target_type = 'object' AND tob.id = l.target_id
+		LEFT JOIN data_sources tods ON tob.source_id = tods.id
 		ORDER BY l.depth, l.created_at
 	`
 
@@ -338,6 +425,8 @@ func (t *PostgresTxStore) GetLineageDownward(ctx context.Context, columnID strin
 		err := rows.Scan(
 			&e.ID, &e.SourceID, &e.TargetID, &e.SourceType, &e.TargetType,
 			&e.TransformSQL, &e.JobName, &e.CreatedAt,
+			&e.SourceName, &e.TargetName, &e.SourceDataType, &e.TargetDataType,
+			&e.SourceObjectName, &e.TargetObjectName, &e.SourceSourceName, &e.TargetSourceName,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan lineage edge: %w", err)
@@ -345,4 +434,12 @@ func (t *PostgresTxStore) GetLineageDownward(ctx context.Context, columnID strin
 		edges = append(edges, &e)
 	}
 	return edges, rows.Err()
+}
+
+func (t *PostgresTxStore) DeleteLineageEdgesByNode(ctx context.Context, nodeID string) error {
+	_, err := t.tx.Exec(ctx, `DELETE FROM lineage_edges WHERE source_id = $1 OR target_id = $1`, nodeID)
+	if err != nil {
+		return fmt.Errorf("failed to delete lineage edges: %w", err)
+	}
+	return nil
 }

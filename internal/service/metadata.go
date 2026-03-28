@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"git.neolidy.top/neo/fuckcmdb/internal/model"
 	"git.neolidy.top/neo/fuckcmdb/internal/store"
@@ -116,14 +117,34 @@ func (s *MetadataService) GetColumnDetail(ctx context.Context, columnID string) 
 			Name: src.Name,
 			Type: src.Type,
 		},
+		MappedColumns: make([]model.MappedColumn, 0),
 	}
 
 	// 如果有术语ID，添加术语信息
 	if col.TermID != nil {
-		resp.Term = &model.TermSummary{
-			ID:   *col.TermID,
-			Name: "", // 需要额外查询术语表
+		term, err := s.store.GetBusinessTerm(ctx, *col.TermID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get business term: %w", err)
 		}
+		resp.Term = &model.TermSummary{
+			ID:   term.ID,
+			Name: term.Name,
+		}
+	}
+
+	mappings, err := s.store.GetColumnMappings(ctx, columnID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get column mappings: %w", err)
+	}
+	for _, mapping := range mappings {
+		resp.MappedColumns = append(resp.MappedColumns, model.MappedColumn{
+			ID:          mapping.ID,
+			Name:        mapping.TargetColumnName,
+			ObjectName:  mapping.TargetObjectName,
+			SourceName:  mapping.TargetSourceName,
+			MappingType: mapping.MappingType,
+			Confidence:  mapping.Confidence,
+		})
 	}
 
 	return resp, nil
@@ -131,6 +152,7 @@ func (s *MetadataService) GetColumnDetail(ctx context.Context, columnID string) 
 
 // SearchColumns 搜索字段
 func (s *MetadataService) SearchColumns(ctx context.Context, query string, limit int) ([]model.ColumnSearchResult, error) {
+	query = strings.TrimSpace(query)
 	if query == "" {
 		return nil, fmt.Errorf("query is required")
 	}
@@ -258,8 +280,20 @@ func (s *MetadataService) GetLineage(ctx context.Context, columnID string) (*mod
 
 	for _, e := range upward {
 		resp.Upward = append(resp.Upward, model.LineageEdgeResponse{
-			Source:       model.LineageNode{ID: e.SourceID, Type: e.SourceType},
-			Target:       model.LineageNode{ID: e.TargetID, Type: e.TargetType},
+			Source: model.LineageNode{
+				ID:       e.SourceID,
+				Name:     e.SourceName,
+				Type:     e.SourceType,
+				DataType: e.SourceDataType,
+				Source:   e.SourceSourceName,
+			},
+			Target: model.LineageNode{
+				ID:       e.TargetID,
+				Name:     e.TargetName,
+				Type:     e.TargetType,
+				DataType: e.TargetDataType,
+				Source:   e.TargetSourceName,
+			},
 			TransformSQL: e.TransformSQL,
 			JobName:      e.JobName,
 		})
@@ -267,8 +301,20 @@ func (s *MetadataService) GetLineage(ctx context.Context, columnID string) (*mod
 
 	for _, e := range downward {
 		resp.Downward = append(resp.Downward, model.LineageEdgeResponse{
-			Source:       model.LineageNode{ID: e.SourceID, Type: e.SourceType},
-			Target:       model.LineageNode{ID: e.TargetID, Type: e.TargetType},
+			Source: model.LineageNode{
+				ID:       e.SourceID,
+				Name:     e.SourceName,
+				Type:     e.SourceType,
+				DataType: e.SourceDataType,
+				Source:   e.SourceSourceName,
+			},
+			Target: model.LineageNode{
+				ID:       e.TargetID,
+				Name:     e.TargetName,
+				Type:     e.TargetType,
+				DataType: e.TargetDataType,
+				Source:   e.TargetSourceName,
+			},
 			TransformSQL: e.TransformSQL,
 			JobName:      e.JobName,
 		})
@@ -289,8 +335,11 @@ func (s *MetadataService) GetImpactAnalysis(ctx context.Context, columnID string
 	for _, e := range downward {
 		impact := model.ImpactObject{
 			ID:         e.TargetID,
+			Name:       e.TargetName,
 			Type:       e.TargetType,
-			ImpactPath: fmt.Sprintf("%s -> %s", e.SourceID, e.TargetID),
+			ObjectName: e.TargetObjectName,
+			SourceName: e.TargetSourceName,
+			ImpactPath: fmt.Sprintf("%s -> %s", e.SourceName, e.TargetName),
 			Distance:   1,
 		}
 		impacts = append(impacts, impact)

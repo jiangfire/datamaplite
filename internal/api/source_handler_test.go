@@ -177,10 +177,8 @@ func TestSourceHandler_ListSources(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.True(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, successCode, resp.Code)
 
 	data, _ := json.Marshal(resp.Data)
 	var result []*model.SourceListItem
@@ -204,11 +202,9 @@ func TestSourceHandler_ListSources_Error(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.False(t, resp.Success)
-	assert.Equal(t, "INTERNAL_ERROR", resp.Error.Code)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "INTERNAL_ERROR", resp.ErrorCode)
 
 	mockSvc.AssertExpectations(t)
 }
@@ -248,10 +244,8 @@ func TestSourceHandler_CreateSource(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.True(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, successCode, resp.Code)
 
 	mockSvc.AssertExpectations(t)
 }
@@ -270,10 +264,9 @@ func TestSourceHandler_CreateSource_InvalidRequest(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.False(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+	assert.Equal(t, "BAD_REQUEST", resp.ErrorCode)
 }
 
 func TestSourceHandler_GetSource(t *testing.T) {
@@ -300,10 +293,8 @@ func TestSourceHandler_GetSource(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.True(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, successCode, resp.Code)
 
 	mockSvc.AssertExpectations(t)
 }
@@ -323,11 +314,9 @@ func TestSourceHandler_GetSource_NotFound(t *testing.T) {
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.False(t, resp.Success)
-	assert.Equal(t, "NOT_FOUND", resp.Error.Code)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, http.StatusNotFound, resp.Code)
+	assert.Equal(t, "NOT_FOUND", resp.ErrorCode)
 
 	mockSvc.AssertExpectations(t)
 }
@@ -364,10 +353,8 @@ func TestSourceHandler_UpdateSource(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.True(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, successCode, resp.Code)
 
 	mockSvc.AssertExpectations(t)
 }
@@ -387,10 +374,8 @@ func TestSourceHandler_DeleteSource(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.True(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, successCode, resp.Code)
 
 	mockSvc.AssertExpectations(t)
 }
@@ -425,10 +410,10 @@ func TestSourceHandler_TestConnection_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.True(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, successCode, resp.Code)
+	assert.Equal(t, "Connection successful", resp.Message)
+	assert.Nil(t, resp.Data)
 
 	mockSvc.AssertExpectations(t)
 }
@@ -461,20 +446,12 @@ func TestSourceHandler_TestConnection_Failure(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusBadGateway, w.Code)
 
-	// handler.JSON会包装成BaseResponse，data是ConnectionTestResponse
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.True(t, resp.Success) // BaseResponse.Success为true
-
-	// 解析data中的ConnectionTestResponse
-	dataBytes, _ := json.Marshal(resp.Data)
-	var connResp model.ConnectionTestResponse
-	json.Unmarshal(dataBytes, &connResp)
-	assert.False(t, connResp.Success) // ConnectionTestResponse.Success为false
-	assert.Contains(t, connResp.Message, "connection refused")
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, http.StatusBadGateway, resp.Code)
+	assert.Equal(t, "CONNECTION_TEST_FAILED", resp.ErrorCode)
+	assert.Contains(t, resp.Message, "connection refused")
 
 	mockSvc.AssertExpectations(t)
 }
@@ -494,10 +471,8 @@ func TestSourceHandler_TriggerSync(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.True(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, successCode, resp.Code)
 
 	var syncResp model.SyncResponse
 	data, _ := json.Marshal(resp.Data)

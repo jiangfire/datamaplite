@@ -5,7 +5,9 @@ import { Button } from '../Button';
 describe('Button', () => {
   it('renders with default props', () => {
     render(<Button>Click me</Button>);
-    expect(screen.getByRole('button', { name: /click me/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /click me/i }),
+    ).toBeInTheDocument();
   });
 
   it('renders with different variants', () => {
@@ -13,7 +15,9 @@ describe('Button', () => {
     expect(screen.getByRole('button')).toBeInTheDocument();
 
     rerender(<Button variant="secondary">Secondary</Button>);
-    expect(screen.getByRole('button', { name: /secondary/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /secondary/i }),
+    ).toBeInTheDocument();
 
     rerender(<Button variant="danger">Danger</Button>);
     expect(screen.getByRole('button', { name: /danger/i })).toBeInTheDocument();
@@ -73,7 +77,7 @@ describe('Button', () => {
     render(
       <Button>
         <span>Child element</span>
-      </Button>
+      </Button>,
     );
     expect(screen.getByText('Child element')).toBeInTheDocument();
   });

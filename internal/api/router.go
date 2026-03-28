@@ -1,7 +1,6 @@
 package api
 
 import (
-	"git.neolidy.top/neo/fuckcmdb/internal/model"
 	"git.neolidy.top/neo/fuckcmdb/internal/service"
 	"github.com/gin-gonic/gin"
 )
@@ -36,9 +35,11 @@ func NewRouter(sourceHandler *SourceHandler, schemaHandler *SchemaHandler, termH
 
 // Register 注册所有路由
 func (r *Router) Register(engine *gin.Engine) {
+	baseHandler := NewHandler()
+
 	// Health check
 	engine.GET("/health", func(c *gin.Context) {
-		c.JSON(200, model.BaseResponse{Success: true, Data: gin.H{"status": "ok"}})
+		baseHandler.JSON(c, gin.H{"status": "ok"})
 	})
 
 	// API v1
@@ -53,7 +54,7 @@ func (r *Router) Register(engine *gin.Engine) {
 
 		// 需要认证的路由
 		authorized := v1.Group("")
-		authorized.Use(AuthMiddleware(r.authService))
+		authorized.Use(AuthMiddleware(r.authService), GovernanceAuditMiddleware())
 		{
 			// 当前用户信息
 			authorized.GET("/auth/me", r.authHandler.GetCurrentUser)

@@ -30,7 +30,8 @@ export const columnService = {
     api.delete<void>(`/columns/${columnId}/mappings/${mappingId}`),
 
   // Get lineage
-  getLineage: (id: string) => api.get<LineageResponse>(`/columns/${id}/lineage`),
+  getLineage: (id: string) =>
+    api.get<LineageResponse>(`/columns/${id}/lineage`),
 
   // Get impact analysis
   getImpactAnalysis: (id: string) =>

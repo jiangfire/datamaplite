@@ -11,11 +11,12 @@ import (
 
 // Config 应用配置结构
 type Config struct {
-	Server   ServerConfig   `mapstructure:"server"`
-	Database DatabaseConfig `mapstructure:"database"`
-	Log      LogConfig      `mapstructure:"log"`
-	Scanner  ScannerConfig  `mapstructure:"scanner"`
-	Auth     AuthConfig     `mapstructure:"auth"`
+	Server     ServerConfig     `mapstructure:"server"`
+	Database   DatabaseConfig   `mapstructure:"database"`
+	Log        LogConfig        `mapstructure:"log"`
+	Scanner    ScannerConfig    `mapstructure:"scanner"`
+	Auth       AuthConfig       `mapstructure:"auth"`
+	Governance GovernanceConfig `mapstructure:"governance"`
 }
 
 // ServerConfig HTTP服务配置
@@ -62,10 +63,20 @@ type ScannerConfig struct {
 
 // AuthConfig 认证配置
 type AuthConfig struct {
+	Enabled         bool          `mapstructure:"enabled"`
 	JWTSecret       string        `mapstructure:"jwt_secret"`
 	AccessTokenTTL  time.Duration `mapstructure:"access_token_ttl"`
 	RefreshTokenTTL time.Duration `mapstructure:"refresh_token_ttl"`
 	BcryptCost      int           `mapstructure:"bcrypt_cost"`
+}
+
+// GovernanceConfig 跨系统治理事件配置
+type GovernanceConfig struct {
+	Enabled          bool          `mapstructure:"enabled"`
+	Endpoint         string        `mapstructure:"endpoint"`
+	IntegrationToken string        `mapstructure:"integration_token"`
+	SourceSystem     string        `mapstructure:"source_system"`
+	Timeout          time.Duration `mapstructure:"timeout"`
 }
 
 // Load 加载配置
@@ -85,10 +96,22 @@ func Load() (*Config, error) {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	// 显式绑定关键的嵌套环境变量
-	viper.BindEnv("auth.jwt_secret")
-	viper.BindEnv("server.port")
-	viper.BindEnv("database.type")
-	viper.BindEnv("database.sqlite_path")
+	for _, key := range []string{
+		"auth.jwt_secret",
+		"auth.enabled",
+		"server.port",
+		"database.type",
+		"database.sqlite_path",
+		"governance.enabled",
+		"governance.endpoint",
+		"governance.integration_token",
+		"governance.source_system",
+		"governance.timeout",
+	} {
+		if err := viper.BindEnv(key); err != nil {
+			return nil, fmt.Errorf("failed to bind env %s: %w", key, err)
+		}
+	}
 
 	// 读取配置文件（可选 - 如果不存在则忽略）
 	if err := viper.ReadInConfig(); err != nil {
@@ -148,10 +171,18 @@ func setDefaults() {
 	viper.SetDefault("scanner.max_lineage_depth", 10)
 
 	// Auth defaults - NO default secret (force production to set it)
+	viper.SetDefault("auth.enabled", true)
 	viper.SetDefault("auth.jwt_secret", "")
 	viper.SetDefault("auth.access_token_ttl", "15m")
 	viper.SetDefault("auth.refresh_token_ttl", "168h") // 7 days
 	viper.SetDefault("auth.bcrypt_cost", 10)
+
+	// Governance integration defaults
+	viper.SetDefault("governance.enabled", false)
+	viper.SetDefault("governance.endpoint", "")
+	viper.SetDefault("governance.integration_token", "")
+	viper.SetDefault("governance.source_system", "fuckcmdb")
+	viper.SetDefault("governance.timeout", "5s")
 }
 
 // Validate 验证配置
@@ -174,9 +205,21 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("invalid log level: %s", c.Log.Level)
 	}
 
-	// 要求设置 JWT secret
-	if c.Auth.JWTSecret == "" {
+	// 启用认证时要求设置 JWT secret
+	if c.Auth.Enabled && c.Auth.JWTSecret == "" {
 		return fmt.Errorf("auth.jwt_secret is required (set DATAMAP_AUTH_JWT_SECRET)")
+	}
+
+	if c.Governance.Enabled {
+		if strings.TrimSpace(c.Governance.Endpoint) == "" {
+			return fmt.Errorf("governance.endpoint is required when governance is enabled")
+		}
+		if strings.TrimSpace(c.Governance.IntegrationToken) == "" {
+			return fmt.Errorf("governance.integration_token is required when governance is enabled")
+		}
+		if strings.TrimSpace(c.Governance.SourceSystem) == "" {
+			return fmt.Errorf("governance.source_system is required when governance is enabled")
+		}
 	}
 
 	return nil

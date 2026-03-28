@@ -12,14 +12,14 @@ import (
 func (s *PostgresStore) CreateColumn(ctx context.Context, col *ColumnCreate) error {
 	query := `
 		INSERT INTO columns (id, object_id, name, data_type, full_data_type, is_nullable, default_value,
-		                     is_primary_key, is_unique, ordinal_position, description, parent_column_path)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		                     is_primary_key, is_unique, ordinal_position, description, parent_column_path, confidence)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
 	id := uuid.New().String()
 	_, err := s.pool.Exec(ctx, query,
 		id, col.ObjectID, col.Name, col.DataType, col.FullDataType,
 		col.IsNullable, col.DefaultValue, col.IsPrimaryKey, col.IsUnique,
-		col.OrdinalPosition, col.Description, col.ParentColumnPath,
+		col.OrdinalPosition, col.Description, col.ParentColumnPath, col.Confidence,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create column: %w", err)
@@ -87,6 +87,41 @@ func (s *PostgresStore) ListColumnsByObject(ctx context.Context, objectID string
 	return columns, rows.Err()
 }
 
+// UpdateColumn 更新字段
+func (s *PostgresStore) UpdateColumn(ctx context.Context, id string, updates *ColumnUpdate) error {
+	query := `
+		UPDATE columns
+		SET data_type = $1, full_data_type = $2, is_nullable = $3, default_value = $4, is_primary_key = $5,
+		    is_unique = $6, ordinal_position = $7, description = $8, parent_column_path = $9, confidence = $10,
+		    updated_at = NOW()
+		WHERE id = $11
+	`
+	result, err := s.pool.Exec(ctx, query,
+		updates.DataType, updates.FullDataType, updates.IsNullable, updates.DefaultValue,
+		updates.IsPrimaryKey, updates.IsUnique, updates.OrdinalPosition, updates.Description,
+		updates.ParentColumnPath, updates.Confidence, id,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update column: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("column not found: %s", id)
+	}
+	return nil
+}
+
+// DeleteColumn 删除单个字段
+func (s *PostgresStore) DeleteColumn(ctx context.Context, id string) error {
+	result, err := s.pool.Exec(ctx, `DELETE FROM columns WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete column: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("column not found: %s", id)
+	}
+	return nil
+}
+
 // SearchColumns 搜索字段
 func (s *PostgresStore) SearchColumns(ctx context.Context, query string, limit int) ([]*ColumnSearchRow, error) {
 	if limit <= 0 {
@@ -146,14 +181,14 @@ func (s *PostgresStore) DeleteColumnsByObject(ctx context.Context, objectID stri
 func (t *PostgresTxStore) CreateColumn(ctx context.Context, col *ColumnCreate) error {
 	query := `
 		INSERT INTO columns (id, object_id, name, data_type, full_data_type, is_nullable, default_value,
-		                     is_primary_key, is_unique, ordinal_position, description, parent_column_path)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		                     is_primary_key, is_unique, ordinal_position, description, parent_column_path, confidence)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
 	id := uuid.New().String()
 	_, err := t.tx.Exec(ctx, query,
 		id, col.ObjectID, col.Name, col.DataType, col.FullDataType,
 		col.IsNullable, col.DefaultValue, col.IsPrimaryKey, col.IsUnique,
-		col.OrdinalPosition, col.Description, col.ParentColumnPath,
+		col.OrdinalPosition, col.Description, col.ParentColumnPath, col.Confidence,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create column: %w", err)
@@ -267,6 +302,39 @@ func (t *PostgresTxStore) DeleteColumnsByObject(ctx context.Context, objectID st
 	_, err := t.tx.Exec(ctx, query, objectID)
 	if err != nil {
 		return fmt.Errorf("failed to delete columns: %w", err)
+	}
+	return nil
+}
+
+func (t *PostgresTxStore) UpdateColumn(ctx context.Context, id string, updates *ColumnUpdate) error {
+	query := `
+		UPDATE columns
+		SET data_type = $1, full_data_type = $2, is_nullable = $3, default_value = $4, is_primary_key = $5,
+		    is_unique = $6, ordinal_position = $7, description = $8, parent_column_path = $9, confidence = $10,
+		    updated_at = NOW()
+		WHERE id = $11
+	`
+	result, err := t.tx.Exec(ctx, query,
+		updates.DataType, updates.FullDataType, updates.IsNullable, updates.DefaultValue,
+		updates.IsPrimaryKey, updates.IsUnique, updates.OrdinalPosition, updates.Description,
+		updates.ParentColumnPath, updates.Confidence, id,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update column: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("column not found: %s", id)
+	}
+	return nil
+}
+
+func (t *PostgresTxStore) DeleteColumn(ctx context.Context, id string) error {
+	result, err := t.tx.Exec(ctx, `DELETE FROM columns WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete column: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("column not found: %s", id)
 	}
 	return nil
 }

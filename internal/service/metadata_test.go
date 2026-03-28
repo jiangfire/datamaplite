@@ -121,6 +121,7 @@ func TestMetadataService_GetColumnDetail(t *testing.T) {
 		Name: "test-mysql",
 		Type: "mysql",
 	}, nil)
+	mockStore.On("GetColumnMappings", ctx, columnID).Return([]*store.ColumnMappingRow{}, nil)
 
 	detail, err := service.GetColumnDetail(ctx, columnID)
 
@@ -162,12 +163,31 @@ func TestMetadataService_GetColumnDetail_WithTerm(t *testing.T) {
 		Name: "test-mysql",
 		Type: "mysql",
 	}, nil)
+	mockStore.On("GetBusinessTerm", ctx, termID).Return(&store.BusinessTermRow{
+		ID:   termID,
+		Name: "客户ID",
+	}, nil)
+	mockStore.On("GetColumnMappings", ctx, columnID).Return([]*store.ColumnMappingRow{
+		{
+			ID:               "map-1",
+			SourceColumnID:   columnID,
+			TargetColumnID:   "col-2",
+			TargetColumnName: "customer_code",
+			TargetObjectName: "customers",
+			TargetSourceName: "dw",
+			MappingType:      "alias",
+			Confidence:       0.9,
+		},
+	}, nil)
 
 	detail, err := service.GetColumnDetail(ctx, columnID)
 
 	require.NoError(t, err)
 	assert.NotNil(t, detail.Term)
 	assert.Equal(t, termID, detail.Term.ID)
+	assert.Equal(t, "客户ID", detail.Term.Name)
+	assert.Len(t, detail.MappedColumns, 1)
+	assert.Equal(t, "customer_code", detail.MappedColumns[0].Name)
 	mockStore.AssertExpectations(t)
 }
 
@@ -220,6 +240,17 @@ func TestMetadataService_SearchColumns_EmptyQuery(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "query is required")
+}
+
+func TestMetadataService_SearchColumns_WhitespaceQuery(t *testing.T) {
+	ctx := context.Background()
+	service, mockStore := setupMetadataService(t)
+
+	_, err := service.SearchColumns(ctx, "   ", 10)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "query is required")
+	mockStore.AssertNotCalled(t, "SearchColumns", mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestMetadataService_SearchColumns_DefaultLimit(t *testing.T) {
@@ -327,21 +358,33 @@ func TestMetadataService_GetLineage(t *testing.T) {
 
 	mockStore.On("GetLineageUpward", ctx, columnID, 10).Return([]*store.LineageEdgeRow{
 		{
-			ID:         "edge-1",
-			SourceID:   "col-0",
-			TargetID:   columnID,
-			SourceType: "column",
-			TargetType: "column",
+			ID:               "edge-1",
+			SourceID:         "col-0",
+			TargetID:         columnID,
+			SourceType:       "column",
+			TargetType:       "column",
+			SourceName:       "upstream_id",
+			TargetName:       "user_id",
+			SourceDataType:   "bigint",
+			TargetDataType:   "int",
+			SourceSourceName: "ods_mysql",
+			TargetSourceName: "dwd_mysql",
 		},
 	}, nil)
 
 	mockStore.On("GetLineageDownward", ctx, columnID, 10).Return([]*store.LineageEdgeRow{
 		{
-			ID:         "edge-2",
-			SourceID:   columnID,
-			TargetID:   "col-2",
-			SourceType: "column",
-			TargetType: "column",
+			ID:               "edge-2",
+			SourceID:         columnID,
+			TargetID:         "col-2",
+			SourceType:       "column",
+			TargetType:       "column",
+			SourceName:       "user_id",
+			TargetName:       "dim_user_id",
+			SourceDataType:   "int",
+			TargetDataType:   "bigint",
+			SourceSourceName: "dwd_mysql",
+			TargetSourceName: "dm_mysql",
 		},
 	}, nil)
 
@@ -352,7 +395,11 @@ func TestMetadataService_GetLineage(t *testing.T) {
 	assert.Len(t, lineage.Upward, 1)
 	assert.Len(t, lineage.Downward, 1)
 	assert.Equal(t, "col-0", lineage.Upward[0].Source.ID)
+	assert.Equal(t, "upstream_id", lineage.Upward[0].Source.Name)
+	assert.Equal(t, "ods_mysql", lineage.Upward[0].Source.Source)
 	assert.Equal(t, "col-2", lineage.Downward[0].Target.ID)
+	assert.Equal(t, "dim_user_id", lineage.Downward[0].Target.Name)
+	assert.Equal(t, "dm_mysql", lineage.Downward[0].Target.Source)
 	mockStore.AssertExpectations(t)
 }
 
@@ -364,18 +411,26 @@ func TestMetadataService_GetImpactAnalysis(t *testing.T) {
 
 	mockStore.On("GetLineageDownward", ctx, columnID, 10).Return([]*store.LineageEdgeRow{
 		{
-			ID:         "edge-1",
-			SourceID:   columnID,
-			TargetID:   "col-2",
-			SourceType: "column",
-			TargetType: "column",
+			ID:               "edge-1",
+			SourceID:         columnID,
+			TargetID:         "col-2",
+			SourceType:       "column",
+			TargetType:       "column",
+			SourceName:       "user_id",
+			TargetName:       "dim_user_id",
+			TargetObjectName: "dim_users",
+			TargetSourceName: "dm_mysql",
 		},
 		{
-			ID:         "edge-2",
-			SourceID:   columnID,
-			TargetID:   "obj-1",
-			SourceType: "column",
-			TargetType: "object",
+			ID:               "edge-2",
+			SourceID:         columnID,
+			TargetID:         "obj-1",
+			SourceType:       "column",
+			TargetType:       "object",
+			SourceName:       "user_id",
+			TargetName:       "ads_users",
+			TargetObjectName: "ads_users",
+			TargetSourceName: "ads_mysql",
 		},
 	}, nil)
 
@@ -385,6 +440,9 @@ func TestMetadataService_GetImpactAnalysis(t *testing.T) {
 	assert.Equal(t, columnID, impact.ColumnID)
 	assert.Len(t, impact.ImpactObjects, 2)
 	assert.Equal(t, 2, impact.TotalObjects)
+	assert.Equal(t, "dim_user_id", impact.ImpactObjects[0].Name)
+	assert.Equal(t, "dim_users", impact.ImpactObjects[0].ObjectName)
+	assert.Equal(t, "dm_mysql", impact.ImpactObjects[0].SourceName)
 	mockStore.AssertExpectations(t)
 }
 

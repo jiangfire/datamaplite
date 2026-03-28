@@ -11,10 +11,20 @@ import {
 import { useSources, useSyncSource } from '../hooks';
 
 export const SourcesPage: React.FC = () => {
-  const { sources, loading, error, refetch, createSource, updateSource, deleteSource } = useSources();
+  const {
+    sources,
+    loading,
+    error,
+    refetch,
+    createSource,
+    updateSource,
+    deleteSource,
+  } = useSources();
   const { sync, syncing } = useSyncSource();
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingSource, setEditingSource] = useState<(typeof sources)[number] | null>(null);
+  const [editingSource, setEditingSource] = useState<
+    (typeof sources)[number] | null
+  >(null);
 
   const handleCreate = async (data: Parameters<typeof createSource>[0]) => {
     await createSource(data);
@@ -38,9 +48,7 @@ export const SourcesPage: React.FC = () => {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">数据源管理</h1>
-          <p className="text-slate-500 mt-1">
-            管理您的数据库连接并同步元数据
-          </p>
+          <p className="text-slate-500 mt-1">管理您的数据库连接并同步元数据</p>
         </div>
         <Button onClick={() => setShowCreateForm(true)}>
           <Plus size={18} className="mr-2" />

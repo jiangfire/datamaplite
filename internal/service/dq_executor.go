@@ -38,6 +38,12 @@ func (s *DQService) executeRule(ctx context.Context, rule *store.DQRuleRow, batc
 	if err := json.Unmarshal([]byte(rule.RuleConfig), &ruleConfig); err != nil {
 		return nil, fmt.Errorf("invalid rule config: %w", err)
 	}
+	if model.DQRuleType(rule.RuleType) == model.DQRuleTypeCustomSQL {
+		sqlText, _ := getStringValue(ruleConfig["sql"])
+		if err := s.validateCustomSQL(sqlText); err != nil {
+			return nil, err
+		}
+	}
 
 	execCtx, err := s.prepareExecutionContext(ctx, rule, ruleConfig)
 	if err != nil {

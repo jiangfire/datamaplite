@@ -38,7 +38,7 @@ describe('API Service', () => {
     it('should return data on successful response', async () => {
       const mockData = { id: '1', name: 'Test' };
       mockGet.mockResolvedValue({
-        data: { success: true, data: mockData },
+        data: { code: 0, data: mockData },
       });
 
       const result = await api.get('/test');
@@ -49,7 +49,7 @@ describe('API Service', () => {
 
     it('should throw error when response is not successful', async () => {
       mockGet.mockResolvedValue({
-        data: { success: false, error: { message: 'Not found' } },
+        data: { code: 404, message: 'Not found', error_code: 'NOT_FOUND' },
       });
 
       await expect(api.get('/test')).rejects.toThrow('Not found');
@@ -57,7 +57,7 @@ describe('API Service', () => {
 
     it('should throw generic error when error message is missing', async () => {
       mockGet.mockResolvedValue({
-        data: { success: false },
+        data: { code: 500 },
       });
 
       await expect(api.get('/test')).rejects.toThrow('Request failed');
@@ -69,7 +69,7 @@ describe('API Service', () => {
       const mockData = { id: '1', name: 'Test' };
       const postData = { name: 'Test' };
       mockPost.mockResolvedValue({
-        data: { success: true, data: mockData },
+        data: { code: 0, data: mockData },
       });
 
       const result = await api.post('/test', postData);
@@ -80,7 +80,7 @@ describe('API Service', () => {
 
     it('should throw error on failed post', async () => {
       mockPost.mockResolvedValue({
-        data: { success: false, error: { message: 'Invalid data' } },
+        data: { code: 400, message: 'Invalid data', error_code: 'BAD_REQUEST' },
       });
 
       await expect(api.post('/test', {})).rejects.toThrow('Invalid data');
@@ -91,7 +91,7 @@ describe('API Service', () => {
     it('should return data on successful put', async () => {
       const mockData = { id: '1', name: 'Updated' };
       mockPut.mockResolvedValue({
-        data: { success: true, data: mockData },
+        data: { code: 0, data: mockData },
       });
 
       const result = await api.put('/test/1', { name: 'Updated' });
@@ -104,7 +104,7 @@ describe('API Service', () => {
   describe('api.delete', () => {
     it('should return data on successful delete', async () => {
       mockDelete.mockResolvedValue({
-        data: { success: true, data: null },
+        data: { code: 0, data: null },
       });
 
       const result = await api.delete('/test/1');

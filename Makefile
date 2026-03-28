@@ -1,7 +1,7 @@
 # DataMap-Lite Makefile
 # Provides convenient commands for development and deployment
 
-.PHONY: help build test lint clean docker-build docker-up docker-down dev backend frontend
+.PHONY: help build build-backend build-frontend test lint clean docker-build docker-up docker-down dev backend frontend
 
 # Default target
 .DEFAULT_GOAL := help
@@ -35,6 +35,7 @@ frontend: ## Start frontend development server
 # Build commands
 build: ## Build all binaries
 	@echo "$(GREEN)Building backend...$(RESET)"
+	@mkdir -p bin
 	@go build -o bin/datamap ./cmd/datamap
 	@echo "$(GREEN)Building frontend...$(RESET)"
 	@cd web && pnpm build
@@ -83,8 +84,7 @@ lint-frontend: ## Run frontend linter only
 
 fmt: ## Format all code
 	@echo "$(GREEN)Formatting Go code...$(RESET)"
-	@gofmt -w .
-	@goimports -w .
+	@gofmt -w $$(find cmd internal pkg -name '*.go')
 	@echo "$(GREEN)Formatting frontend code...$(RESET)"
 	@cd web && pnpm format
 

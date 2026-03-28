@@ -57,8 +57,6 @@ func NewPostgresStore(ctx context.Context, cfg *config.DatabaseConfig, log *zap.
 }
 
 func runPostgresMigrations(ctx context.Context, pool *pgxpool.Pool) error {
-	const version = "001_init_schema"
-
 	if _, err := pool.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS schema_migrations (
 			version TEXT PRIMARY KEY,
@@ -68,33 +66,48 @@ func runPostgresMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 		return err
 	}
 
-	var applied bool
-	if err := pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version = $1)`, version).Scan(&applied); err != nil {
-		return err
-	}
-	if applied {
-		return nil
-	}
-
-	migrationSQL, err := os.ReadFile("migrations/001_init_schema.sql")
-	if err != nil {
-		return err
+	migrations := []struct {
+		version string
+		path    string
+	}{
+		{version: "001_init_schema", path: "migrations/001_init_schema.sql"},
+		{version: "002_business_terms_fields", path: "migrations/002_business_terms_fields.sql"},
+		{version: "003_reliability", path: "migrations/003_reliability.sql"},
 	}
 
-	tx, err := pool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
+	for _, migration := range migrations {
+		var applied bool
+		if err := pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version = $1)`, migration.version).Scan(&applied); err != nil {
+			return err
+		}
+		if applied {
+			continue
+		}
 
-	if _, err := tx.Exec(ctx, string(migrationSQL)); err != nil {
-		return err
-	}
-	if _, err := tx.Exec(ctx, `INSERT INTO schema_migrations (version) VALUES ($1)`, version); err != nil {
-		return err
+		migrationSQL, err := os.ReadFile(migration.path)
+		if err != nil {
+			return err
+		}
+
+		tx, err := pool.Begin(ctx)
+		if err != nil {
+			return err
+		}
+
+		if _, err := tx.Exec(ctx, string(migrationSQL)); err != nil {
+			tx.Rollback(ctx)
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO schema_migrations (version) VALUES ($1)`, migration.version); err != nil {
+			tx.Rollback(ctx)
+			return err
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return err
+		}
 	}
 
-	return tx.Commit(ctx)
+	return nil
 }
 
 // Close 关闭存储连接
@@ -131,7 +144,7 @@ type PostgresTxStore struct {
 }
 
 // CreateDataSource 创建数据源
-func (s *PostgresStore) CreateDataSource(ctx context.Context, source *DataSourceCreate) error {
+func (s *PostgresStore) CreateDataSource(ctx context.Context, source *DataSourceCreate) (string, error) {
 	query := `
 		INSERT INTO data_sources (id, name, description, type, host, port, database, connection_config, status)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active')
@@ -142,9 +155,9 @@ func (s *PostgresStore) CreateDataSource(ctx context.Context, source *DataSource
 		source.Port, source.Database, source.ConnectionConfig,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create data source: %w", err)
+		return "", fmt.Errorf("failed to create data source: %w", err)
 	}
-	return nil
+	return id, nil
 }
 
 // GetDataSource 获取数据源
@@ -702,7 +715,7 @@ func (s *PostgresStore) GetLatestDQResult(ctx context.Context, ruleID string) (*
 		&result.SampleErrors, &result.ErrorMessage, &checkedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return nil, fmt.Errorf("no dq result found for rule: %s", ruleID)
+			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get latest dq result: %w", err)
 	}
@@ -718,7 +731,7 @@ func (s *PostgresStore) GetDQStats(ctx context.Context) (*DQStatsRow, error) {
 			(SELECT COUNT(*) FROM dq_rules WHERE is_active = true) as active_rules,
 			(SELECT COUNT(*) FROM dq_results) as total_checks,
 			(SELECT COUNT(*) FROM dq_results WHERE status = 'passed') as passed_checks,
-			(SELECT COUNT(*) FROM dq_results WHERE status = 'failed') as failed_checks
+			(SELECT COUNT(*) FROM dq_results WHERE status IN ('failed', 'error')) as failed_checks
 	`
 	row := s.pool.QueryRow(ctx, query)
 	var stats DQStatsRow

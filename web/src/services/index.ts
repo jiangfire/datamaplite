@@ -1,4 +1,5 @@
 export { api } from './api';
+export { authService } from './authService';
 export { sourceService } from './sourceService';
 export { columnService } from './columnService';
 export { termService } from './termService';

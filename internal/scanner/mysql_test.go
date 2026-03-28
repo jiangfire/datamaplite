@@ -124,15 +124,15 @@ func TestMySQLScanner_NullableConversion(t *testing.T) {
 func TestMySQLScanner_KeyTypeDetection(t *testing.T) {
 	// 测试键类型检测逻辑
 	testCases := []struct {
-		columnKey     string
-		inPKMap       bool
-		expectedPK    bool
+		columnKey      string
+		inPKMap        bool
+		expectedPK     bool
 		expectedUnique bool
 	}{
 		{"", false, false, false},
-		{"", true, true, false},   // 在PK映射中，无主键标记
-		{"PRI", true, true, false}, // 主键
-		{"UNI", false, false, true}, // 唯一键
+		{"", true, true, false},      // 在PK映射中，无主键标记
+		{"PRI", true, true, false},   // 主键
+		{"UNI", false, false, true},  // 唯一键
 		{"MUL", false, false, false}, // 普通索引
 	}
 

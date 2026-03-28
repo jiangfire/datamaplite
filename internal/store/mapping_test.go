@@ -115,7 +115,7 @@ func setupTestData(ctx context.Context, t *testing.T, store Store) (sourceID, ob
 		Database:         "testdb",
 		ConnectionConfig: `{}`,
 	}
-	err := store.CreateDataSource(ctx, source)
+	_, err := store.CreateDataSource(ctx, source)
 	require.NoError(t, err)
 
 	sources, _ := store.ListDataSources(ctx)

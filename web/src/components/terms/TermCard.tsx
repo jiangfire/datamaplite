@@ -9,7 +9,11 @@ interface TermCardProps {
   onDelete: (id: string) => void;
 }
 
-export const TermCard: React.FC<TermCardProps> = ({ term, onEdit, onDelete }) => {
+export const TermCard: React.FC<TermCardProps> = ({
+  term,
+  onEdit,
+  onDelete,
+}) => {
   const [showActions, setShowActions] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -32,14 +36,29 @@ export const TermCard: React.FC<TermCardProps> = ({ term, onEdit, onDelete }) =>
               <BookOpen size={24} className="text-emerald-600" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-slate-900">{term.name}</h3>
-              {term.category && (
-                <Badge variant="info" className="mt-1">
-                  {term.category}
-                </Badge>
-              )}
+              <h3 className="text-lg font-semibold text-slate-900">
+                {term.name}
+              </h3>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {term.category && <Badge variant="info">{term.category}</Badge>}
+                {term.status && (
+                  <Badge variant={term.status === 'deprecated' ? 'error' : 'success'}>
+                    {term.status}
+                  </Badge>
+                )}
+                {term.standard_code && (
+                  <Badge variant="neutral">{term.standard_code}</Badge>
+                )}
+              </div>
               {term.description && (
-                <p className="text-sm text-slate-600 mt-2 line-clamp-2">{term.description}</p>
+                <p className="text-sm text-slate-600 mt-2 line-clamp-2">
+                  {term.description}
+                </p>
+              )}
+              {(term.domain || term.owner) && (
+                <p className="text-xs text-slate-500 mt-2">
+                  {[term.domain, term.owner].filter(Boolean).join(' · ')}
+                </p>
               )}
             </div>
           </div>
@@ -67,7 +86,9 @@ export const TermCard: React.FC<TermCardProps> = ({ term, onEdit, onDelete }) =>
                 <button
                   onClick={handleDelete}
                   className={`w-full px-4 py-2 text-left text-sm flex items-center gap-2 ${
-                    confirmDelete ? 'bg-red-50 text-red-600' : 'text-red-600 hover:bg-red-50'
+                    confirmDelete
+                      ? 'bg-red-50 text-red-600'
+                      : 'text-red-600 hover:bg-red-50'
                   }`}
                 >
                   {confirmDelete ? <Check size={16} /> : <Trash2 size={16} />}

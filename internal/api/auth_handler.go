@@ -1,8 +1,6 @@
 package api
 
 import (
-	"net/http"
-
 	"git.neolidy.top/neo/fuckcmdb/internal/model"
 	"git.neolidy.top/neo/fuckcmdb/internal/service"
 	"github.com/gin-gonic/gin"
@@ -10,141 +8,93 @@ import (
 
 // AuthHandler 认证处理器
 type AuthHandler struct {
+	*Handler
 	authService *service.AuthService
 }
 
 // NewAuthHandler 创建认证处理器
 func NewAuthHandler(authService *service.AuthService) *AuthHandler {
 	return &AuthHandler{
+		Handler:     NewHandler(),
 		authService: authService,
 	}
 }
 
 // Login 用户登录
 func (h *AuthHandler) Login(c *gin.Context) {
+	if !h.authService.IsEnabled() {
+		h.ServiceUnavailable(c, "AUTH_DISABLED", "Authentication is disabled")
+		return
+	}
+
 	var req model.LoginRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "INVALID_REQUEST",
-				Message: err.Error(),
-			},
-		})
+	if !h.BindJSON(c, &req) {
 		return
 	}
 
 	resp, err := h.authService.Login(c.Request.Context(), &req)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "AUTH_FAILED",
-				Message: err.Error(),
-			},
-		})
+		h.Unauthorized(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, model.BaseResponse{
-		Success: true,
-		Data:    resp,
-	})
+	h.JSON(c, resp)
 }
 
 // RefreshToken 刷新Token
 func (h *AuthHandler) RefreshToken(c *gin.Context) {
+	if !h.authService.IsEnabled() {
+		h.ServiceUnavailable(c, "AUTH_DISABLED", "Authentication is disabled")
+		return
+	}
+
 	var req model.RefreshTokenRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "INVALID_REQUEST",
-				Message: err.Error(),
-			},
-		})
+	if !h.BindJSON(c, &req) {
 		return
 	}
 
 	resp, err := h.authService.RefreshToken(c.Request.Context(), req.RefreshToken)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "INVALID_TOKEN",
-				Message: err.Error(),
-			},
-		})
+		h.Unauthorized(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, model.BaseResponse{
-		Success: true,
-		Data:    resp,
-	})
+	h.JSON(c, resp)
 }
 
 // Register 用户注册（需要管理员权限）
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req model.RegisterRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "INVALID_REQUEST",
-				Message: err.Error(),
-			},
-		})
+	if !h.BindJSON(c, &req) {
 		return
 	}
 
 	user, err := h.authService.Register(c.Request.Context(), &req)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "REGISTRATION_FAILED",
-				Message: err.Error(),
-			},
-		})
+		h.BadRequest(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusCreated, model.BaseResponse{
-		Success: true,
-		Data:    user,
-	})
+	h.Created(c, user)
 }
 
 // GetCurrentUser 获取当前用户信息
 func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
-	// 从上下文中获取用户信息
-	authCtx, exists := GetAuthContext(c)
-	if !exists {
-		c.JSON(http.StatusUnauthorized, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "UNAUTHORIZED",
-				Message: "Authentication required",
-			},
-		})
+	if !h.authService.IsEnabled() {
+		h.ServiceUnavailable(c, "AUTH_DISABLED", "Authentication is disabled")
+		return
+	}
+
+	authCtx, ok := h.RequireAuthContext(c)
+	if !ok {
 		return
 	}
 
 	user, err := h.authService.GetUserByID(c.Request.Context(), authCtx.UserID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "INTERNAL_ERROR",
-				Message: err.Error(),
-			},
-		})
+		h.InternalError(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, model.BaseResponse{
-		Success: true,
-		Data:    user,
-	})
+	h.JSON(c, user)
 }

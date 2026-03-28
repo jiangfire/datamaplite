@@ -4,23 +4,36 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"git.neolidy.top/neo/fuckcmdb/internal/crypto"
 	"git.neolidy.top/neo/fuckcmdb/internal/model"
+	internalSQLParser "git.neolidy.top/neo/fuckcmdb/internal/sqlparser"
 	"git.neolidy.top/neo/fuckcmdb/internal/store"
 	"github.com/google/uuid"
 )
 
 // DQService 数据质量服务
 type DQService struct {
-	store  store.Store
-	cipher *crypto.Cipher
+	store                  store.Store
+	cipher                 *crypto.Cipher
+	governanceEventService *GovernanceEventService
+	sqlValidator           *internalSQLParser.Validator
 }
 
 // NewDQService 创建数据质量服务
 func NewDQService(store store.Store, cipher *crypto.Cipher) *DQService {
-	return &DQService{store: store, cipher: cipher}
+	return &DQService{
+		store:        store,
+		cipher:       cipher,
+		sqlValidator: internalSQLParser.NewValidator(),
+	}
+}
+
+// SetGovernanceEventService 设置治理事件发送服务。
+func (s *DQService) SetGovernanceEventService(governanceEventService *GovernanceEventService) {
+	s.governanceEventService = governanceEventService
 }
 
 // CreateRule 创建数据质量规则
@@ -73,7 +86,11 @@ func (s *DQService) GetRule(ctx context.Context, id string) (*model.DQRule, erro
 		return nil, err
 	}
 
-	return s.toDQRule(row), nil
+	rule := s.toDQRule(row)
+	if err := s.attachLatestResult(ctx, rule); err != nil {
+		return nil, err
+	}
+	return rule, nil
 }
 
 // ListRules 列出数据质量规则
@@ -101,7 +118,11 @@ func (s *DQService) ListRules(ctx context.Context, filter *model.DQRuleFilter) (
 
 	var rules []*model.DQRule
 	for _, row := range rows {
-		rules = append(rules, s.toDQRule(row))
+		rule := s.toDQRule(row)
+		if err := s.attachLatestResult(ctx, rule); err != nil {
+			return nil, err
+		}
+		rules = append(rules, rule)
 	}
 	return rules, nil
 }
@@ -172,7 +193,13 @@ func (s *DQService) CheckRule(ctx context.Context, ruleID string, sampleLimit in
 		return nil, err
 	}
 
-	return s.getResultByBatchAndRule(ctx, batchID, ruleID)
+	resultRow, err := s.getResultByBatchAndRule(ctx, batchID, ruleID)
+	if err != nil {
+		return nil, err
+	}
+
+	s.publishDQFailureEventAsync(rule, resultRow)
+	return resultRow, nil
 }
 
 // CheckRules 批量执行规则检查
@@ -181,6 +208,7 @@ func (s *DQService) CheckRules(ctx context.Context, req *model.DQCheckRequest) (
 	checkedAt := time.Now()
 
 	var rules []*store.DQRuleRow
+	skipInactive := true
 
 	if req.CheckAll {
 		// 获取所有活跃规则
@@ -191,11 +219,12 @@ func (s *DQService) CheckRules(ctx context.Context, req *model.DQCheckRequest) (
 		}
 		rules = rows
 	} else if len(req.RuleIDs) > 0 {
+		skipInactive = false
 		// 获取指定规则
 		for _, ruleID := range req.RuleIDs {
 			rule, err := s.store.GetDQRule(ctx, ruleID)
 			if err != nil {
-				continue
+				return nil, fmt.Errorf("failed to load dq rule %s: %w", ruleID, err)
 			}
 			rules = append(rules, rule)
 		}
@@ -225,7 +254,7 @@ func (s *DQService) CheckRules(ctx context.Context, req *model.DQCheckRequest) (
 	}
 
 	for _, rule := range rules {
-		if !rule.IsActive {
+		if skipInactive && !rule.IsActive {
 			continue
 		}
 
@@ -235,17 +264,20 @@ func (s *DQService) CheckRules(ctx context.Context, req *model.DQCheckRequest) (
 		}
 
 		if err := s.store.CreateDQResult(ctx, result); err != nil {
-			continue
+			return nil, fmt.Errorf("failed to persist dq result for rule %s: %w", rule.ID, err)
 		}
 
-		resultRow, _ := s.getResultByBatchAndRule(ctx, batchID, rule.ID)
-		if resultRow != nil {
-			results = append(results, resultRow)
-			if resultRow.Status == model.DQResultStatusPassed {
-				passedCount++
-			} else {
-				failedCount++
-			}
+		resultRow, err := s.getResultByBatchAndRule(ctx, batchID, rule.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load persisted dq result for rule %s: %w", rule.ID, err)
+		}
+
+		results = append(results, resultRow)
+		s.publishDQFailureEventAsync(rule, resultRow)
+		if resultRow.Status == model.DQResultStatusPassed {
+			passedCount++
+		} else {
+			failedCount++
 		}
 	}
 
@@ -322,12 +354,29 @@ func (s *DQService) validateRuleConfig(ruleType model.DQRuleType, config map[str
 		if config == nil || config["sql"] == nil {
 			return fmt.Errorf("custom_sql rule requires 'sql' in config")
 		}
+		sqlText, ok := getStringValue(config["sql"])
+		if !ok || strings.TrimSpace(sqlText) == "" {
+			return fmt.Errorf("custom_sql rule requires non-empty sql")
+		}
+		if err := s.validateCustomSQL(sqlText); err != nil {
+			return err
+		}
 	case model.DQRuleTypeReferential:
 		if config == nil || config["ref_object_id"] == nil || config["ref_column_id"] == nil {
 			return fmt.Errorf("referential rule requires 'ref_object_id' and 'ref_column_id' in config")
 		}
 	default:
 		return fmt.Errorf("unknown rule type: %s", ruleType)
+	}
+	return nil
+}
+
+func (s *DQService) validateCustomSQL(sqlText string) error {
+	if s.sqlValidator == nil {
+		return fmt.Errorf("custom_sql validator is not configured")
+	}
+	if err := s.sqlValidator.ValidateSelectSQL(sqlText); err != nil {
+		return fmt.Errorf("invalid custom_sql rule: %w", err)
 	}
 	return nil
 }
@@ -373,6 +422,19 @@ func (s *DQService) toDQResult(row *store.DQResultRow) *model.DQResult {
 	}
 }
 
+func (s *DQService) attachLatestResult(ctx context.Context, rule *model.DQRule) error {
+	row, err := s.store.GetLatestDQResult(ctx, rule.ID)
+	if err != nil {
+		return err
+	}
+	if row == nil {
+		return nil
+	}
+
+	rule.LatestResult = s.toDQResult(row)
+	return nil
+}
+
 // getResultByBatchAndRule 根据批次和规则获取结果
 func (s *DQService) getResultByBatchAndRule(ctx context.Context, batchID, ruleID string) (*model.DQResult, error) {
 	filter := &store.DQResultFilter{
@@ -381,8 +443,143 @@ func (s *DQService) getResultByBatchAndRule(ctx context.Context, batchID, ruleID
 		Limit:   1,
 	}
 	rows, err := s.store.ListDQResults(ctx, filter)
-	if err != nil || len(rows) == 0 {
-		return nil, fmt.Errorf("result not found")
+	if err != nil {
+		return nil, fmt.Errorf("list dq results failed: %w", err)
+	}
+	if len(rows) == 0 {
+		return nil, fmt.Errorf("dq result not found for batch %s rule %s", batchID, ruleID)
 	}
 	return s.toDQResult(rows[0]), nil
+}
+
+func (s *DQService) publishDQFailureEventAsync(rule *store.DQRuleRow, result *model.DQResult) {
+	if rule == nil || result == nil || s.governanceEventService == nil || !s.governanceEventService.Enabled() {
+		return
+	}
+	if result.Status == model.DQResultStatusPassed {
+		return
+	}
+
+	go func() {
+		if err := s.publishDQFailureEvent(context.Background(), rule, result); err != nil {
+			return
+		}
+	}()
+}
+
+func (s *DQService) publishDQFailureEvent(ctx context.Context, rule *store.DQRuleRow, result *model.DQResult) error {
+	sourceName := ""
+	objectName := ""
+	columnName := ""
+
+	if rule.SourceID != nil && *rule.SourceID != "" {
+		if source, err := s.store.GetDataSource(ctx, *rule.SourceID); err == nil && source != nil {
+			sourceName = source.Name
+		}
+	}
+
+	if rule.ObjectID != nil && *rule.ObjectID != "" {
+		if object, err := s.store.GetSchemaObject(ctx, *rule.ObjectID); err == nil && object != nil {
+			objectName = object.Name
+			if sourceName == "" {
+				if source, err := s.store.GetDataSource(ctx, object.SourceID); err == nil && source != nil {
+					sourceName = source.Name
+				}
+			}
+		}
+	}
+
+	if rule.ColumnID != nil && *rule.ColumnID != "" {
+		if column, err := s.store.GetColumn(ctx, *rule.ColumnID); err == nil && column != nil {
+			columnName = column.Name
+			if objectName == "" {
+				if object, err := s.store.GetSchemaObject(ctx, column.ObjectID); err == nil && object != nil {
+					objectName = object.Name
+					if sourceName == "" {
+						if source, err := s.store.GetDataSource(ctx, object.SourceID); err == nil && source != nil {
+							sourceName = source.Name
+						}
+					}
+				}
+			}
+		}
+	}
+
+	displayName := rule.Name
+	if columnName != "" {
+		displayName = columnName
+	}
+
+	priority := "medium"
+	switch strings.ToLower(rule.Severity) {
+	case "error":
+		priority = "high"
+	case "warning":
+		priority = "medium"
+	case "info":
+		priority = "low"
+	}
+
+	summary := fmt.Sprintf("DQ 规则 [%s] 执行失败", rule.Name)
+	if sourceName != "" || objectName != "" || columnName != "" {
+		locationParts := make([]string, 0, 3)
+		if sourceName != "" {
+			locationParts = append(locationParts, sourceName)
+		}
+		if objectName != "" {
+			locationParts = append(locationParts, objectName)
+		}
+		if columnName != "" {
+			locationParts = append(locationParts, columnName)
+		}
+		summary = fmt.Sprintf("DQ 规则 [%s] 在 %s 上执行失败", rule.Name, strings.Join(locationParts, "."))
+	}
+
+	payload := map[string]interface{}{
+		"title":          fmt.Sprintf("处理 DQ 异常：%s", rule.Name),
+		"summary":        summary,
+		"display_name":   displayName,
+		"priority":       priority,
+		"severity":       rule.Severity,
+		"rule_id":        rule.ID,
+		"rule_name":      rule.Name,
+		"rule_type":      rule.RuleType,
+		"status":         result.Status,
+		"failed_rows":    result.FailedRows,
+		"total_rows":     result.TotalRows,
+		"pass_rate":      result.PassRate,
+		"check_batch_id": result.CheckBatchID,
+	}
+	if sourceName != "" {
+		payload["source_name"] = sourceName
+	}
+	if objectName != "" {
+		payload["object_name"] = objectName
+	}
+	if columnName != "" {
+		payload["column_name"] = columnName
+	}
+	if rule.SourceID != nil {
+		payload["source_id"] = *rule.SourceID
+	}
+	if rule.ObjectID != nil {
+		payload["object_id"] = *rule.ObjectID
+	}
+	if rule.ColumnID != nil {
+		payload["column_id"] = *rule.ColumnID
+	}
+	if result.ErrorMessage != nil {
+		payload["error_message"] = *result.ErrorMessage
+	}
+
+	return s.governanceEventService.Publish(ctx, GovernanceEvent{
+		EventID:      "dq_result_" + result.ID,
+		EventType:    "dq.rule.failed",
+		OccurredAt:   result.CheckedAt.UTC().Format(time.RFC3339),
+		ResourceType: "dq_result",
+		ResourceID:   result.ID,
+		ActorID:      "system",
+		TraceID:      result.CheckBatchID,
+		Payload:      payload,
+	})
 }

@@ -5,6 +5,7 @@ import {
   SearchPage,
   ColumnDetailPage,
   TermsPage,
+  TermDetailPage,
   LineagePage,
   DQRulesPage,
   DQResultsPage,
@@ -30,6 +31,7 @@ const App = () => {
 
         {/* Business Terms */}
         <Route path="/terms" element={<TermsPage />} />
+        <Route path="/terms/:id" element={<TermDetailPage />} />
 
         {/* Lineage Analysis */}
         <Route path="/lineage" element={<LineagePage />} />

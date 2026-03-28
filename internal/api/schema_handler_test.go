@@ -60,10 +60,8 @@ func TestSchemaHandler_GetColumnDetail(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.True(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, successCode, resp.Code)
 
 	mockSvc.AssertExpectations(t)
 }
@@ -83,11 +81,9 @@ func TestSchemaHandler_GetColumnDetail_NotFound(t *testing.T) {
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.False(t, resp.Success)
-	assert.Equal(t, "NOT_FOUND", resp.Error.Code)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, http.StatusNotFound, resp.Code)
+	assert.Equal(t, "NOT_FOUND", resp.ErrorCode)
 
 	mockSvc.AssertExpectations(t)
 }
@@ -117,10 +113,8 @@ func TestSchemaHandler_SearchColumns(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.True(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, successCode, resp.Code)
 
 	mockSvc.AssertExpectations(t)
 }
@@ -136,10 +130,9 @@ func TestSchemaHandler_SearchColumns_EmptyQuery(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.False(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+	assert.Equal(t, "BAD_REQUEST", resp.ErrorCode)
 }
 
 func TestSchemaHandler_SearchColumns_MissingQuery(t *testing.T) {
@@ -153,10 +146,25 @@ func TestSchemaHandler_SearchColumns_MissingQuery(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.False(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+	assert.Equal(t, "BAD_REQUEST", resp.ErrorCode)
+}
+
+func TestSchemaHandler_SearchColumns_WhitespaceQuery(t *testing.T) {
+	router, _, handler := setupSchemaHandlerTest()
+
+	router.GET("/columns/search", handler.SearchColumns)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/columns/search?q=%20%20%20", nil)
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+	assert.Equal(t, "BAD_REQUEST", resp.ErrorCode)
 }
 
 func TestSchemaHandler_GetColumnMappings(t *testing.T) {
@@ -190,10 +198,8 @@ func TestSchemaHandler_GetColumnMappings(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.True(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, successCode, resp.Code)
 
 	mockSvc.AssertExpectations(t)
 }
@@ -221,10 +227,8 @@ func TestSchemaHandler_CreateColumnMapping(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.True(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, successCode, resp.Code)
 
 	mockSvc.AssertExpectations(t)
 }
@@ -261,10 +265,8 @@ func TestSchemaHandler_DeleteColumnMapping(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.True(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, successCode, resp.Code)
 
 	mockSvc.AssertExpectations(t)
 }
@@ -302,10 +304,8 @@ func TestSchemaHandler_GetLineage(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.True(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, successCode, resp.Code)
 
 	mockSvc.AssertExpectations(t)
 }
@@ -339,11 +339,8 @@ func TestSchemaHandler_GetImpactAnalysis(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.True(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, successCode, resp.Code)
 
 	mockSvc.AssertExpectations(t)
 }
-

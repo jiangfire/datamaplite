@@ -11,7 +11,7 @@ export const SearchPage: React.FC = () => {
     (value: string) => {
       search(value);
     },
-    [search]
+    [search],
   );
 
   return (
@@ -47,14 +47,18 @@ export const SearchPage: React.FC = () => {
               <Search size={24} className="text-indigo-500" />
             </div>
             <h3 className="font-medium text-slate-900 mb-1">模糊匹配</h3>
-            <p className="text-sm text-slate-500">支持字段名模糊搜索，不区分大小写</p>
+            <p className="text-sm text-slate-500">
+              支持字段名模糊搜索，不区分大小写
+            </p>
           </div>
           <div className="text-center p-4">
             <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center mx-auto mb-3">
               <span className="text-2xl">🔍</span>
             </div>
             <h3 className="font-medium text-slate-900 mb-1">跨源搜索</h3>
-            <p className="text-sm text-slate-500">一次搜索覆盖所有已连接的数据源</p>
+            <p className="text-sm text-slate-500">
+              一次搜索覆盖所有已连接的数据源
+            </p>
           </div>
           <div className="text-center p-4">
             <div className="w-12 h-12 rounded-xl bg-violet-50 flex items-center justify-center mx-auto mb-3">

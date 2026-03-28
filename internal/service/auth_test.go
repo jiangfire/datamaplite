@@ -16,6 +16,7 @@ import (
 func setupAuthService(t *testing.T) (*AuthService, *MockStore) {
 	mockStore := new(MockStore)
 	config := &AuthConfig{
+		Enabled:         true,
 		JWTSecret:       "test-secret-key-for-jwt-signing-32",
 		AccessTokenTTL:  15 * time.Minute,
 		RefreshTokenTTL: 7 * 24 * time.Hour,
@@ -215,8 +216,32 @@ func TestAuthService_GetUserByID_Success(t *testing.T) {
 func TestDefaultAuthConfig(t *testing.T) {
 	cfg := DefaultAuthConfig()
 
+	assert.True(t, cfg.Enabled)
 	assert.NotEmpty(t, cfg.JWTSecret)
 	assert.Equal(t, 15*time.Minute, cfg.AccessTokenTTL)
 	assert.Equal(t, 7*24*time.Hour, cfg.RefreshTokenTTL)
 	assert.Equal(t, 10, cfg.BcryptCost)
+}
+
+func TestAuthService_ResolveAnonymousAuthContext(t *testing.T) {
+	service := NewAuthService(nil, &AuthConfig{Enabled: false})
+
+	authCtx := service.ResolveAnonymousAuthContext()
+
+	require.NotNil(t, authCtx)
+	assert.Equal(t, "anonymous", authCtx.UserID)
+	assert.Equal(t, "anonymous", authCtx.Username)
+	assert.Equal(t, model.UserRoleUser, authCtx.Role)
+}
+
+func TestAuthService_Login_Disabled(t *testing.T) {
+	service := NewAuthService(nil, &AuthConfig{Enabled: false})
+
+	_, err := service.Login(context.Background(), &model.LoginRequest{
+		Username: "testuser",
+		Password: "password",
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "authentication is disabled")
 }

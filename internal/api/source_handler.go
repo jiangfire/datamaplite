@@ -1,11 +1,13 @@
 package api
 
 import (
+	"net/http"
 	"time"
 
 	"git.neolidy.top/neo/fuckcmdb/internal/model"
 	"git.neolidy.top/neo/fuckcmdb/internal/scanner"
 	"git.neolidy.top/neo/fuckcmdb/internal/service"
+	responsepkg "git.neolidy.top/neo/fuckcmdb/pkg/response"
 	"github.com/gin-gonic/gin"
 )
 
@@ -86,7 +88,7 @@ func (h *SourceHandler) UpdateSource(c *gin.Context) {
 		return
 	}
 
-	h.JSON(c, gin.H{"message": "updated"})
+	h.Success(c)
 }
 
 // DeleteSource 删除数据源
@@ -102,7 +104,7 @@ func (h *SourceHandler) DeleteSource(c *gin.Context) {
 		return
 	}
 
-	h.JSON(c, gin.H{"message": "deleted"})
+	h.Success(c)
 }
 
 // TestConnection 测试连接
@@ -121,17 +123,11 @@ func (h *SourceHandler) TestConnection(c *gin.Context) {
 	}
 
 	if err := h.sourceService.TestConnection(c.Request.Context(), string(req.Type), config); err != nil {
-		h.JSON(c, model.ConnectionTestResponse{
-			Success: false,
-			Message: err.Error(),
-		})
+		h.Error(c, http.StatusBadGateway, "CONNECTION_TEST_FAILED", err.Error())
 		return
 	}
 
-	h.JSON(c, model.ConnectionTestResponse{
-		Success: true,
-		Message: "Connection successful",
-	})
+	c.JSON(http.StatusOK, responsepkg.SuccessWithMessage("Connection successful", nil))
 }
 
 // TriggerSync 触发同步
@@ -148,8 +144,8 @@ func (h *SourceHandler) TriggerSync(c *gin.Context) {
 	}
 
 	h.JSON(c, model.SyncResponse{
-		SourceID:  id,
-		StartedAt: time.Now(),
+		SourceID:     id,
+		StartedAt:    time.Now(),
 		ObjectsCount: 0,
 	})
 }
@@ -180,7 +176,9 @@ func (h *SourceHandler) ListSchemaChanges(c *gin.Context) {
 	}
 
 	var query model.PaginationQuery
-	h.BindQuery(c, &query)
+	if !h.BindQuery(c, &query) {
+		return
+	}
 
 	changes, err := h.metadataService.ListSchemaChanges(c.Request.Context(), id, query.GetLimit())
 	if err != nil {

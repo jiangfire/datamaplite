@@ -57,12 +57,26 @@ func TestLoadWithEnvOverride(t *testing.T) {
 	}
 }
 
-func TestValidateRequiresJWTSecret(t *testing.T) {
+func TestValidateAllowsMissingJWTSecretWhenAuthDisabled(t *testing.T) {
 	cfg := &Config{
-		Server: ServerConfig{Port: 8080},
+		Server:   ServerConfig{Port: 8080},
 		Database: DatabaseConfig{Type: "sqlite"},
-		Log: LogConfig{Level: "info"},
-		Auth: AuthConfig{JWTSecret: ""},
+		Log:      LogConfig{Level: "info"},
+		Auth:     AuthConfig{Enabled: false, JWTSecret: ""},
+	}
+
+	err := cfg.Validate()
+	if err != nil {
+		t.Fatalf("Expected validation to pass when auth is disabled, got %v", err)
+	}
+}
+
+func TestValidateRequiresJWTSecretWhenAuthEnabled(t *testing.T) {
+	cfg := &Config{
+		Server:   ServerConfig{Port: 8080},
+		Database: DatabaseConfig{Type: "sqlite"},
+		Log:      LogConfig{Level: "info"},
+		Auth:     AuthConfig{Enabled: true, JWTSecret: ""},
 	}
 
 	err := cfg.Validate()

@@ -13,6 +13,7 @@ import (
 
 // AuthConfig 认证配置
 type AuthConfig struct {
+	Enabled         bool
 	JWTSecret       string
 	AccessTokenTTL  time.Duration
 	RefreshTokenTTL time.Duration
@@ -22,10 +23,25 @@ type AuthConfig struct {
 // DefaultAuthConfig 默认认证配置
 func DefaultAuthConfig() *AuthConfig {
 	return &AuthConfig{
+		Enabled:         true,
 		JWTSecret:       "your-secret-key-change-in-production",
 		AccessTokenTTL:  15 * time.Minute,
 		RefreshTokenTTL: 7 * 24 * time.Hour,
 		BcryptCost:      10,
+	}
+}
+
+// IsEnabled 返回认证是否启用
+func (s *AuthService) IsEnabled() bool {
+	return s.config.Enabled
+}
+
+// ResolveAnonymousAuthContext 为关闭认证时生成默认上下文
+func (s *AuthService) ResolveAnonymousAuthContext() *model.AuthContext {
+	return &model.AuthContext{
+		UserID:   "anonymous",
+		Username: "anonymous",
+		Role:     model.UserRoleUser,
 	}
 }
 
@@ -48,6 +64,10 @@ func NewAuthService(store store.Store, config *AuthConfig) *AuthService {
 
 // Login 用户登录
 func (s *AuthService) Login(ctx context.Context, req *model.LoginRequest) (*model.LoginResponse, error) {
+	if !s.IsEnabled() {
+		return nil, fmt.Errorf("authentication is disabled")
+	}
+
 	// 获取用户
 	user, err := s.store.GetUserByUsername(ctx, req.Username)
 	if err != nil {
@@ -86,6 +106,10 @@ func (s *AuthService) Login(ctx context.Context, req *model.LoginRequest) (*mode
 
 // RefreshToken 刷新Access Token
 func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*model.LoginResponse, error) {
+	if !s.IsEnabled() {
+		return nil, fmt.Errorf("authentication is disabled")
+	}
+
 	// 验证Refresh Token
 	claims, err := s.parseToken(refreshToken)
 	if err != nil {
@@ -129,6 +153,10 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*m
 
 // Register 用户注册
 func (s *AuthService) Register(ctx context.Context, req *model.RegisterRequest) (*model.UserInfo, error) {
+	if !s.IsEnabled() {
+		return nil, fmt.Errorf("authentication is disabled")
+	}
+
 	// 检查用户名是否已存在
 	_, err := s.store.GetUserByUsername(ctx, req.Username)
 	if err == nil {
@@ -221,6 +249,10 @@ func (s *AuthService) ParseToken(tokenString string) (*model.Claims, error) {
 
 // parseToken 解析JWT Token（内部方法）
 func (s *AuthService) parseToken(tokenString string) (*model.Claims, error) {
+	if !s.IsEnabled() {
+		return nil, fmt.Errorf("authentication is disabled")
+	}
+
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -260,6 +292,25 @@ func getStringClaim(claims jwt.MapClaims, key string) string {
 
 // parseTime 解析时间字符串
 func parseTime(timeStr string) time.Time {
-	t, _ := time.Parse(time.RFC3339, timeStr)
-	return t
+	layouts := []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02 15:04:05.999999999 -0700 MST",
+		"2006-01-02 15:04:05.999999999 -0700",
+		"2006-01-02 15:04:05.999999 -0700 MST",
+		"2006-01-02 15:04:05.999999 -0700",
+		"2006-01-02 15:04:05 -0700 MST",
+		"2006-01-02 15:04:05 -0700",
+		"2006-01-02 15:04:05.999999999",
+		"2006-01-02 15:04:05.999999",
+		"2006-01-02 15:04:05",
+	}
+
+	for _, layout := range layouts {
+		if t, err := time.Parse(layout, timeStr); err == nil {
+			return t
+		}
+	}
+
+	return time.Time{}
 }

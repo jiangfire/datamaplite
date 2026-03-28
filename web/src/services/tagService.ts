@@ -12,13 +12,18 @@ export const tagService = {
   getTag: (id: string) => api.get<Tag>(`/tags/${id}`),
 
   // 更新标签
-  updateTag: (id: string, data: TagCreate) => api.put<void>(`/tags/${id}`, data),
+  updateTag: (id: string, data: TagCreate) =>
+    api.put<void>(`/tags/${id}`, data),
 
   // 删除标签
   deleteTag: (id: string) => api.delete<void>(`/tags/${id}`),
 
   // 获取标签关联的字段
-  getColumnsByTag: (id: string) => api.get<ColumnSearchResult[]>(`/tags/${id}/columns`),
+  getColumnsByTag: (id: string) =>
+    api.get<ColumnSearchResult[]>(`/tags/${id}/columns`),
+
+  // 获取字段标签
+  getColumnTags: (columnId: string) => api.get<Tag[]>(`/columns/${columnId}/tags`),
 
   // 给字段添加标签
   addTagToColumn: (columnId: string, tagId: string) =>

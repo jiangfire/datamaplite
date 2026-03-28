@@ -5,9 +5,21 @@ import { useTags } from '../hooks';
 import type { TagCreate } from '../types';
 
 const PRESET_COLORS = [
-  '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e',
-  '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6',
-  '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899',
+  '#ef4444',
+  '#f97316',
+  '#f59e0b',
+  '#84cc16',
+  '#22c55e',
+  '#10b981',
+  '#14b8a6',
+  '#06b6d4',
+  '#0ea5e9',
+  '#3b82f6',
+  '#6366f1',
+  '#8b5cf6',
+  '#a855f7',
+  '#d946ef',
+  '#ec4899',
 ];
 
 export const TagsPage: React.FC = () => {
@@ -49,7 +61,9 @@ export const TagsPage: React.FC = () => {
             <h3 className="font-medium mb-4">创建新标签</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm text-slate-600 mb-1">名称</label>
+                <label className="block text-sm text-slate-600 mb-1">
+                  名称
+                </label>
                 <input
                   type="text"
                   value={newTagName}
@@ -59,7 +73,9 @@ export const TagsPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm text-slate-600 mb-1">描述</label>
+                <label className="block text-sm text-slate-600 mb-1">
+                  描述
+                </label>
                 <input
                   type="text"
                   value={newTagDesc}
@@ -69,7 +85,9 @@ export const TagsPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm text-slate-600 mb-2">颜色</label>
+                <label className="block text-sm text-slate-600 mb-2">
+                  颜色
+                </label>
                 <div className="flex flex-wrap gap-2">
                   {PRESET_COLORS.map((color) => (
                     <button
@@ -82,7 +100,12 @@ export const TagsPage: React.FC = () => {
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button variant="secondary" onClick={() => setShowCreateForm(false)}>取消</Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowCreateForm(false)}
+                >
+                  取消
+                </Button>
                 <Button onClick={handleCreate}>创建</Button>
               </div>
             </div>
@@ -93,7 +116,11 @@ export const TagsPage: React.FC = () => {
       {loading ? (
         <div className="text-center py-12">加载中...</div>
       ) : error ? (
-        <Card><CardContent className="p-8 text-center text-red-500">{error}</CardContent></Card>
+        <Card>
+          <CardContent className="p-8 text-center text-red-500">
+            {error}
+          </CardContent>
+        </Card>
       ) : tags.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center">
@@ -116,7 +143,9 @@ export const TagsPage: React.FC = () => {
                   <div className="flex-1">
                     <h3 className="font-medium">{tag.name}</h3>
                     {tag.description && (
-                      <p className="text-sm text-slate-500">{tag.description}</p>
+                      <p className="text-sm text-slate-500">
+                        {tag.description}
+                      </p>
                     )}
                   </div>
                   <button

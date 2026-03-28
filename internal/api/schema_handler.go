@@ -1,6 +1,8 @@
 package api
 
 import (
+	"strings"
+
 	"git.neolidy.top/neo/fuckcmdb/internal/model"
 	"git.neolidy.top/neo/fuckcmdb/internal/service"
 	"github.com/gin-gonic/gin"
@@ -40,13 +42,12 @@ func (h *SchemaHandler) GetColumnDetail(c *gin.Context) {
 // SearchColumns 搜索字段
 func (h *SchemaHandler) SearchColumns(c *gin.Context) {
 	var req model.SearchColumnsRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
-		h.BadRequest(c, err.Error())
+	if !h.BindQuery(c, &req) {
 		return
 	}
-
+	req.Query = strings.TrimSpace(req.Query)
 	if req.Query == "" {
-		h.BadRequest(c, "query parameter 'q' is required")
+		h.BadRequest(c, "query is required")
 		return
 	}
 
@@ -89,8 +90,7 @@ func (h *SchemaHandler) CreateColumnMapping(c *gin.Context) {
 	}
 
 	var req model.ColumnMappingRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.BadRequest(c, err.Error())
+	if !h.BindJSON(c, &req) {
 		return
 	}
 
@@ -100,7 +100,7 @@ func (h *SchemaHandler) CreateColumnMapping(c *gin.Context) {
 		return
 	}
 
-	h.JSON(c, gin.H{"success": true})
+	h.Success(c)
 }
 
 // DeleteColumnMapping 删除字段映射
@@ -116,7 +116,7 @@ func (h *SchemaHandler) DeleteColumnMapping(c *gin.Context) {
 		return
 	}
 
-	h.JSON(c, gin.H{"success": true})
+	h.Success(c)
 }
 
 // GetLineage 获取血缘关系

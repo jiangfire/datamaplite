@@ -79,7 +79,7 @@ export const DQRuleCard: React.FC<DQRuleCardProps> = ({
                   ? 'bg-red-50 border border-red-100'
                   : isPassed
                     ? 'bg-emerald-50 border border-emerald-100'
-                  : 'bg-slate-50 border border-slate-100'
+                    : 'bg-slate-50 border border-slate-100'
               }`}
             >
               {isFailed ? (
@@ -91,16 +91,22 @@ export const DQRuleCard: React.FC<DQRuleCardProps> = ({
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="text-lg font-semibold text-slate-900 truncate">{rule.name}</h3>
+              <h3 className="text-lg font-semibold text-slate-900 truncate">
+                {rule.name}
+              </h3>
               <div className="flex flex-wrap gap-2 mt-1">
-                <Badge variant="default">{ruleTypeLabels[rule.rule_type]}</Badge>
+                <Badge variant="default">
+                  {ruleTypeLabels[rule.rule_type]}
+                </Badge>
                 <Badge variant={severityColors[rule.severity]}>
                   {severityLabels[rule.severity]}
                 </Badge>
                 {!rule.is_active && <Badge variant="neutral">已禁用</Badge>}
               </div>
               {rule.description && (
-                <p className="text-sm text-slate-600 mt-2 line-clamp-2">{rule.description}</p>
+                <p className="text-sm text-slate-600 mt-2 line-clamp-2">
+                  {rule.description}
+                </p>
               )}
             </div>
           </div>
@@ -148,7 +154,9 @@ export const DQRuleCard: React.FC<DQRuleCardProps> = ({
                 <button
                   onClick={handleDelete}
                   className={`w-full px-4 py-2 text-left text-sm flex items-center gap-2 ${
-                    confirmDelete ? 'bg-red-50 text-red-600' : 'text-red-600 hover:bg-red-50'
+                    confirmDelete
+                      ? 'bg-red-50 text-red-600'
+                      : 'text-red-600 hover:bg-red-50'
                   }`}
                 >
                   {confirmDelete ? <Check size={16} /> : <Trash2 size={16} />}
@@ -173,7 +181,8 @@ export const DQRuleCard: React.FC<DQRuleCardProps> = ({
                   <>
                     <AlertCircle size={16} className="text-red-500" />
                     <span className="text-sm text-red-600">
-                      失败 ({rule.latest_result?.failed_rows} / {rule.latest_result?.total_rows})
+                      失败 ({rule.latest_result?.failed_rows} /{' '}
+                      {rule.latest_result?.total_rows})
                     </span>
                   </>
                 ) : (
@@ -189,7 +198,8 @@ export const DQRuleCard: React.FC<DQRuleCardProps> = ({
             </div>
             {rule.latest_result?.checked_at && (
               <div className="text-xs text-slate-400 mt-1">
-                检查于 {new Date(rule.latest_result.checked_at).toLocaleString()}
+                检查于{' '}
+                {new Date(rule.latest_result.checked_at).toLocaleString()}
               </div>
             )}
           </div>

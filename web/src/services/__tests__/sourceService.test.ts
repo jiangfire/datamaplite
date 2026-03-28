@@ -7,7 +7,6 @@ import type {
   DataSourceUpdate,
   SchemaTree,
   SchemaChange,
-  ConnectionTestResponse,
   SyncResponse,
 } from '../../types';
 
@@ -114,23 +113,15 @@ describe('SourceService', () => {
 
   describe('testConnection', () => {
     it('should test connection with existing source', async () => {
-      const mockResponse: ConnectionTestResponse = {
-        success: true,
-        message: 'Connection successful',
-      };
-      vi.mocked(api.post).mockResolvedValue(mockResponse);
+      vi.mocked(api.post).mockResolvedValue(undefined);
 
       const result = await sourceService.testConnection('1');
 
       expect(api.post).toHaveBeenCalledWith('/sources/1/test', undefined);
-      expect(result).toEqual(mockResponse);
+      expect(result).toBeUndefined();
     });
 
     it('should test connection with config', async () => {
-      const mockResponse: ConnectionTestResponse = {
-        success: true,
-        message: 'Connection successful',
-      };
       const config = {
         type: 'mysql' as const,
         host: 'localhost',
@@ -139,12 +130,12 @@ describe('SourceService', () => {
         username: 'admin',
         password: 'secret',
       };
-      vi.mocked(api.post).mockResolvedValue(mockResponse);
+      vi.mocked(api.post).mockResolvedValue(undefined);
 
       const result = await sourceService.testConnection('1', config);
 
       expect(api.post).toHaveBeenCalledWith('/sources/1/test', config);
-      expect(result).toEqual(mockResponse);
+      expect(result).toBeUndefined();
     });
   });
 

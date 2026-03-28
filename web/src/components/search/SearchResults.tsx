@@ -11,7 +11,10 @@ interface SearchResultsProps {
 const highlightText = (text: string, query: string) => {
   if (!query.trim()) return text;
 
-  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  const regex = new RegExp(
+    `(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`,
+    'gi',
+  );
   const parts = text.split(regex);
 
   return parts.map((part, i) =>
@@ -21,11 +24,14 @@ const highlightText = (text: string, query: string) => {
       </mark>
     ) : (
       part
-    )
+    ),
   );
 };
 
-const ResultItem: React.FC<{ result: ColumnSearchResult; query: string }> = ({ result, query }) => {
+const ResultItem: React.FC<{ result: ColumnSearchResult; query: string }> = ({
+  result,
+  query,
+}) => {
   const typeIcons: Record<string, string> = {
     mysql: '🔷',
     postgres: '🐘',
@@ -71,9 +77,11 @@ const ResultItem: React.FC<{ result: ColumnSearchResult; query: string }> = ({ r
         </div>
         <div className="shrink-0">
           <div className="text-right">
-            <span className={`text-sm font-medium ${
-              result.confidence >= 0.8 ? 'text-emerald-600' : 'text-amber-600'
-            }`}>
+            <span
+              className={`text-sm font-medium ${
+                result.confidence >= 0.8 ? 'text-emerald-600' : 'text-amber-600'
+              }`}
+            >
               {Math.round(result.confidence * 100)}%
             </span>
             <p className="text-xs text-slate-400">匹配度</p>
@@ -84,7 +92,11 @@ const ResultItem: React.FC<{ result: ColumnSearchResult; query: string }> = ({ r
   );
 };
 
-export const SearchResults: React.FC<SearchResultsProps> = ({ results, query, loading }) => {
+export const SearchResults: React.FC<SearchResultsProps> = ({
+  results,
+  query,
+  loading,
+}) => {
   if (loading) {
     return (
       <div className="py-12 text-center">
@@ -120,9 +132,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ results, query, lo
         <span className="text-sm text-slate-600">
           找到 {results.length} 个结果
         </span>
-        <span className="text-xs text-slate-400">
-          搜索: "{query}"
-        </span>
+        <span className="text-xs text-slate-400">搜索: "{query}"</span>
       </div>
       <div className="divide-y divide-slate-100">
         {results.map((result) => (

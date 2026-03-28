@@ -1,36 +1,28 @@
-# Rsbuild project
+# Web Frontend
 
-## Setup
+前端基于 React 19、TypeScript、Rsbuild 和 Tailwind CSS 4，默认通过 `VITE_API_URL` 访问后端 API；未配置时回落到 `http://localhost:8080/api/v1`。
 
-Install the dependencies:
+## 常用命令
 
 ```bash
 pnpm install
+pnpm dev
+pnpm lint
+pnpm test
+pnpm build
 ```
 
-## Get started
+## 开发说明
 
-Start the dev server, and the app will be available at [http://localhost:3000](http://localhost:3000).
+- `pnpm dev`：启动前端开发服务，实际端口以终端输出为准。
+- `pnpm lint`：运行 ESLint。
+- `pnpm test`：运行 Vitest 单元测试。
+- `pnpm build`：构建生产包到 `web/dist/`。
 
-```bash
-pnpm run dev
-```
+## 目录结构
 
-Build the app for production:
-
-```bash
-pnpm run build
-```
-
-Preview the production build locally:
-
-```bash
-pnpm run preview
-```
-
-## Learn more
-
-To learn more about Rsbuild, check out the following resources:
-
-- [Rsbuild documentation](https://rsbuild.rs) - explore Rsbuild features and APIs.
-- [Rsbuild GitHub repository](https://github.com/web-infra-dev/rsbuild) - your feedback and contributions are welcome!
+- `src/pages`：页面级路由
+- `src/components`：复用组件
+- `src/hooks`：数据获取与状态封装
+- `src/services`：API 调用层
+- `src/types`：共享类型定义

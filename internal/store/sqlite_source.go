@@ -9,7 +9,7 @@ import (
 )
 
 // CreateDataSource 创建数据源
-func (s *SQLiteStore) CreateDataSource(ctx context.Context, source *DataSourceCreate) error {
+func (s *SQLiteStore) CreateDataSource(ctx context.Context, source *DataSourceCreate) (string, error) {
 	query := `
 		INSERT INTO data_sources (id, name, description, type, host, port, database, connection_config, status)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')
@@ -20,9 +20,9 @@ func (s *SQLiteStore) CreateDataSource(ctx context.Context, source *DataSourceCr
 		source.Port, source.Database, source.ConnectionConfig,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create data source: %w", err)
+		return "", fmt.Errorf("failed to create data source: %w", err)
 	}
-	return nil
+	return id, nil
 }
 
 // GetDataSource 获取数据源
@@ -206,7 +206,7 @@ func (s *SQLiteStore) UpdateDataSourceSyncStatus(ctx context.Context, id string,
 
 // Transaction implementations for SQLiteTxStore
 
-func (t *SQLiteTxStore) CreateDataSource(ctx context.Context, source *DataSourceCreate) error {
+func (t *SQLiteTxStore) CreateDataSource(ctx context.Context, source *DataSourceCreate) (string, error) {
 	query := `
 		INSERT INTO data_sources (id, name, description, type, host, port, database, connection_config, status)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')
@@ -217,9 +217,9 @@ func (t *SQLiteTxStore) CreateDataSource(ctx context.Context, source *DataSource
 		source.Port, source.Database, source.ConnectionConfig,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create data source: %w", err)
+		return "", fmt.Errorf("failed to create data source: %w", err)
 	}
-	return nil
+	return id, nil
 }
 
 func (t *SQLiteTxStore) GetDataSource(ctx context.Context, id string) (*DataSourceRow, error) {

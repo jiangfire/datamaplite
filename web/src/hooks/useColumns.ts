@@ -93,27 +93,26 @@ export const useColumnMappings = (columnId: string | undefined) => {
   }) => {
     if (!columnId) throw new Error('Column ID is required');
 
-    try {
-      const newMapping = await columnService.createColumnMapping(columnId, data);
-      setMappings((prev) => [...prev, newMapping]);
-      return newMapping;
-    } catch (err) {
-      throw err;
-    }
+    const newMapping = await columnService.createColumnMapping(columnId, data);
+    setMappings((prev) => [...prev, newMapping]);
+    return newMapping;
   };
 
   const deleteMapping = async (mappingId: string) => {
     if (!columnId) throw new Error('Column ID is required');
 
-    try {
-      await columnService.deleteColumnMapping(columnId, mappingId);
-      setMappings((prev) => prev.filter((m) => m.id !== mappingId));
-    } catch (err) {
-      throw err;
-    }
+    await columnService.deleteColumnMapping(columnId, mappingId);
+    setMappings((prev) => prev.filter((m) => m.id !== mappingId));
   };
 
-  return { mappings, loading, error, refetch: fetchMappings, createMapping, deleteMapping };
+  return {
+    mappings,
+    loading,
+    error,
+    refetch: fetchMappings,
+    createMapping,
+    deleteMapping,
+  };
 };
 
 export const useLineage = (columnId: string | undefined) => {
@@ -131,7 +130,9 @@ export const useLineage = (columnId: string | undefined) => {
         const data = await columnService.getLineage(columnId);
         setLineage(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch lineage');
+        setError(
+          err instanceof Error ? err.message : 'Failed to fetch lineage',
+        );
       } finally {
         setLoading(false);
       }
@@ -158,7 +159,11 @@ export const useImpactAnalysis = (columnId: string | undefined) => {
         const data = await columnService.getImpactAnalysis(columnId);
         setImpact(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch impact analysis');
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Failed to fetch impact analysis',
+        );
       } finally {
         setLoading(false);
       }

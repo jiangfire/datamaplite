@@ -20,10 +20,21 @@ func NewTermService(store store.Store) *TermService {
 
 // CreateTerm 创建业务术语
 func (s *TermService) CreateTerm(ctx context.Context, req *model.BusinessTermRequest) (*model.BusinessTermResponse, error) {
+	status := req.Status
+	if status == "" {
+		status = "active"
+	}
+
 	term := &store.BusinessTermCreate{
-		Name:        req.Name,
-		Description: strPtrOrNil(req.Description),
-		Category:    req.Category,
+		Name:             req.Name,
+		Description:      strPtrOrNil(req.Description),
+		Category:         req.Category,
+		StandardCode:     strPtrOrNil(req.StandardCode),
+		Domain:           strPtrOrNil(req.Domain),
+		DataTypeStandard: strPtrOrNil(req.DataTypeStandard),
+		ValidationRule:   strPtrOrNil(req.ValidationRule),
+		Owner:            strPtrOrNil(req.Owner),
+		Status:           strPtrOrNil(status),
 	}
 
 	id, err := s.store.CreateBusinessTerm(ctx, term)
@@ -61,9 +72,15 @@ func (s *TermService) ListTerms(ctx context.Context, category string) ([]*model.
 // UpdateTerm 更新业务术语
 func (s *TermService) UpdateTerm(ctx context.Context, id string, req *model.BusinessTermRequest) error {
 	updates := &store.BusinessTermUpdate{
-		Name:        strPtrOrNil(req.Name),
-		Description: strPtrOrNil(req.Description),
-		Category:    strPtrOrNil(req.Category),
+		Name:             strPtrOrNil(req.Name),
+		Description:      strPtrOrNil(req.Description),
+		Category:         strPtrOrNil(req.Category),
+		StandardCode:     strPtrOrNil(req.StandardCode),
+		Domain:           strPtrOrNil(req.Domain),
+		DataTypeStandard: strPtrOrNil(req.DataTypeStandard),
+		ValidationRule:   strPtrOrNil(req.ValidationRule),
+		Owner:            strPtrOrNil(req.Owner),
+		Status:           strPtrOrNil(req.Status),
 	}
 	return s.store.UpdateBusinessTerm(ctx, id, updates)
 }
@@ -80,12 +97,18 @@ func (s *TermService) AssignTermToColumn(ctx context.Context, columnID string, r
 
 func (s *TermService) toTermResponse(t *store.BusinessTermRow) *model.BusinessTermResponse {
 	return &model.BusinessTermResponse{
-		ID:          t.ID,
-		Name:        t.Name,
-		Description: strOrEmpty(t.Description),
-		Category:    t.Category,
-		CreatedAt:   t.CreatedAt,
-		UpdatedAt:   t.UpdatedAt,
+		ID:               t.ID,
+		Name:             t.Name,
+		Description:      strOrEmpty(t.Description),
+		Category:         t.Category,
+		StandardCode:     strOrEmpty(t.StandardCode),
+		Domain:           strOrEmpty(t.Domain),
+		DataTypeStandard: strOrEmpty(t.DataTypeStandard),
+		ValidationRule:   strOrEmpty(t.ValidationRule),
+		Owner:            strOrEmpty(t.Owner),
+		Status:           t.Status,
+		CreatedAt:        t.CreatedAt,
+		UpdatedAt:        t.UpdatedAt,
 	}
 }
 

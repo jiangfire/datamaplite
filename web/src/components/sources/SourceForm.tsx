@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Button, Input, Select, Modal } from '../ui';
 import { sourceService } from '../../services';
-import type { DataSourceCreate, DataSourceUpdate, DataSourceType } from '../../types';
+import type {
+  DataSourceCreate,
+  DataSourceUpdate,
+  DataSourceType,
+} from '../../types';
 
 type SourceFormProps =
   | {
@@ -51,7 +55,10 @@ export const SourceForm: React.FC<SourceFormProps> = ({
     description: '',
   });
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [connectionCheck, setConnectionCheck] = useState<{
+    tone: 'positive' | 'negative';
+    message: string;
+  } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -77,7 +84,8 @@ export const SourceForm: React.FC<SourceFormProps> = ({
     }
     if (!formData.database.trim()) newErrors.database = '数据库名不能为空';
     if (!formData.username.trim()) newErrors.username = '用户名不能为空';
-    if (mode === 'create' && !formData.password) newErrors.password = '密码不能为空';
+    if (mode === 'create' && !formData.password)
+      newErrors.password = '密码不能为空';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -94,9 +102,9 @@ export const SourceForm: React.FC<SourceFormProps> = ({
     if (!validate()) return;
 
     setTesting(true);
-    setTestResult(null);
+    setConnectionCheck(null);
     try {
-      const result = await sourceService.testConnection('test', {
+      await sourceService.testConnection('test', {
         type: formData.type,
         host: formData.host,
         port: formData.port,
@@ -104,10 +112,13 @@ export const SourceForm: React.FC<SourceFormProps> = ({
         username: formData.username,
         password: formData.password,
       });
-      setTestResult({ success: result.success, message: result.message });
+      setConnectionCheck({
+        tone: 'positive',
+        message: '连接测试成功',
+      });
     } catch (err) {
-      setTestResult({
-        success: false,
+      setConnectionCheck({
+        tone: 'negative',
         message: err instanceof Error ? err.message : '连接测试失败',
       });
     } finally {
@@ -152,7 +163,9 @@ export const SourceForm: React.FC<SourceFormProps> = ({
             label="端口"
             type="number"
             value={formData.port}
-            onChange={(e) => setFormData({ ...formData, port: parseInt(e.target.value) })}
+            onChange={(e) =>
+              setFormData({ ...formData, port: parseInt(e.target.value) })
+            }
             error={errors.port}
             required
           />
@@ -161,7 +174,9 @@ export const SourceForm: React.FC<SourceFormProps> = ({
         <Input
           label="数据库名"
           value={formData.database}
-          onChange={(e) => setFormData({ ...formData, database: e.target.value })}
+          onChange={(e) =>
+            setFormData({ ...formData, database: e.target.value })
+          }
           error={errors.database}
           required
         />
@@ -170,7 +185,9 @@ export const SourceForm: React.FC<SourceFormProps> = ({
           <Input
             label="用户名"
             value={formData.username}
-            onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, username: e.target.value })
+            }
             error={errors.username}
             required
           />
@@ -178,7 +195,9 @@ export const SourceForm: React.FC<SourceFormProps> = ({
             label="密码"
             type="password"
             value={formData.password}
-            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, password: e.target.value })
+            }
             error={errors.password}
             required={mode === 'create'}
             helperText={mode === 'edit' ? '留空表示不修改密码' : undefined}
@@ -188,19 +207,21 @@ export const SourceForm: React.FC<SourceFormProps> = ({
         <Input
           label="描述"
           value={formData.description || ''}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          onChange={(e) =>
+            setFormData({ ...formData, description: e.target.value })
+          }
         />
 
-        {testResult && (
+        {connectionCheck && (
           <div
             className={`p-3 rounded-lg text-sm ${
-              testResult.success
+              connectionCheck.tone === 'positive'
                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                 : 'bg-red-50 text-red-700 border border-red-200'
             }`}
           >
-            {testResult.success ? '✓ ' : '✗ '}
-            {testResult.message}
+            {connectionCheck.tone === 'positive' ? '✓ ' : '✗ '}
+            {connectionCheck.message}
           </div>
         )}
 
@@ -217,9 +238,7 @@ export const SourceForm: React.FC<SourceFormProps> = ({
             <Button type="button" variant="ghost" onClick={onClose}>
               取消
             </Button>
-            <Button type="submit">
-              {mode === 'create' ? '创建' : '保存'}
-            </Button>
+            <Button type="submit">{mode === 'create' ? '创建' : '保存'}</Button>
           </div>
         </div>
       </form>

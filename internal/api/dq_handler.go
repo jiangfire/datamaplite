@@ -1,7 +1,6 @@
 package api
 
 import (
-	"net/http"
 	"strconv"
 
 	"git.neolidy.top/neo/fuckcmdb/internal/model"
@@ -16,44 +15,32 @@ func parseInt(s string) (int, error) {
 
 // DQHandler 数据质量处理器
 type DQHandler struct {
+	*Handler
 	dqService *service.DQService
 }
 
 // NewDQHandler 创建数据质量处理器
 func NewDQHandler(dqService *service.DQService) *DQHandler {
-	return &DQHandler{dqService: dqService}
+	return &DQHandler{
+		Handler:   NewHandler(),
+		dqService: dqService,
+	}
 }
 
 // CreateRule 创建数据质量规则
 func (h *DQHandler) CreateRule(c *gin.Context) {
 	var req model.DQRuleRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "INVALID_REQUEST",
-				Message: err.Error(),
-			},
-		})
+	if !h.BindJSON(c, &req) {
 		return
 	}
 
 	rule, err := h.dqService.CreateRule(c.Request.Context(), &req)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "CREATE_FAILED",
-				Message: err.Error(),
-			},
-		})
+		h.BadRequest(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusCreated, model.BaseResponse{
-		Success: true,
-		Data:    rule,
-	})
+	h.Created(c, rule)
 }
 
 // ListRules 列出数据质量规则
@@ -80,20 +67,11 @@ func (h *DQHandler) ListRules(c *gin.Context) {
 
 	rules, err := h.dqService.ListRules(c.Request.Context(), filter)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "LIST_FAILED",
-				Message: err.Error(),
-			},
-		})
+		h.InternalError(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, model.BaseResponse{
-		Success: true,
-		Data:    rules,
-	})
+	h.JSON(c, rules)
 }
 
 // GetRule 获取数据质量规则
@@ -102,20 +80,11 @@ func (h *DQHandler) GetRule(c *gin.Context) {
 
 	rule, err := h.dqService.GetRule(c.Request.Context(), ruleID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "NOT_FOUND",
-				Message: err.Error(),
-			},
-		})
+		h.NotFound(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, model.BaseResponse{
-		Success: true,
-		Data:    rule,
-	})
+	h.JSON(c, rule)
 }
 
 // UpdateRule 更新数据质量规则
@@ -123,31 +92,16 @@ func (h *DQHandler) UpdateRule(c *gin.Context) {
 	ruleID := c.Param("id")
 
 	var req model.DQRuleRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "INVALID_REQUEST",
-				Message: err.Error(),
-			},
-		})
+	if !h.BindJSON(c, &req) {
 		return
 	}
 
 	if err := h.dqService.UpdateRule(c.Request.Context(), ruleID, &req); err != nil {
-		c.JSON(http.StatusBadRequest, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "UPDATE_FAILED",
-				Message: err.Error(),
-			},
-		})
+		h.BadRequest(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, model.BaseResponse{
-		Success: true,
-	})
+	h.Success(c)
 }
 
 // DeleteRule 删除数据质量规则
@@ -155,51 +109,27 @@ func (h *DQHandler) DeleteRule(c *gin.Context) {
 	ruleID := c.Param("id")
 
 	if err := h.dqService.DeleteRule(c.Request.Context(), ruleID); err != nil {
-		c.JSON(http.StatusBadRequest, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "DELETE_FAILED",
-				Message: err.Error(),
-			},
-		})
+		h.BadRequest(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, model.BaseResponse{
-		Success: true,
-	})
+	h.Success(c)
 }
 
 // CheckRules 执行数据质量检查
 func (h *DQHandler) CheckRules(c *gin.Context) {
 	var req model.DQCheckRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "INVALID_REQUEST",
-				Message: err.Error(),
-			},
-		})
+	if !h.BindJSON(c, &req) {
 		return
 	}
 
 	resp, err := h.dqService.CheckRules(c.Request.Context(), &req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "CHECK_FAILED",
-				Message: err.Error(),
-			},
-		})
+		h.InternalError(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, model.BaseResponse{
-		Success: true,
-		Data:    resp,
-	})
+	h.JSON(c, resp)
 }
 
 // GetResults 获取检测结果
@@ -225,38 +155,20 @@ func (h *DQHandler) GetResults(c *gin.Context) {
 
 	results, err := h.dqService.GetResults(c.Request.Context(), ruleID, batchID, limit)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "LIST_FAILED",
-				Message: err.Error(),
-			},
-		})
+		h.InternalError(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, model.BaseResponse{
-		Success: true,
-		Data:    results,
-	})
+	h.JSON(c, results)
 }
 
 // GetStats 获取统计信息
 func (h *DQHandler) GetStats(c *gin.Context) {
 	stats, err := h.dqService.GetStats(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "STATS_FAILED",
-				Message: err.Error(),
-			},
-		})
+		h.InternalError(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, model.BaseResponse{
-		Success: true,
-		Data:    stats,
-	})
+	h.JSON(c, stats)
 }

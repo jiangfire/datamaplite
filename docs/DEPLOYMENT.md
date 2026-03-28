@@ -6,8 +6,8 @@
 
 1. **克隆仓库**
 ```bash
-git clone https://github.com/yourusername/datamap-lite.git
-cd datamap-lite
+git clone https://git.neolidy.top/neo/fuckcmdb.git
+cd fuckcmdb
 ```
 
 2. **配置环境变量**
@@ -32,8 +32,8 @@ docker-compose up -d
 
 ```bash
 # 创建 docker-compose.yml
-wget https://raw.githubusercontent.com/yourusername/datamap-lite/main/docker-compose.yml
-wget https://raw.githubusercontent.com/yourusername/datamap-lite/main/.env.example -O .env
+wget https://git.neolidy.top/neo/fuckcmdb/raw/branch/main/docker-compose.yml
+wget https://git.neolidy.top/neo/fuckcmdb/raw/branch/main/.env.example -O .env
 
 # 编辑 .env 配置
 echo "ENCRYPTION_KEY=your-32-byte-encryption-key-here!!" >> .env
@@ -46,7 +46,7 @@ docker-compose up -d
 ### 方式三：二进制部署
 
 1. **下载二进制文件**
-从 [Releases](https://github.com/yourusername/datamap-lite/releases) 页面下载。
+从仓库 Release 页面下载对应平台的二进制文件。
 
 2. **运行**
 ```bash
@@ -140,11 +140,7 @@ docker-compose logs -f
 
 ### 数据库迁移
 
-升级时会自动运行数据库迁移。如需手动迁移：
-
-```bash
-docker-compose exec backend ./datamap migrate
-```
+升级时会在服务启动时自动执行数据库迁移，无需额外手动命令。
 
 ## 监控
 
@@ -220,5 +216,4 @@ docker-compose down -v --rmi local
 
 ## 获取更多帮助
 
-- GitHub Issues: https://github.com/yourusername/datamap-lite/issues
-- 文档: https://datamap-lite.readthedocs.io
+- 仓库: https://git.neolidy.top/neo/fuckcmdb

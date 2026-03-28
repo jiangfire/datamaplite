@@ -1,7 +1,16 @@
 import { Link } from 'react-router-dom';
-import { Database, Table, ArrowRight, GitBranch, AlertTriangle } from 'lucide-react';
+import {
+  Database,
+  Table,
+  ArrowRight,
+  GitBranch,
+  AlertTriangle,
+} from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Badge } from '../ui';
-import type { ColumnDetail as ColumnDetailType, MappedColumn } from '../../types';
+import type {
+  ColumnDetail as ColumnDetailType,
+  MappedColumn,
+} from '../../types';
 
 interface ColumnDetailProps {
   column: ColumnDetailType;
@@ -17,7 +26,9 @@ const MappingItem: React.FC<{ mapping: MappedColumn }> = ({ mapping }) => {
 
   return (
     <div className="flex items-center gap-3 py-2 border-b border-slate-100 last:border-0">
-      <Badge variant="info">{mappingTypeLabels[mapping.mapping_type] || mapping.mapping_type}</Badge>
+      <Badge variant="info">
+        {mappingTypeLabels[mapping.mapping_type] || mapping.mapping_type}
+      </Badge>
       <span className="text-sm font-medium text-slate-900">{mapping.name}</span>
       <span className="text-xs text-slate-400">{mapping.object_name}</span>
       <ArrowRight size={14} className="text-slate-300" />
@@ -61,12 +72,8 @@ export const ColumnDetailCard: React.FC<ColumnDetailProps> = ({ column }) => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {column.is_primary_key && (
-              <Badge variant="warning">主键</Badge>
-            )}
-            {!column.is_nullable && (
-              <Badge variant="error">NOT NULL</Badge>
-            )}
+            {column.is_primary_key && <Badge variant="warning">主键</Badge>}
+            {!column.is_nullable && <Badge variant="error">NOT NULL</Badge>}
           </div>
         </div>
 
@@ -79,23 +86,35 @@ export const ColumnDetailCard: React.FC<ColumnDetailProps> = ({ column }) => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-slate-500 uppercase tracking-wider">数据类型</p>
-            <p className="text-lg font-semibold text-slate-900 mt-1">{column.data_type}</p>
-            <p className="text-xs text-slate-400 font-mono mt-1">{column.full_data_type}</p>
+            <p className="text-xs text-slate-500 uppercase tracking-wider">
+              数据类型
+            </p>
+            <p className="text-lg font-semibold text-slate-900 mt-1">
+              {column.data_type}
+            </p>
+            <p className="text-xs text-slate-400 font-mono mt-1">
+              {column.full_data_type}
+            </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-slate-500 uppercase tracking-wider">位置</p>
-            <p className="text-lg font-semibold text-slate-900 mt-1">#{column.ordinal_position}</p>
+            <p className="text-xs text-slate-500 uppercase tracking-wider">
+              位置
+            </p>
+            <p className="text-lg font-semibold text-slate-900 mt-1">
+              #{column.ordinal_position}
+            </p>
             <p className="text-xs text-slate-400 mt-1">字段顺序</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-slate-500 uppercase tracking-wider">置信度</p>
+            <p className="text-xs text-slate-500 uppercase tracking-wider">
+              置信度
+            </p>
             <p className="text-lg font-semibold text-slate-900 mt-1">
               {Math.round(column.confidence * 100)}%
             </p>
@@ -112,7 +131,9 @@ export const ColumnDetailCard: React.FC<ColumnDetailProps> = ({ column }) => {
 
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-slate-500 uppercase tracking-wider">业务术语</p>
+            <p className="text-xs text-slate-500 uppercase tracking-wider">
+              业务术语
+            </p>
             {column.term ? (
               <Link
                 to={`/terms/${column.term.id}`}
@@ -134,7 +155,9 @@ export const ColumnDetailCard: React.FC<ColumnDetailProps> = ({ column }) => {
       {column.default_value && (
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-slate-500 uppercase tracking-wider">默认值</p>
+            <p className="text-xs text-slate-500 uppercase tracking-wider">
+              默认值
+            </p>
             <code className="mt-2 block bg-slate-50 px-3 py-2 rounded text-sm font-mono text-slate-700">
               {column.default_value}
             </code>

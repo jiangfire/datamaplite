@@ -70,10 +70,10 @@ func (u *User) ToUserInfo() *UserInfo {
 
 // Claims JWT Claims
 type Claims struct {
-	UserID   string   `json:"user_id"`
-	Username string   `json:"username"`
-	Role     UserRole `json:"role"`
-	TokenType string  `json:"token_type"`
+	UserID    string   `json:"user_id"`
+	Username  string   `json:"username"`
+	Role      UserRole `json:"role"`
+	TokenType string   `json:"token_type"`
 }
 
 // AuthContext 认证上下文（存储在gin.Context中）

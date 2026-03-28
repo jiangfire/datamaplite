@@ -5,23 +5,40 @@ import {
   Card,
   CardContent,
   Button,
+  Badge,
   ColumnDetailCard,
   LineageGraph,
   ImpactAnalysis,
   Modal,
 } from '../components';
-import { useColumnDetail, useLineage, useImpactAnalysis, useDDLGeneration } from '../hooks';
+import {
+  useColumnDetail,
+  useLineage,
+  useImpactAnalysis,
+  useDDLGeneration,
+  useColumnTags,
+  useTags,
+} from '../hooks';
 import { useState } from 'react';
 
 export const ColumnDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { column, loading: columnLoading, error: columnError } = useColumnDetail(id);
+  const {
+    column,
+    loading: columnLoading,
+    error: columnError,
+  } = useColumnDetail(id);
   const { lineage } = useLineage(id);
   const { impact } = useImpactAnalysis(id);
   const { generateDDL, generating } = useDDLGeneration();
+  const { tags, addTag, removeTag, loading: tagsLoading } = useColumnTags(
+    id || null,
+  );
+  const { tags: allTags } = useTags();
   const [showDDL, setShowDDL] = useState(false);
   const [ddlContent, setDdlContent] = useState('');
   const [ddlTarget, setDdlTarget] = useState<'mysql' | 'postgres'>('mysql');
+  const [selectedTagId, setSelectedTagId] = useState('');
 
   const handleGenerateDDL = async () => {
     if (!column) return;
@@ -85,18 +102,91 @@ export const ColumnDetailPage: React.FC = () => {
         <div className="flex gap-2">
           <select
             value={ddlTarget}
-            onChange={(e) => setDdlTarget(e.target.value as 'mysql' | 'postgres')}
+            onChange={(e) =>
+              setDdlTarget(e.target.value as 'mysql' | 'postgres')
+            }
             className="px-3 py-2 rounded-lg border border-slate-300 text-sm"
           >
             <option value="mysql">MySQL</option>
             <option value="postgres">PostgreSQL</option>
           </select>
-          <Button variant="secondary" onClick={handleGenerateDDL} loading={generating}>
+          <Button
+            variant="secondary"
+            onClick={handleGenerateDDL}
+            loading={generating}
+          >
             <FileCode size={18} className="mr-2" />
             生成DDL
           </Button>
         </div>
       </div>
+
+      <Card>
+        <CardContent className="p-4 space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">字段标签</h2>
+              <p className="text-sm text-slate-500">
+                为字段补充分类与治理标记
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <select
+                value={selectedTagId}
+                onChange={(e) => setSelectedTagId(e.target.value)}
+                className="px-3 py-2 rounded-lg border border-slate-300 text-sm min-w-52"
+              >
+                <option value="">选择标签</option>
+                {allTags
+                  .filter((tag) => !tags.some((current) => current.id === tag.id))
+                  .map((tag) => (
+                    <option key={tag.id} value={tag.id}>
+                      {tag.name}
+                    </option>
+                  ))}
+              </select>
+              <Button
+                variant="secondary"
+                disabled={!selectedTagId}
+                onClick={async () => {
+                  await addTag(selectedTagId);
+                  setSelectedTagId('');
+                }}
+              >
+                添加标签
+              </Button>
+            </div>
+          </div>
+
+          {tagsLoading ? (
+            <p className="text-sm text-slate-500">加载标签中...</p>
+          ) : tags.length === 0 ? (
+            <p className="text-sm text-slate-500">当前字段还没有标签</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {tags.map((tag) => (
+                <div
+                  key={tag.id}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                >
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: tag.color }}
+                  />
+                  <Badge variant="neutral">{tag.name}</Badge>
+                  <button
+                    onClick={() => removeTag(tag.id)}
+                    className="text-xs text-slate-400 hover:text-red-600"
+                    title="移除标签"
+                  >
+                    删除
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Lineage Preview */}
       {lineage && (
@@ -121,7 +211,11 @@ export const ColumnDetailPage: React.FC = () => {
       )}
 
       {/* DDL Modal */}
-      <Modal isOpen={showDDL} onClose={() => setShowDDL(false)} title={`DDL (${ddlTarget})`}>
+      <Modal
+        isOpen={showDDL}
+        onClose={() => setShowDDL(false)}
+        title={`DDL (${ddlTarget})`}
+      >
         <div className="space-y-4">
           <pre className="bg-slate-900 text-slate-100 p-4 rounded-lg overflow-x-auto text-sm font-mono">
             {ddlContent}

@@ -116,10 +116,8 @@ func TestTermHandler_CreateTerm(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.True(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, successCode, resp.Code)
 
 	mockSvc.AssertExpectations(t)
 }
@@ -138,10 +136,9 @@ func TestTermHandler_CreateTerm_InvalidRequest(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.False(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+	assert.Equal(t, "BAD_REQUEST", resp.ErrorCode)
 }
 
 func TestTermHandler_ListTerms(t *testing.T) {
@@ -170,10 +167,8 @@ func TestTermHandler_ListTerms(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.True(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, successCode, resp.Code)
 
 	mockSvc.AssertExpectations(t)
 }
@@ -199,10 +194,8 @@ func TestTermHandler_ListTerms_WithCategory(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.True(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, successCode, resp.Code)
 
 	mockSvc.AssertExpectations(t)
 }
@@ -228,10 +221,8 @@ func TestTermHandler_GetTerm(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.True(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, successCode, resp.Code)
 
 	mockSvc.AssertExpectations(t)
 }
@@ -251,11 +242,9 @@ func TestTermHandler_GetTerm_NotFound(t *testing.T) {
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.False(t, resp.Success)
-	assert.Equal(t, "NOT_FOUND", resp.Error.Code)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, http.StatusNotFound, resp.Code)
+	assert.Equal(t, "NOT_FOUND", resp.ErrorCode)
 
 	mockSvc.AssertExpectations(t)
 }
@@ -294,10 +283,8 @@ func TestTermHandler_UpdateTerm(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.True(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, successCode, resp.Code)
 
 	mockSvc.AssertExpectations(t)
 }
@@ -317,10 +304,8 @@ func TestTermHandler_DeleteTerm(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.True(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, successCode, resp.Code)
 
 	mockSvc.AssertExpectations(t)
 }
@@ -346,10 +331,8 @@ func TestTermHandler_AssignTermToColumn(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.True(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, successCode, resp.Code)
 
 	mockSvc.AssertExpectations(t)
 }
@@ -399,10 +382,8 @@ func TestTermHandler_GenerateDDL(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.True(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, successCode, resp.Code)
 
 	mockDDLSvc.AssertExpectations(t)
 }
@@ -421,8 +402,7 @@ func TestTermHandler_GenerateDDL_InvalidRequest(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
-	var resp model.BaseResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.NoError(t, err)
-	assert.False(t, resp.Success)
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+	assert.Equal(t, "BAD_REQUEST", resp.ErrorCode)
 }

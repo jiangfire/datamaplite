@@ -1,5 +1,15 @@
 import { useState } from 'react';
-import { Bell, Check, CheckCheck, Clock, Database, Plus, Minus, Edit3, Type } from 'lucide-react';
+import {
+  Bell,
+  Check,
+  CheckCheck,
+  Clock,
+  Database,
+  Plus,
+  Minus,
+  Edit3,
+  Type,
+} from 'lucide-react';
 import { Layout, Button, Card, CardContent } from '../components';
 import { useNotifications } from '../hooks';
 
@@ -64,7 +74,10 @@ export const NotificationsPage: React.FC = () => {
             {stats && (
               <span>
                 共 {stats.total_count} 条通知，
-                <span className="text-indigo-600 font-medium"> {stats.unread_count} </span>
+                <span className="text-indigo-600 font-medium">
+                  {' '}
+                  {stats.unread_count}{' '}
+                </span>
                 条未读
               </span>
             )}
@@ -91,7 +104,9 @@ export const NotificationsPage: React.FC = () => {
         <div className="text-center py-12">加载中...</div>
       ) : error ? (
         <Card>
-          <CardContent className="p-8 text-center text-red-500">{error}</CardContent>
+          <CardContent className="p-8 text-center text-red-500">
+            {error}
+          </CardContent>
         </Card>
       ) : notifications.length === 0 ? (
         <Card>
@@ -107,7 +122,11 @@ export const NotificationsPage: React.FC = () => {
           {notifications.map((notification) => (
             <Card
               key={notification.id}
-              className={notification.is_read ? 'opacity-70' : 'border-l-4 border-l-indigo-500'}
+              className={
+                notification.is_read
+                  ? 'opacity-70'
+                  : 'border-l-4 border-l-indigo-500'
+              }
             >
               <CardContent className="p-4">
                 <div className="flex items-start gap-4">
@@ -117,8 +136,12 @@ export const NotificationsPage: React.FC = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <h3 className="font-medium text-slate-900">{notification.title}</h3>
-                        <p className="text-sm text-slate-600 mt-1">{notification.message}</p>
+                        <h3 className="font-medium text-slate-900">
+                          {notification.title}
+                        </h3>
+                        <p className="text-sm text-slate-600 mt-1">
+                          {notification.message}
+                        </p>
                       </div>
                       <span className="text-xs text-slate-400 flex-shrink-0">
                         {formatTime(notification.created_at)}

@@ -116,6 +116,25 @@ func (s *PostgresStore) ListSchemaObjectsBySource(ctx context.Context, sourceID 
 	return objects, rows.Err()
 }
 
+// UpdateSchemaObject 更新Schema对象
+func (s *PostgresStore) UpdateSchemaObject(ctx context.Context, id string, updates *SchemaObjectUpdate) error {
+	query := `
+		UPDATE schema_objects
+		SET type = $1, schema = $2, description = $3, row_count = $4, size_bytes = $5, column_count = $6, updated_at = NOW()
+		WHERE id = $7
+	`
+	result, err := s.pool.Exec(ctx, query,
+		updates.Type, updates.Schema, updates.Description, updates.RowCount, updates.SizeBytes, updates.ColumnCount, id,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update schema object: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("schema object not found: %s", id)
+	}
+	return nil
+}
+
 // DeleteSchemaObject 删除单个 Schema 对象
 func (s *PostgresStore) DeleteSchemaObject(ctx context.Context, id string) error {
 	query := `DELETE FROM schema_objects WHERE id = $1`
@@ -240,6 +259,24 @@ func (t *PostgresTxStore) ListSchemaObjectsBySource(ctx context.Context, sourceI
 		objects = append(objects, &obj)
 	}
 	return objects, rows.Err()
+}
+
+func (t *PostgresTxStore) UpdateSchemaObject(ctx context.Context, id string, updates *SchemaObjectUpdate) error {
+	query := `
+		UPDATE schema_objects
+		SET type = $1, schema = $2, description = $3, row_count = $4, size_bytes = $5, column_count = $6, updated_at = NOW()
+		WHERE id = $7
+	`
+	result, err := t.tx.Exec(ctx, query,
+		updates.Type, updates.Schema, updates.Description, updates.RowCount, updates.SizeBytes, updates.ColumnCount, id,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update schema object: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("schema object not found: %s", id)
+	}
+	return nil
 }
 
 func (t *PostgresTxStore) DeleteSchemaObject(ctx context.Context, id string) error {

@@ -26,10 +26,12 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           {...props}
         />
         {error && <p className="text-sm text-red-600">{error}</p>}
-        {helperText && !error && <p className="text-sm text-slate-500">{helperText}</p>}
+        {helperText && !error && (
+          <p className="text-sm text-slate-500">{helperText}</p>
+        )}
       </div>
     );
-  }
+  },
 );
 
 Input.displayName = 'Input';

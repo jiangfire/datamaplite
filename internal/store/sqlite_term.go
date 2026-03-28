@@ -2,6 +2,8 @@ package store
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -10,12 +12,13 @@ import (
 // CreateBusinessTerm 创建业务术语
 func (s *SQLiteStore) CreateBusinessTerm(ctx context.Context, term *BusinessTermCreate) (string, error) {
 	query := `
-		INSERT INTO business_terms (id, name, description, category)
-		VALUES (?, ?, ?, ?)
+		INSERT INTO business_terms (id, name, description, category, standard_code, domain, data_type_standard, validation_rule, owner, status)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	id := uuid.New().String()
 	_, err := s.db.ExecContext(ctx, query,
 		id, term.Name, term.Description, term.Category,
+		term.StandardCode, term.Domain, term.DataTypeStandard, term.ValidationRule, term.Owner, term.Status,
 	)
 	if err != nil {
 		return "", fmt.Errorf("failed to create business term: %w", err)
@@ -26,7 +29,7 @@ func (s *SQLiteStore) CreateBusinessTerm(ctx context.Context, term *BusinessTerm
 // GetBusinessTerm 获取业务术语
 func (s *SQLiteStore) GetBusinessTerm(ctx context.Context, id string) (*BusinessTermRow, error) {
 	query := `
-		SELECT id, name, description, category, created_at, updated_at
+		SELECT id, name, description, category, standard_code, domain, data_type_standard, validation_rule, owner, COALESCE(status, 'active') AS status, created_at, updated_at
 		FROM business_terms
 		WHERE id = ?
 	`
@@ -35,10 +38,11 @@ func (s *SQLiteStore) GetBusinessTerm(ctx context.Context, id string) (*Business
 	var term BusinessTermRow
 	err := row.Scan(
 		&term.ID, &term.Name, &term.Description, &term.Category,
+		&term.StandardCode, &term.Domain, &term.DataTypeStandard, &term.ValidationRule, &term.Owner, &term.Status,
 		&term.CreatedAt, &term.UpdatedAt,
 	)
 	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("business term not found: %s", id)
 		}
 		return nil, fmt.Errorf("failed to get business term: %w", err)
@@ -53,7 +57,7 @@ func (s *SQLiteStore) ListBusinessTerms(ctx context.Context, category string) ([
 
 	if category != "" {
 		query = `
-			SELECT id, name, description, category, created_at, updated_at
+			SELECT id, name, description, category, standard_code, domain, data_type_standard, validation_rule, owner, COALESCE(status, 'active') AS status, created_at, updated_at
 			FROM business_terms
 			WHERE category = ?
 			ORDER BY name
@@ -61,7 +65,7 @@ func (s *SQLiteStore) ListBusinessTerms(ctx context.Context, category string) ([
 		args = append(args, category)
 	} else {
 		query = `
-			SELECT id, name, description, category, created_at, updated_at
+			SELECT id, name, description, category, standard_code, domain, data_type_standard, validation_rule, owner, COALESCE(status, 'active') AS status, created_at, updated_at
 			FROM business_terms
 			ORDER BY name
 		`
@@ -78,6 +82,7 @@ func (s *SQLiteStore) ListBusinessTerms(ctx context.Context, category string) ([
 		var term BusinessTermRow
 		err := rows.Scan(
 			&term.ID, &term.Name, &term.Description, &term.Category,
+			&term.StandardCode, &term.Domain, &term.DataTypeStandard, &term.ValidationRule, &term.Owner, &term.Status,
 			&term.CreatedAt, &term.UpdatedAt,
 		)
 		if err != nil {
@@ -95,11 +100,19 @@ func (s *SQLiteStore) UpdateBusinessTerm(ctx context.Context, id string, updates
 		SET name = COALESCE($1, name),
 		    description = COALESCE($2, description),
 		    category = COALESCE($3, category),
+		    standard_code = COALESCE($4, standard_code),
+		    domain = COALESCE($5, domain),
+		    data_type_standard = COALESCE($6, data_type_standard),
+		    validation_rule = COALESCE($7, validation_rule),
+		    owner = COALESCE($8, owner),
+		    status = COALESCE($9, status),
 		    updated_at = datetime('now')
-		WHERE id = $4
+		WHERE id = $10
 	`
 	result, err := s.db.ExecContext(ctx, query,
-		updates.Name, updates.Description, updates.Category, id,
+		updates.Name, updates.Description, updates.Category,
+		updates.StandardCode, updates.Domain, updates.DataTypeStandard, updates.ValidationRule, updates.Owner, updates.Status,
+		id,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to update business term: %w", err)
@@ -133,9 +146,13 @@ func (s *SQLiteStore) DeleteBusinessTerm(ctx context.Context, id string) error {
 // AssignTermToColumn 分配术语到字段
 func (s *SQLiteStore) AssignTermToColumn(ctx context.Context, columnID string, termID *string) error {
 	query := `UPDATE columns SET term_id = ?, updated_at = datetime('now') WHERE id = ?`
-	_, err := s.db.ExecContext(ctx, query, termID, columnID)
+	result, err := s.db.ExecContext(ctx, query, termID, columnID)
 	if err != nil {
 		return fmt.Errorf("failed to assign term to column: %w", err)
+	}
+	affected, _ := result.RowsAffected()
+	if affected == 0 {
+		return fmt.Errorf("column not found: %s", columnID)
 	}
 	return nil
 }
@@ -161,12 +178,13 @@ func (s *SQLiteStore) GetObjectWithColumns(ctx context.Context, objectID string)
 
 func (t *SQLiteTxStore) CreateBusinessTerm(ctx context.Context, term *BusinessTermCreate) (string, error) {
 	query := `
-		INSERT INTO business_terms (id, name, description, category)
-		VALUES (?, ?, ?, ?)
+		INSERT INTO business_terms (id, name, description, category, standard_code, domain, data_type_standard, validation_rule, owner, status)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	id := uuid.New().String()
 	_, err := t.tx.ExecContext(ctx, query,
 		id, term.Name, term.Description, term.Category,
+		term.StandardCode, term.Domain, term.DataTypeStandard, term.ValidationRule, term.Owner, term.Status,
 	)
 	if err != nil {
 		return "", fmt.Errorf("failed to create business term: %w", err)
@@ -176,7 +194,7 @@ func (t *SQLiteTxStore) CreateBusinessTerm(ctx context.Context, term *BusinessTe
 
 func (t *SQLiteTxStore) GetBusinessTerm(ctx context.Context, id string) (*BusinessTermRow, error) {
 	query := `
-		SELECT id, name, description, category, created_at, updated_at
+		SELECT id, name, description, category, standard_code, domain, data_type_standard, validation_rule, owner, COALESCE(status, 'active') AS status, created_at, updated_at
 		FROM business_terms
 		WHERE id = ?
 	`
@@ -185,10 +203,11 @@ func (t *SQLiteTxStore) GetBusinessTerm(ctx context.Context, id string) (*Busine
 	var term BusinessTermRow
 	err := row.Scan(
 		&term.ID, &term.Name, &term.Description, &term.Category,
+		&term.StandardCode, &term.Domain, &term.DataTypeStandard, &term.ValidationRule, &term.Owner, &term.Status,
 		&term.CreatedAt, &term.UpdatedAt,
 	)
 	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("business term not found: %s", id)
 		}
 		return nil, fmt.Errorf("failed to get business term: %w", err)
@@ -202,7 +221,7 @@ func (t *SQLiteTxStore) ListBusinessTerms(ctx context.Context, category string) 
 
 	if category != "" {
 		query = `
-			SELECT id, name, description, category, created_at, updated_at
+			SELECT id, name, description, category, standard_code, domain, data_type_standard, validation_rule, owner, COALESCE(status, 'active') AS status, created_at, updated_at
 			FROM business_terms
 			WHERE category = ?
 			ORDER BY name
@@ -210,7 +229,7 @@ func (t *SQLiteTxStore) ListBusinessTerms(ctx context.Context, category string) 
 		args = append(args, category)
 	} else {
 		query = `
-			SELECT id, name, description, category, created_at, updated_at
+			SELECT id, name, description, category, standard_code, domain, data_type_standard, validation_rule, owner, COALESCE(status, 'active') AS status, created_at, updated_at
 			FROM business_terms
 			ORDER BY name
 		`
@@ -227,6 +246,7 @@ func (t *SQLiteTxStore) ListBusinessTerms(ctx context.Context, category string) 
 		var term BusinessTermRow
 		err := rows.Scan(
 			&term.ID, &term.Name, &term.Description, &term.Category,
+			&term.StandardCode, &term.Domain, &term.DataTypeStandard, &term.ValidationRule, &term.Owner, &term.Status,
 			&term.CreatedAt, &term.UpdatedAt,
 		)
 		if err != nil {
@@ -243,11 +263,19 @@ func (t *SQLiteTxStore) UpdateBusinessTerm(ctx context.Context, id string, updat
 		SET name = COALESCE($1, name),
 		    description = COALESCE($2, description),
 		    category = COALESCE($3, category),
+		    standard_code = COALESCE($4, standard_code),
+		    domain = COALESCE($5, domain),
+		    data_type_standard = COALESCE($6, data_type_standard),
+		    validation_rule = COALESCE($7, validation_rule),
+		    owner = COALESCE($8, owner),
+		    status = COALESCE($9, status),
 		    updated_at = datetime('now')
-		WHERE id = $4
+		WHERE id = $10
 	`
 	result, err := t.tx.ExecContext(ctx, query,
-		updates.Name, updates.Description, updates.Category, id,
+		updates.Name, updates.Description, updates.Category,
+		updates.StandardCode, updates.Domain, updates.DataTypeStandard, updates.ValidationRule, updates.Owner, updates.Status,
+		id,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to update business term: %w", err)
@@ -278,9 +306,13 @@ func (t *SQLiteTxStore) DeleteBusinessTerm(ctx context.Context, id string) error
 
 func (t *SQLiteTxStore) AssignTermToColumn(ctx context.Context, columnID string, termID *string) error {
 	query := `UPDATE columns SET term_id = ?, updated_at = datetime('now') WHERE id = ?`
-	_, err := t.tx.ExecContext(ctx, query, termID, columnID)
+	result, err := t.tx.ExecContext(ctx, query, termID, columnID)
 	if err != nil {
 		return fmt.Errorf("failed to assign term to column: %w", err)
+	}
+	affected, _ := result.RowsAffected()
+	if affected == 0 {
+		return fmt.Errorf("column not found: %s", columnID)
 	}
 	return nil
 }

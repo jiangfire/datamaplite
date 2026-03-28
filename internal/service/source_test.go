@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"git.neolidy.top/neo/fuckcmdb/internal/crypto"
 	"git.neolidy.top/neo/fuckcmdb/internal/model"
@@ -19,9 +20,9 @@ type MockStore struct {
 	mock.Mock
 }
 
-func (m *MockStore) CreateDataSource(ctx context.Context, source *store.DataSourceCreate) error {
+func (m *MockStore) CreateDataSource(ctx context.Context, source *store.DataSourceCreate) (string, error) {
 	args := m.Called(ctx, source)
-	return args.Error(0)
+	return args.String(0), args.Error(1)
 }
 
 func (m *MockStore) GetDataSource(ctx context.Context, id string) (*store.DataSourceRow, error) {
@@ -89,6 +90,11 @@ func (m *MockStore) DeleteSchemaObjectsBySource(ctx context.Context, sourceID st
 	return args.Error(0)
 }
 
+func (m *MockStore) UpdateSchemaObject(ctx context.Context, id string, updates *store.SchemaObjectUpdate) error {
+	args := m.Called(ctx, id, updates)
+	return args.Error(0)
+}
+
 func (m *MockStore) DeleteSchemaObject(ctx context.Context, id string) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)
@@ -121,6 +127,16 @@ func (m *MockStore) SearchColumns(ctx context.Context, query string, limit int) 
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]*store.ColumnSearchRow), args.Error(1)
+}
+
+func (m *MockStore) UpdateColumn(ctx context.Context, id string, updates *store.ColumnUpdate) error {
+	args := m.Called(ctx, id, updates)
+	return args.Error(0)
+}
+
+func (m *MockStore) DeleteColumn(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
 }
 
 func (m *MockStore) DeleteColumnsByObject(ctx context.Context, objectID string) error {
@@ -177,6 +193,11 @@ func (m *MockStore) GetLineageDownward(ctx context.Context, columnID string, dep
 
 func (m *MockStore) CreateLineageEdge(ctx context.Context, edge *store.LineageEdgeCreate) error {
 	args := m.Called(ctx, edge)
+	return args.Error(0)
+}
+
+func (m *MockStore) DeleteLineageEdgesByNode(ctx context.Context, nodeID string) error {
+	args := m.Called(ctx, nodeID)
 	return args.Error(0)
 }
 
@@ -457,6 +478,14 @@ func (m *MockStore) GetNotification(ctx context.Context, id string) (*store.Noti
 	return args.Get(0).(*store.NotificationRow), args.Error(1)
 }
 
+func (m *MockStore) GetNotificationByRuleAndChange(ctx context.Context, ruleID string, changeID string) (*store.NotificationRow, error) {
+	args := m.Called(ctx, ruleID, changeID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.NotificationRow), args.Error(1)
+}
+
 func (m *MockStore) ListNotifications(ctx context.Context, userID string, unreadOnly bool, limit int) ([]*store.NotificationRow, error) {
 	args := m.Called(ctx, userID, unreadOnly, limit)
 	if args.Get(0) == nil {
@@ -486,6 +515,91 @@ func (m *MockStore) MarkAllNotificationsAsRead(ctx context.Context, userID strin
 func (m *MockStore) UpdateNotificationWebhookStatus(ctx context.Context, id string, sent bool, errorMsg *string) error {
 	args := m.Called(ctx, id, sent, errorMsg)
 	return args.Error(0)
+}
+
+func (m *MockStore) TryAcquireSyncLease(ctx context.Context, sourceID string, ownerID string, now string, leaseUntil string) (bool, error) {
+	args := m.Called(ctx, sourceID, ownerID, now, leaseUntil)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *MockStore) GetSyncLease(ctx context.Context, sourceID string) (*store.SyncLeaseRow, error) {
+	args := m.Called(ctx, sourceID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.SyncLeaseRow), args.Error(1)
+}
+
+func (m *MockStore) RenewSyncLease(ctx context.Context, sourceID string, ownerID string, leaseUntil string) error {
+	args := m.Called(ctx, sourceID, ownerID, leaseUntil)
+	return args.Error(0)
+}
+
+func (m *MockStore) ReleaseSyncLease(ctx context.Context, sourceID string, ownerID string) error {
+	args := m.Called(ctx, sourceID, ownerID)
+	return args.Error(0)
+}
+
+func (m *MockStore) ForceReleaseSyncLease(ctx context.Context, sourceID string) error {
+	args := m.Called(ctx, sourceID)
+	return args.Error(0)
+}
+
+func (m *MockStore) EnqueueGovernanceOutboxEvent(ctx context.Context, event *store.GovernanceOutboxEventCreate) (bool, error) {
+	args := m.Called(ctx, event)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *MockStore) GetGovernanceOutboxEvent(ctx context.Context, id string) (*store.GovernanceOutboxEventRow, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.GovernanceOutboxEventRow), args.Error(1)
+}
+
+func (m *MockStore) ClaimGovernanceOutboxEvents(ctx context.Context, ownerID string, now string, leaseUntil string, limit int) ([]*store.GovernanceOutboxEventRow, error) {
+	args := m.Called(ctx, ownerID, now, leaseUntil, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*store.GovernanceOutboxEventRow), args.Error(1)
+}
+
+func (m *MockStore) MarkGovernanceOutboxDelivered(ctx context.Context, id string, deliveredAt string) error {
+	args := m.Called(ctx, id, deliveredAt)
+	return args.Error(0)
+}
+
+func (m *MockStore) MarkGovernanceOutboxRetry(ctx context.Context, id string, nextAttemptAt string, lastError string) error {
+	args := m.Called(ctx, id, nextAttemptAt, lastError)
+	return args.Error(0)
+}
+
+func (m *MockStore) MarkGovernanceOutboxDeadLetter(ctx context.Context, id string, lastError string) error {
+	args := m.Called(ctx, id, lastError)
+	return args.Error(0)
+}
+
+func (m *MockStore) ReplayGovernanceOutboxEvent(ctx context.Context, id string, nextAttemptAt string) error {
+	args := m.Called(ctx, id, nextAttemptAt)
+	return args.Error(0)
+}
+
+func (m *MockStore) ListGovernanceOutboxEvents(ctx context.Context, limit int) ([]*store.GovernanceOutboxEventRow, error) {
+	args := m.Called(ctx, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*store.GovernanceOutboxEventRow), args.Error(1)
+}
+
+func (m *MockStore) GetGovernanceOutboxStats(ctx context.Context) (*store.GovernanceOutboxStatsRow, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.GovernanceOutboxStatsRow), args.Error(1)
 }
 
 // MockScanner 模拟Scanner接口
@@ -534,17 +648,15 @@ func TestCreateSource(t *testing.T) {
 	}
 
 	// Setup expectations
-	mockStore.On("CreateDataSource", ctx, mock.AnythingOfType("*store.DataSourceCreate")).Return(nil)
-	mockStore.On("ListDataSources", ctx).Return([]*store.DataSourceRow{
-		{
-			ID:       "source-123",
-			Name:     "test-mysql",
-			Type:     "mysql",
-			Host:     "localhost",
-			Port:     3306,
-			Database: "testdb",
-			Status:   "active",
-		},
+	mockStore.On("CreateDataSource", ctx, mock.AnythingOfType("*store.DataSourceCreate")).Return("source-123", nil)
+	mockStore.On("GetDataSource", ctx, "source-123").Return(&store.DataSourceRow{
+		ID:       "source-123",
+		Name:     "test-mysql",
+		Type:     "mysql",
+		Host:     "localhost",
+		Port:     3306,
+		Database: "testdb",
+		Status:   "active",
 	}, nil)
 
 	resp, err := service.CreateSource(ctx, req)
@@ -675,14 +787,166 @@ func TestTestConnection(t *testing.T) {
 	ctx := context.Background()
 	service, _, _ := setupTestService(t)
 
-	// Register mock scanner
 	mockScanner := new(MockScanner)
-	mockScanner.On("TestConnection", ctx, mock.AnythingOfType("scanner.ConnectionConfig")).Return(nil)
+	config := scanner.ConnectionConfig{
+		Host:     "localhost",
+		Port:     3306,
+		Database: "testdb",
+		Username: "root",
+		Password: "secret",
+	}
+	mockScanner.On("TestConnection", ctx, config).Return(nil).Once()
+	service.registry.Register("mysql", mockScanner)
 
-	// Since we can't easily replace the registry, we'll skip this test for now
-	// In a real scenario, we'd use dependency injection
-	_ = service
-	_ = mockScanner
+	err := service.TestConnection(ctx, "mysql", config)
+
+	require.NoError(t, err)
+	mockScanner.AssertExpectations(t)
+}
+
+func TestTestConnection_UnknownType(t *testing.T) {
+	ctx := context.Background()
+	service, _, _ := setupTestService(t)
+
+	err := service.TestConnection(ctx, "unknown", scanner.ConnectionConfig{})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported database type")
+}
+
+func TestForceReleaseStaleSyncLease_NoLeaseNoOp(t *testing.T) {
+	ctx := context.Background()
+	service, mockStore, _ := setupTestService(t)
+
+	mockStore.On("GetSyncLease", ctx, "source-1").Return(nil, nil).Once()
+
+	err := service.ForceReleaseStaleSyncLease(ctx, "source-1", time.Second)
+
+	require.NoError(t, err)
+	mockStore.AssertNotCalled(t, "ForceReleaseSyncLease", mock.Anything, mock.Anything)
+	mockStore.AssertExpectations(t)
+}
+
+func TestForceReleaseStaleSyncLease_RejectsBlankSourceID(t *testing.T) {
+	ctx := context.Background()
+	service, mockStore, _ := setupTestService(t)
+
+	err := service.ForceReleaseStaleSyncLease(ctx, "   ", time.Second)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "source id is required")
+	mockStore.AssertNotCalled(t, "GetSyncLease", mock.Anything, mock.Anything)
+}
+
+func TestForceReleaseStaleSyncLease_InvalidUpdatedAt(t *testing.T) {
+	ctx := context.Background()
+	service, mockStore, _ := setupTestService(t)
+
+	mockStore.On("GetSyncLease", ctx, "source-1").Return(&store.SyncLeaseRow{
+		SourceID:  "source-1",
+		OwnerID:   "owner-a",
+		UpdatedAt: "not-a-time",
+	}, nil).Once()
+
+	err := service.ForceReleaseStaleSyncLease(ctx, "source-1", time.Second)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid sync lease updated_at")
+	mockStore.AssertNotCalled(t, "ForceReleaseSyncLease", mock.Anything, mock.Anything)
+	mockStore.AssertExpectations(t)
+}
+
+func TestForceReleaseStaleSyncLease_PropagatesForceReleaseError(t *testing.T) {
+	ctx := context.Background()
+	service, mockStore, _ := setupTestService(t)
+
+	updatedAt := time.Now().UTC().Add(-time.Hour).Format(time.RFC3339Nano)
+	mockStore.On("GetSyncLease", ctx, "source-1").Return(&store.SyncLeaseRow{
+		SourceID:  "source-1",
+		OwnerID:   "owner-a",
+		UpdatedAt: updatedAt,
+	}, nil).Once()
+	mockStore.On("ForceReleaseSyncLease", ctx, "source-1").Return(errors.New("force release failed")).Once()
+
+	err := service.ForceReleaseStaleSyncLease(ctx, "source-1", time.Second)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "force release failed")
+	mockStore.AssertExpectations(t)
+}
+
+func TestBeginSync_ReleasesLocalStateWhenLeaseNotAcquired(t *testing.T) {
+	ctx := context.Background()
+	service, mockStore, _ := setupTestService(t)
+
+	mockStore.On("TryAcquireSyncLease", ctx, "source-1", service.ownerID, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+		Return(false, nil).
+		Once()
+
+	acquired, err := service.beginSync(ctx, "source-1")
+
+	require.NoError(t, err)
+	assert.False(t, acquired)
+	assert.Empty(t, service.syncInFlight)
+	mockStore.AssertExpectations(t)
+}
+
+func TestBeginSync_ReleasesLocalStateWhenLeaseAcquireFails(t *testing.T) {
+	ctx := context.Background()
+	service, mockStore, _ := setupTestService(t)
+
+	mockStore.On("TryAcquireSyncLease", ctx, "source-1", service.ownerID, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+		Return(false, errors.New("lease acquire failed")).
+		Once()
+
+	acquired, err := service.beginSync(ctx, "source-1")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "lease acquire failed")
+	assert.False(t, acquired)
+	assert.Empty(t, service.syncInFlight)
+	mockStore.AssertExpectations(t)
+}
+
+func TestTriggerSync_ReleasesLocalStateWhenSyncStatusUpdateFails(t *testing.T) {
+	ctx := context.Background()
+	service, mockStore, cipher := setupTestService(t)
+
+	configJSON, err := scanner.ConnectionConfig{
+		Host:     "localhost",
+		Port:     3306,
+		Database: "testdb",
+		Username: "root",
+		Password: "secret",
+	}.ToJSON()
+	require.NoError(t, err)
+	encryptedConfig, err := cipher.Encrypt(configJSON)
+	require.NoError(t, err)
+
+	mockStore.On("GetDataSource", ctx, "source-1").Return(&store.DataSourceRow{
+		ID:               "source-1",
+		Type:             "mysql",
+		ConnectionConfig: encryptedConfig,
+	}, nil).Once()
+	mockStore.On("TryAcquireSyncLease", ctx, "source-1", service.ownerID, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+		Return(true, nil).
+		Once()
+	mockStore.On("UpdateDataSourceSyncStatus", ctx, "source-1", "syncing", (*string)(nil)).
+		Return(errors.New("update sync status failed")).
+		Once()
+	mockStore.On("ReleaseSyncLease", mock.Anything, "source-1", service.ownerID).
+		Return(nil).
+		Once()
+
+	mockScanner := new(MockScanner)
+	service.registry.Register("mysql", mockScanner)
+
+	err = service.TriggerSync(ctx, "source-1")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "update sync status failed")
+	assert.Empty(t, service.syncInFlight)
+	mockStore.AssertExpectations(t)
 }
 
 func strPtr(s string) *string {
@@ -713,10 +977,10 @@ func TestSourceServiceWithRealCipher(t *testing.T) {
 		var capturedConfig *store.DataSourceCreate
 		mockStore.On("CreateDataSource", ctx, mock.Anything).Run(func(args mock.Arguments) {
 			capturedConfig = args.Get(1).(*store.DataSourceCreate)
-		}).Return(nil).Once()
+		}).Return("1", nil).Once()
 
-		mockStore.On("ListDataSources", ctx).Return([]*store.DataSourceRow{
-			{ID: "1", Name: "test", Type: "mysql", Status: "active"},
+		mockStore.On("GetDataSource", ctx, "1").Return(&store.DataSourceRow{
+			ID: "1", Name: "test", Type: "mysql", Status: "active",
 		}, nil).Once()
 
 		_, err := service.CreateSource(ctx, req)

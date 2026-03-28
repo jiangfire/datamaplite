@@ -116,8 +116,8 @@ func TestMongoDBScanner_extractFields(t *testing.T) {
 	fieldTypes := make(map[string]map[string]int)
 
 	doc := bson.M{
-		"name": "John",
-		"age":  int32(30),
+		"name":   "John",
+		"age":    int32(30),
 		"active": true,
 	}
 

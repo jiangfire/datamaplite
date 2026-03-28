@@ -19,7 +19,9 @@ export const useNotifications = (unreadOnly?: boolean) => {
       setNotifications(data);
       setStats(statsData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch notifications');
+      setError(
+        err instanceof Error ? err.message : 'Failed to fetch notifications',
+      );
     } finally {
       setLoading(false);
     }
@@ -30,21 +32,15 @@ export const useNotifications = (unreadOnly?: boolean) => {
   }, [fetchNotifications]);
 
   const markAsRead = async (notificationIds: string[]) => {
-    try {
-      await notificationService.markAsRead({ notification_ids: notificationIds });
-      await fetchNotifications();
-    } catch (err) {
-      throw err;
-    }
+    await notificationService.markAsRead({
+      notification_ids: notificationIds,
+    });
+    await fetchNotifications();
   };
 
   const markAllAsRead = async () => {
-    try {
-      await notificationService.markAsRead({ mark_all: true });
-      await fetchNotifications();
-    } catch (err) {
-      throw err;
-    }
+    await notificationService.markAsRead({ mark_all: true });
+    await fetchNotifications();
   };
 
   return {

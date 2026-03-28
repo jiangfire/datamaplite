@@ -13,15 +13,23 @@ import { useDQRules, useDQStats, useDQCheck } from '../hooks';
 import type { DQRuleWithResult, DQRuleCreate } from '../types';
 
 export const DQRulesPage: React.FC = () => {
-  const { rules, loading, error, refetch, createRule, updateRule, deleteRule, toggleRuleActive } =
-    useDQRules();
+  const {
+    rules,
+    loading,
+    error,
+    refetch,
+    createRule,
+    updateRule,
+    deleteRule,
+    toggleRuleActive,
+  } = useDQRules();
   const { stats, refetch: refetchStats } = useDQStats();
   const { checkRules, checking } = useDQCheck();
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingRule, setEditingRule] = useState<DQRuleWithResult | null>(null);
-  const [checkResult, setCheckResult] = useState<{
-    success: boolean;
+  const [checkNotice, setCheckNotice] = useState<{
+    tone: 'positive' | 'negative';
     message: string;
   } | null>(null);
 
@@ -40,48 +48,48 @@ export const DQRulesPage: React.FC = () => {
   const handleCheck = async (rule: DQRuleWithResult) => {
     try {
       const result = await checkRules({ rule_ids: [rule.id] });
-      setCheckResult({
-        success: true,
+      setCheckNotice({
+        tone: 'positive',
         message: `检查完成: ${result.passed_rules} 通过, ${result.failed_rules} 失败`,
       });
       refetch();
       refetchStats();
-      setTimeout(() => setCheckResult(null), 5000);
+      setTimeout(() => setCheckNotice(null), 5000);
     } catch (err) {
-      setCheckResult({
-        success: false,
+      setCheckNotice({
+        tone: 'negative',
         message: err instanceof Error ? err.message : '检查失败',
       });
-      setTimeout(() => setCheckResult(null), 5000);
+      setTimeout(() => setCheckNotice(null), 5000);
     }
   };
 
   const handleCheckAll = async () => {
     const activeRules = rules.filter((r) => r.is_active);
     if (activeRules.length === 0) {
-      setCheckResult({
-        success: false,
+      setCheckNotice({
+        tone: 'negative',
         message: '没有启用的规则可检查',
       });
-      setTimeout(() => setCheckResult(null), 5000);
+      setTimeout(() => setCheckNotice(null), 5000);
       return;
     }
 
     try {
       const result = await checkRules({ check_all: true });
-      setCheckResult({
-        success: true,
+      setCheckNotice({
+        tone: 'positive',
         message: `批量检查完成: ${result.passed_rules} 通过, ${result.failed_rules} 失败`,
       });
       refetch();
       refetchStats();
-      setTimeout(() => setCheckResult(null), 5000);
+      setTimeout(() => setCheckNotice(null), 5000);
     } catch (err) {
-      setCheckResult({
-        success: false,
+      setCheckNotice({
+        tone: 'negative',
         message: err instanceof Error ? err.message : '检查失败',
       });
-      setTimeout(() => setCheckResult(null), 5000);
+      setTimeout(() => setCheckNotice(null), 5000);
     }
   };
 
@@ -112,27 +120,31 @@ export const DQRulesPage: React.FC = () => {
       </div>
 
       {/* Check Result Toast */}
-      {checkResult && (
+      {checkNotice && (
         <div
           className={`mb-6 p-4 rounded-lg flex items-center gap-2 ${
-            checkResult.success
+            checkNotice.tone === 'positive'
               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
               : 'bg-red-50 text-red-700 border border-red-200'
           }`}
         >
-          {checkResult.success ? (
+          {checkNotice.tone === 'positive' ? (
             <CheckCircle size={20} />
           ) : (
             <div className="w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-xs">
               !
             </div>
           )}
-          {checkResult.message}
+          {checkNotice.message}
         </div>
       )}
 
       {/* Stats */}
-      {stats && <div className="mb-8"><DQStatsCard stats={stats} /></div>}
+      {stats && (
+        <div className="mb-8">
+          <DQStatsCard stats={stats} />
+        </div>
+      )}
 
       {/* Content */}
       {loading ? (
@@ -158,9 +170,7 @@ export const DQRulesPage: React.FC = () => {
             <h3 className="text-lg font-medium text-slate-900 mb-2">
               暂无数据质量规则
             </h3>
-            <p className="text-slate-500 mb-6">
-              创建规则来监控和保证数据质量
-            </p>
+            <p className="text-slate-500 mb-6">创建规则来监控和保证数据质量</p>
             <Button onClick={() => setShowCreateForm(true)}>
               <Plus size={18} className="mr-2" />
               创建规则
@@ -184,6 +194,7 @@ export const DQRulesPage: React.FC = () => {
 
       {/* Create Form Modal */}
       <DQRuleForm
+        key={`create-${showCreateForm ? 'open' : 'closed'}`}
         isOpen={showCreateForm}
         onClose={() => setShowCreateForm(false)}
         onSubmit={handleCreate}
@@ -192,6 +203,7 @@ export const DQRulesPage: React.FC = () => {
 
       {/* Edit Form Modal */}
       <DQRuleForm
+        key={editingRule?.id ?? 'edit-empty'}
         isOpen={!!editingRule}
         onClose={() => setEditingRule(null)}
         onSubmit={handleEdit}

@@ -25,31 +25,19 @@ export const useTerms = (category?: string) => {
   }, [fetchTerms]);
 
   const createTerm = async (data: BusinessTermCreate) => {
-    try {
-      const newTerm = await termService.createTerm(data);
-      setTerms((prev) => [...prev, newTerm]);
-      return newTerm;
-    } catch (err) {
-      throw err;
-    }
+    const newTerm = await termService.createTerm(data);
+    setTerms((prev) => [...prev, newTerm]);
+    return newTerm;
   };
 
   const updateTerm = async (id: string, data: BusinessTermCreate) => {
-    try {
-      await termService.updateTerm(id, data);
-      await fetchTerms();
-    } catch (err) {
-      throw err;
-    }
+    await termService.updateTerm(id, data);
+    await fetchTerms();
   };
 
   const deleteTerm = async (id: string) => {
-    try {
-      await termService.deleteTerm(id);
-      setTerms((prev) => prev.filter((t) => t.id !== id));
-    } catch (err) {
-      throw err;
-    }
+    await termService.deleteTerm(id);
+    setTerms((prev) => prev.filter((t) => t.id !== id));
   };
 
   return {
@@ -63,11 +51,41 @@ export const useTerms = (category?: string) => {
   };
 };
 
+export const useTerm = (id: string | undefined) => {
+  const [term, setTerm] = useState<BusinessTerm | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+
+    const fetchTerm = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await termService.getTerm(id);
+        setTerm(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch term');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTerm();
+  }, [id]);
+
+  return { term, loading, error };
+};
+
 export const useDDLGeneration = () => {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const generateDDL = async (objectId: string, targetType: 'mysql' | 'postgres') => {
+  const generateDDL = async (
+    objectId: string,
+    targetType: 'mysql' | 'postgres',
+  ) => {
     setGenerating(true);
     setError(null);
     try {

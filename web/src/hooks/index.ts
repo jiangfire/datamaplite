@@ -7,7 +7,7 @@ export {
   useLineage,
   useImpactAnalysis,
 } from './useColumns';
-export { useTerms, useDDLGeneration } from './useTerms';
+export { useTerms, useTerm, useDDLGeneration } from './useTerms';
 export {
   useDQRules,
   useDQRule,

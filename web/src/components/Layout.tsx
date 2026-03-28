@@ -30,7 +30,9 @@ const navItems: NavItem[] = [
   { path: '/notifications', label: '通知中心', icon: <Bell size={20} /> },
 ];
 
-export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const Layout: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 

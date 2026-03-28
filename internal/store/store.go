@@ -11,7 +11,7 @@ import (
 // Store 数据存储接口
 type Store interface {
 	// DataSource
-	CreateDataSource(ctx context.Context, source *DataSourceCreate) error
+	CreateDataSource(ctx context.Context, source *DataSourceCreate) (string, error)
 	GetDataSource(ctx context.Context, id string) (*DataSourceRow, error)
 	ListDataSources(ctx context.Context) ([]*DataSourceRow, error)
 	UpdateDataSource(ctx context.Context, id string, updates *DataSourceUpdate) error
@@ -23,6 +23,7 @@ type Store interface {
 	GetSchemaObject(ctx context.Context, id string) (*SchemaObjectRow, error)
 	GetSchemaObjectByName(ctx context.Context, sourceID string, name string, schema *string) (*SchemaObjectRow, error)
 	ListSchemaObjectsBySource(ctx context.Context, sourceID string) ([]*SchemaObjectRow, error)
+	UpdateSchemaObject(ctx context.Context, id string, updates *SchemaObjectUpdate) error
 	DeleteSchemaObject(ctx context.Context, id string) error
 	DeleteSchemaObjectsBySource(ctx context.Context, sourceID string) error
 
@@ -31,6 +32,8 @@ type Store interface {
 	GetColumn(ctx context.Context, id string) (*ColumnRow, error)
 	ListColumnsByObject(ctx context.Context, objectID string) ([]*ColumnRow, error)
 	SearchColumns(ctx context.Context, query string, limit int) ([]*ColumnSearchRow, error)
+	UpdateColumn(ctx context.Context, id string, updates *ColumnUpdate) error
+	DeleteColumn(ctx context.Context, id string) error
 	DeleteColumnsByObject(ctx context.Context, objectID string) error
 
 	// SchemaChange
@@ -46,6 +49,7 @@ type Store interface {
 	GetLineageUpward(ctx context.Context, columnID string, depth int) ([]*LineageEdgeRow, error)
 	GetLineageDownward(ctx context.Context, columnID string, depth int) ([]*LineageEdgeRow, error)
 	CreateLineageEdge(ctx context.Context, edge *LineageEdgeCreate) error
+	DeleteLineageEdgesByNode(ctx context.Context, nodeID string) error
 
 	// BusinessTerm 业务术语
 	CreateBusinessTerm(ctx context.Context, term *BusinessTermCreate) (string, error)
@@ -83,6 +87,7 @@ type Store interface {
 	// Notification 通知
 	CreateNotification(ctx context.Context, notification *NotificationCreate) (string, error)
 	GetNotification(ctx context.Context, id string) (*NotificationRow, error)
+	GetNotificationByRuleAndChange(ctx context.Context, ruleID string, changeID string) (*NotificationRow, error)
 	ListNotifications(ctx context.Context, userID string, unreadOnly bool, limit int) ([]*NotificationRow, error)
 	GetNotificationStats(ctx context.Context, userID string) (*NotificationStatsRow, error)
 	MarkNotificationAsRead(ctx context.Context, userID string, notificationID string) error
@@ -107,6 +112,22 @@ type Store interface {
 	ListDQResults(ctx context.Context, filter *DQResultFilter) ([]*DQResultRow, error)
 	GetLatestDQResult(ctx context.Context, ruleID string) (*DQResultRow, error)
 	GetDQStats(ctx context.Context) (*DQStatsRow, error)
+
+	// Reliability 可靠性原语
+	TryAcquireSyncLease(ctx context.Context, sourceID string, ownerID string, now string, leaseUntil string) (bool, error)
+	GetSyncLease(ctx context.Context, sourceID string) (*SyncLeaseRow, error)
+	RenewSyncLease(ctx context.Context, sourceID string, ownerID string, leaseUntil string) error
+	ReleaseSyncLease(ctx context.Context, sourceID string, ownerID string) error
+	ForceReleaseSyncLease(ctx context.Context, sourceID string) error
+	EnqueueGovernanceOutboxEvent(ctx context.Context, event *GovernanceOutboxEventCreate) (bool, error)
+	GetGovernanceOutboxEvent(ctx context.Context, id string) (*GovernanceOutboxEventRow, error)
+	ClaimGovernanceOutboxEvents(ctx context.Context, ownerID string, now string, leaseUntil string, limit int) ([]*GovernanceOutboxEventRow, error)
+	MarkGovernanceOutboxDelivered(ctx context.Context, id string, deliveredAt string) error
+	MarkGovernanceOutboxRetry(ctx context.Context, id string, nextAttemptAt string, lastError string) error
+	MarkGovernanceOutboxDeadLetter(ctx context.Context, id string, lastError string) error
+	ReplayGovernanceOutboxEvent(ctx context.Context, id string, nextAttemptAt string) error
+	ListGovernanceOutboxEvents(ctx context.Context, limit int) ([]*GovernanceOutboxEventRow, error)
+	GetGovernanceOutboxStats(ctx context.Context) (*GovernanceOutboxStatsRow, error)
 
 	// Transaction
 	WithTx(ctx context.Context, fn func(Store) error) error
@@ -181,6 +202,16 @@ type SchemaObjectRow struct {
 	UpdatedAt   string
 }
 
+// SchemaObjectUpdate 更新Schema对象参数
+type SchemaObjectUpdate struct {
+	Type        string
+	Schema      *string
+	Description *string
+	RowCount    *int64
+	SizeBytes   *int64
+	ColumnCount int
+}
+
 // ColumnCreate 创建字段参数
 type ColumnCreate struct {
 	ObjectID         string
@@ -194,6 +225,7 @@ type ColumnCreate struct {
 	OrdinalPosition  int
 	Description      *string
 	ParentColumnPath *string
+	Confidence       float64
 }
 
 // ColumnRow 字段行
@@ -216,6 +248,20 @@ type ColumnRow struct {
 	UpdatedAt        string
 }
 
+// ColumnUpdate 更新字段参数
+type ColumnUpdate struct {
+	DataType         string
+	FullDataType     string
+	IsNullable       bool
+	DefaultValue     *string
+	IsPrimaryKey     bool
+	IsUnique         bool
+	OrdinalPosition  int
+	Description      *string
+	ParentColumnPath *string
+	Confidence       float64
+}
+
 // ColumnSearchRow 字段搜索行
 type ColumnSearchRow struct {
 	ColumnRow
@@ -227,6 +273,7 @@ type ColumnSearchRow struct {
 
 // SchemaChangeCreate 创建变更记录参数
 type SchemaChangeCreate struct {
+	ID         string
 	SourceID   string
 	ObjectID   *string
 	ChangeType string
@@ -234,6 +281,7 @@ type SchemaChangeCreate struct {
 	ObjectName string
 	OldValue   *string
 	NewValue   *string
+	DetectedAt string
 }
 
 // SchemaChangeRow 变更记录行
@@ -283,42 +331,64 @@ type LineageEdgeCreate struct {
 
 // LineageEdgeRow 血缘边行
 type LineageEdgeRow struct {
-	ID             string
-	SourceID       string
-	TargetID       string
-	SourceType     string
-	TargetType     string
-	TransformSQL   *string
-	JobName        *string
-	CreatedAt      string
-	SourceName     string
-	TargetName     string
-	SourceDataType string
-	TargetDataType string
+	ID               string
+	SourceID         string
+	TargetID         string
+	SourceType       string
+	TargetType       string
+	TransformSQL     *string
+	JobName          *string
+	CreatedAt        string
+	SourceName       string
+	TargetName       string
+	SourceDataType   string
+	TargetDataType   string
+	SourceObjectName string
+	TargetObjectName string
+	SourceSourceName string
+	TargetSourceName string
 }
 
 // BusinessTermCreate 创建业务术语参数
 type BusinessTermCreate struct {
-	Name        string
-	Description *string
-	Category    string
+	Name             string
+	Description      *string
+	Category         string
+	StandardCode     *string
+	Domain           *string
+	DataTypeStandard *string
+	ValidationRule   *string
+	Owner            *string
+	Status           *string
 }
 
 // BusinessTermRow 业务术语行
 type BusinessTermRow struct {
-	ID          string
-	Name        string
-	Description *string
-	Category    string
-	CreatedAt   string
-	UpdatedAt   string
+	ID               string
+	Name             string
+	Description      *string
+	Category         string
+	StandardCode     *string
+	Domain           *string
+	DataTypeStandard *string
+	ValidationRule   *string
+	Owner            *string
+	Status           string
+	CreatedAt        string
+	UpdatedAt        string
 }
 
 // BusinessTermUpdate 更新业务术语参数
 type BusinessTermUpdate struct {
-	Name        *string
-	Description *string
-	Category    *string
+	Name             *string
+	Description      *string
+	Category         *string
+	StandardCode     *string
+	Domain           *string
+	DataTypeStandard *string
+	ValidationRule   *string
+	Owner            *string
+	Status           *string
 }
 
 // UserCreate 创建用户参数
@@ -512,16 +582,17 @@ type AlertRuleUpdate struct {
 
 // NotificationCreate 创建通知参数
 type NotificationCreate struct {
-	RuleID     *string
-	ChangeID   string
-	SourceID   string
-	Title      string
-	Message    string
-	ChangeType string
-	ObjectType string
-	ObjectName string
-	OldValue   *string
-	NewValue   *string
+	RuleID      *string
+	ChangeID    string
+	SourceID    string
+	Title       string
+	Message     string
+	ChangeType  string
+	ObjectType  string
+	ObjectName  string
+	OldValue    *string
+	NewValue    *string
+	NotifyInApp bool
 }
 
 // NotificationRow 通知行
@@ -544,6 +615,59 @@ type NotificationRow struct {
 	IsRead       bool
 	ReadAt       *string
 	CreatedAt    string
+}
+
+// SyncLeaseRow 同步租约行。
+type SyncLeaseRow struct {
+	SourceID   string
+	OwnerID    string
+	LeaseUntil string
+	UpdatedAt  string
+}
+
+// GovernanceOutboxEventCreate 治理事件 outbox 入队参数。
+type GovernanceOutboxEventCreate struct {
+	ID            string
+	EventID       string
+	EventType     string
+	TraceID       string
+	ResourceType  string
+	ResourceID    string
+	Payload       string
+	Status        string
+	AttemptCount  int
+	NextAttemptAt string
+	LastError     *string
+	DeliveredAt   *string
+}
+
+// GovernanceOutboxEventRow 治理事件 outbox 行。
+type GovernanceOutboxEventRow struct {
+	ID            string
+	EventID       string
+	EventType     string
+	TraceID       string
+	ResourceType  string
+	ResourceID    string
+	Payload       string
+	Status        string
+	AttemptCount  int
+	NextAttemptAt string
+	LeaseOwner    *string
+	LeaseUntil    *string
+	LastError     *string
+	DeliveredAt   *string
+	CreatedAt     string
+	UpdatedAt     string
+}
+
+// GovernanceOutboxStatsRow 治理 outbox 统计。
+type GovernanceOutboxStatsRow struct {
+	PendingCount    int64
+	ProcessingCount int64
+	DeliveredCount  int64
+	DeadLetterCount int64
+	RetryableCount  int64
 }
 
 // NotificationStatsRow 通知统计行

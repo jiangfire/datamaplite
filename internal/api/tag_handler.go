@@ -1,8 +1,6 @@
 package api
 
 import (
-	"net/http"
-
 	"git.neolidy.top/neo/fuckcmdb/internal/model"
 	"git.neolidy.top/neo/fuckcmdb/internal/service"
 	"github.com/gin-gonic/gin"
@@ -10,64 +8,43 @@ import (
 
 // TagHandler 标签处理器
 type TagHandler struct {
+	*Handler
 	tagService *service.TagService
 }
 
 // NewTagHandler 创建标签处理器
 func NewTagHandler(tagService *service.TagService) *TagHandler {
-	return &TagHandler{tagService: tagService}
+	return &TagHandler{
+		Handler:    NewHandler(),
+		tagService: tagService,
+	}
 }
 
 // ListTags 列出所有标签
 func (h *TagHandler) ListTags(c *gin.Context) {
 	tags, err := h.tagService.ListTags(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "LIST_FAILED",
-				Message: err.Error(),
-			},
-		})
+		h.InternalError(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, model.BaseResponse{
-		Success: true,
-		Data:    tags,
-	})
+	h.JSON(c, tags)
 }
 
 // CreateTag 创建标签
 func (h *TagHandler) CreateTag(c *gin.Context) {
 	var req model.TagRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "INVALID_REQUEST",
-				Message: err.Error(),
-			},
-		})
+	if !h.BindJSON(c, &req) {
 		return
 	}
 
 	tag, err := h.tagService.CreateTag(c.Request.Context(), &req)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "CREATE_FAILED",
-				Message: err.Error(),
-			},
-		})
+		h.BadRequest(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusCreated, model.BaseResponse{
-		Success: true,
-		Data:    tag,
-	})
+	h.Created(c, tag)
 }
 
 // GetTag 获取标签详情
@@ -76,20 +53,11 @@ func (h *TagHandler) GetTag(c *gin.Context) {
 
 	tag, err := h.tagService.GetTag(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "NOT_FOUND",
-				Message: err.Error(),
-			},
-		})
+		h.NotFound(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, model.BaseResponse{
-		Success: true,
-		Data:    tag,
-	})
+	h.JSON(c, tag)
 }
 
 // UpdateTag 更新标签
@@ -97,31 +65,16 @@ func (h *TagHandler) UpdateTag(c *gin.Context) {
 	id := c.Param("id")
 
 	var req model.TagRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "INVALID_REQUEST",
-				Message: err.Error(),
-			},
-		})
+	if !h.BindJSON(c, &req) {
 		return
 	}
 
 	if err := h.tagService.UpdateTag(c.Request.Context(), id, &req); err != nil {
-		c.JSON(http.StatusBadRequest, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "UPDATE_FAILED",
-				Message: err.Error(),
-			},
-		})
+		h.BadRequest(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, model.BaseResponse{
-		Success: true,
-	})
+	h.Success(c)
 }
 
 // DeleteTag 删除标签
@@ -129,19 +82,11 @@ func (h *TagHandler) DeleteTag(c *gin.Context) {
 	id := c.Param("id")
 
 	if err := h.tagService.DeleteTag(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusBadRequest, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "DELETE_FAILED",
-				Message: err.Error(),
-			},
-		})
+		h.BadRequest(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, model.BaseResponse{
-		Success: true,
-	})
+	h.Success(c)
 }
 
 // GetColumnsByTag 获取带有指定标签的字段列表
@@ -150,20 +95,11 @@ func (h *TagHandler) GetColumnsByTag(c *gin.Context) {
 
 	columns, err := h.tagService.GetColumnsByTag(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "LIST_FAILED",
-				Message: err.Error(),
-			},
-		})
+		h.InternalError(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, model.BaseResponse{
-		Success: true,
-		Data:    columns,
-	})
+	h.JSON(c, columns)
 }
 
 // AssignTagsToColumn 为字段分配标签
@@ -174,14 +110,7 @@ func (h *TagHandler) AssignTagsToColumn(c *gin.Context) {
 		TagID  string   `json:"tag_id"`
 		TagIDs []string `json:"tag_ids"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "INVALID_REQUEST",
-				Message: err.Error(),
-			},
-		})
+	if !h.BindJSON(c, &req) {
 		return
 	}
 
@@ -189,32 +118,18 @@ func (h *TagHandler) AssignTagsToColumn(c *gin.Context) {
 		req.TagIDs = append(req.TagIDs, req.TagID)
 	}
 	if len(req.TagIDs) == 0 {
-		c.JSON(http.StatusBadRequest, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "INVALID_REQUEST",
-				Message: "tag_id or tag_ids is required",
-			},
-		})
+		h.BadRequest(c, "tag_id or tag_ids is required")
 		return
 	}
 
 	for _, tagID := range req.TagIDs {
 		if err := h.tagService.AddTagToColumn(c.Request.Context(), columnID, tagID); err != nil {
-			c.JSON(http.StatusInternalServerError, model.BaseResponse{
-				Success: false,
-				Error: &model.ErrorInfo{
-					Code:    "ASSIGN_FAILED",
-					Message: err.Error(),
-				},
-			})
+			h.InternalError(c, err.Error())
 			return
 		}
 	}
 
-	c.JSON(http.StatusOK, model.BaseResponse{
-		Success: true,
-	})
+	h.Success(c)
 }
 
 // RemoveTagFromColumn 从字段移除标签
@@ -223,30 +138,16 @@ func (h *TagHandler) RemoveTagFromColumn(c *gin.Context) {
 	tagID := c.Param("tagId")
 
 	if columnID == "" || tagID == "" {
-		c.JSON(http.StatusBadRequest, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "INVALID_REQUEST",
-				Message: "column id and tag id are required",
-			},
-		})
+		h.BadRequest(c, "column id and tag id are required")
 		return
 	}
 
 	if err := h.tagService.RemoveTagFromColumn(c.Request.Context(), columnID, tagID); err != nil {
-		c.JSON(http.StatusInternalServerError, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "REMOVE_FAILED",
-				Message: err.Error(),
-			},
-		})
+		h.InternalError(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, model.BaseResponse{
-		Success: true,
-	})
+	h.Success(c)
 }
 
 // GetColumnTags 获取字段的所有标签
@@ -255,18 +156,9 @@ func (h *TagHandler) GetColumnTags(c *gin.Context) {
 
 	tags, err := h.tagService.GetColumnTags(c.Request.Context(), columnID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.BaseResponse{
-			Success: false,
-			Error: &model.ErrorInfo{
-				Code:    "LIST_FAILED",
-				Message: err.Error(),
-			},
-		})
+		h.InternalError(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, model.BaseResponse{
-		Success: true,
-		Data:    tags,
-	})
+	h.JSON(c, tags)
 }

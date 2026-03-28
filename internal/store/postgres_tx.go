@@ -20,7 +20,7 @@ func (t *PostgresTxStore) Close() error {
 }
 
 // CreateDataSource 创建数据源
-func (t *PostgresTxStore) CreateDataSource(ctx context.Context, source *DataSourceCreate) error {
+func (t *PostgresTxStore) CreateDataSource(ctx context.Context, source *DataSourceCreate) (string, error) {
 	query := `
 		INSERT INTO data_sources (id, name, description, type, host, port, database, connection_config, status)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active')
@@ -31,9 +31,9 @@ func (t *PostgresTxStore) CreateDataSource(ctx context.Context, source *DataSour
 		source.Port, source.Database, source.ConnectionConfig,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create data source: %w", err)
+		return "", fmt.Errorf("failed to create data source: %w", err)
 	}
-	return nil
+	return id, nil
 }
 
 // GetDataSource 获取数据源
@@ -315,12 +315,84 @@ func (t *PostgresTxStore) CreateDQRule(ctx context.Context, rule *DQRuleCreate) 
 
 // GetDQRule 获取数据质量规则
 func (t *PostgresTxStore) GetDQRule(ctx context.Context, id string) (*DQRuleRow, error) {
-	return nil, fmt.Errorf("not implemented in transaction")
+	query := `
+		SELECT id, source_id, object_id, column_id, name, description, rule_type, rule_config::text, severity, is_active, created_at::text, updated_at::text
+		FROM dq_rules WHERE id = $1
+	`
+	row := t.tx.QueryRow(ctx, query, id)
+	var rule DQRuleRow
+	var createdAt, updatedAt interface{}
+	err := row.Scan(&rule.ID, &rule.SourceID, &rule.ObjectID, &rule.ColumnID, &rule.Name,
+		&rule.Description, &rule.RuleType, &rule.RuleConfig, &rule.Severity, &rule.IsActive, &createdAt, &updatedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("dq rule not found: %s", id)
+		}
+		return nil, fmt.Errorf("failed to get dq rule: %w", err)
+	}
+	rule.CreatedAt = fmt.Sprintf("%v", createdAt)
+	rule.UpdatedAt = fmt.Sprintf("%v", updatedAt)
+	return &rule, nil
 }
 
 // ListDQRules 列出数据质量规则
 func (t *PostgresTxStore) ListDQRules(ctx context.Context, filter *DQRuleFilter) ([]*DQRuleRow, error) {
-	return nil, fmt.Errorf("not implemented in transaction")
+	query := `
+		SELECT id, source_id, object_id, column_id, name, description, rule_type, rule_config::text, severity, is_active, created_at::text, updated_at::text
+		FROM dq_rules WHERE 1=1
+	`
+	var args []interface{}
+	argCount := 0
+
+	if filter != nil {
+		if filter.SourceID != nil {
+			argCount++
+			query += fmt.Sprintf(" AND source_id = $%d", argCount)
+			args = append(args, *filter.SourceID)
+		}
+		if filter.ObjectID != nil {
+			argCount++
+			query += fmt.Sprintf(" AND object_id = $%d", argCount)
+			args = append(args, *filter.ObjectID)
+		}
+		if filter.ColumnID != nil {
+			argCount++
+			query += fmt.Sprintf(" AND column_id = $%d", argCount)
+			args = append(args, *filter.ColumnID)
+		}
+		if filter.RuleType != nil {
+			argCount++
+			query += fmt.Sprintf(" AND rule_type = $%d", argCount)
+			args = append(args, *filter.RuleType)
+		}
+		if filter.IsActive != nil {
+			argCount++
+			query += fmt.Sprintf(" AND is_active = $%d", argCount)
+			args = append(args, *filter.IsActive)
+		}
+	}
+
+	query += " ORDER BY created_at DESC"
+
+	rows, err := t.tx.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list dq rules: %w", err)
+	}
+	defer rows.Close()
+
+	var rules []*DQRuleRow
+	for rows.Next() {
+		var rule DQRuleRow
+		var createdAt, updatedAt interface{}
+		if err := rows.Scan(&rule.ID, &rule.SourceID, &rule.ObjectID, &rule.ColumnID, &rule.Name,
+			&rule.Description, &rule.RuleType, &rule.RuleConfig, &rule.Severity, &rule.IsActive, &createdAt, &updatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan dq rule: %w", err)
+		}
+		rule.CreatedAt = fmt.Sprintf("%v", createdAt)
+		rule.UpdatedAt = fmt.Sprintf("%v", updatedAt)
+		rules = append(rules, &rule)
+	}
+	return rules, rows.Err()
 }
 
 // UpdateDQRule 更新数据质量规则
@@ -399,15 +471,107 @@ func (t *PostgresTxStore) CreateDQResult(ctx context.Context, result *DQResultCr
 
 // ListDQResults 列出数据质量检测结果
 func (t *PostgresTxStore) ListDQResults(ctx context.Context, filter *DQResultFilter) ([]*DQResultRow, error) {
-	return nil, fmt.Errorf("not implemented in transaction")
+	query := `
+		SELECT id, rule_id, check_batch_id, column_id, status, total_rows, failed_rows, pass_rate, sample_errors::text, error_message, checked_at::text
+		FROM dq_results WHERE 1=1
+	`
+	var args []interface{}
+	argCount := 0
+
+	if filter != nil {
+		if filter.RuleID != nil {
+			argCount++
+			query += fmt.Sprintf(" AND rule_id = $%d", argCount)
+			args = append(args, *filter.RuleID)
+		}
+		if filter.BatchID != nil {
+			argCount++
+			query += fmt.Sprintf(" AND check_batch_id = $%d", argCount)
+			args = append(args, *filter.BatchID)
+		}
+		if filter.ColumnID != nil {
+			argCount++
+			query += fmt.Sprintf(" AND column_id = $%d", argCount)
+			args = append(args, *filter.ColumnID)
+		}
+		if filter.Status != nil {
+			argCount++
+			query += fmt.Sprintf(" AND status = $%d", argCount)
+			args = append(args, *filter.Status)
+		}
+	}
+
+	query += " ORDER BY checked_at DESC"
+
+	if filter != nil && filter.Limit > 0 {
+		argCount++
+		query += fmt.Sprintf(" LIMIT $%d", argCount)
+		args = append(args, filter.Limit)
+	}
+
+	rows, err := t.tx.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list dq results: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*DQResultRow
+	for rows.Next() {
+		var result DQResultRow
+		var checkedAt interface{}
+		if err := rows.Scan(&result.ID, &result.RuleID, &result.CheckBatchID, &result.ColumnID,
+			&result.Status, &result.TotalRows, &result.FailedRows, &result.PassRate,
+			&result.SampleErrors, &result.ErrorMessage, &checkedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan dq result: %w", err)
+		}
+		result.CheckedAt = fmt.Sprintf("%v", checkedAt)
+		results = append(results, &result)
+	}
+	return results, rows.Err()
 }
 
 // GetLatestDQResult 获取最新的数据质量检测结果
 func (t *PostgresTxStore) GetLatestDQResult(ctx context.Context, ruleID string) (*DQResultRow, error) {
-	return nil, fmt.Errorf("not implemented in transaction")
+	query := `
+		SELECT id, rule_id, check_batch_id, column_id, status, total_rows, failed_rows, pass_rate, sample_errors::text, error_message, checked_at::text
+		FROM dq_results WHERE rule_id = $1 ORDER BY checked_at DESC LIMIT 1
+	`
+	row := t.tx.QueryRow(ctx, query, ruleID)
+	var result DQResultRow
+	var checkedAt interface{}
+	err := row.Scan(&result.ID, &result.RuleID, &result.CheckBatchID, &result.ColumnID,
+		&result.Status, &result.TotalRows, &result.FailedRows, &result.PassRate,
+		&result.SampleErrors, &result.ErrorMessage, &checkedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get latest dq result: %w", err)
+	}
+	result.CheckedAt = fmt.Sprintf("%v", checkedAt)
+	return &result, nil
 }
 
 // GetDQStats 获取数据质量统计
 func (t *PostgresTxStore) GetDQStats(ctx context.Context) (*DQStatsRow, error) {
-	return nil, fmt.Errorf("not implemented in transaction")
+	query := `
+		SELECT
+			(SELECT COUNT(*) FROM dq_rules) as total_rules,
+			(SELECT COUNT(*) FROM dq_rules WHERE is_active = true) as active_rules,
+			(SELECT COUNT(*) FROM dq_results) as total_checks,
+			(SELECT COUNT(*) FROM dq_results WHERE status = 'passed') as passed_checks,
+			(SELECT COUNT(*) FROM dq_results WHERE status IN ('failed', 'error')) as failed_checks
+	`
+	row := t.tx.QueryRow(ctx, query)
+	var stats DQStatsRow
+	err := row.Scan(&stats.TotalRules, &stats.ActiveRules, &stats.TotalChecks, &stats.PassedChecks, &stats.FailedChecks)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get dq stats: %w", err)
+	}
+
+	if stats.TotalChecks > 0 {
+		stats.OverallPassRate = float64(stats.PassedChecks) / float64(stats.TotalChecks) * 100
+	}
+
+	return &stats, nil
 }

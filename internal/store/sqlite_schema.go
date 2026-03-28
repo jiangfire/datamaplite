@@ -115,6 +115,27 @@ func (s *SQLiteStore) ListSchemaObjectsBySource(ctx context.Context, sourceID st
 	return objects, rows.Err()
 }
 
+// UpdateSchemaObject 更新Schema对象
+func (s *SQLiteStore) UpdateSchemaObject(ctx context.Context, id string, updates *SchemaObjectUpdate) error {
+	query := `
+		UPDATE schema_objects
+		SET type = ?, schema = ?, description = ?, row_count = ?, size_bytes = ?, column_count = ?, updated_at = datetime('now')
+		WHERE id = ?
+	`
+	result, err := s.db.ExecContext(ctx, query,
+		updates.Type, updates.Schema, updates.Description, updates.RowCount, updates.SizeBytes, updates.ColumnCount, id,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update schema object: %w", err)
+	}
+
+	affected, _ := result.RowsAffected()
+	if affected == 0 {
+		return fmt.Errorf("schema object not found: %s", id)
+	}
+	return nil
+}
+
 // DeleteSchemaObject 删除单个 Schema 对象
 func (s *SQLiteStore) DeleteSchemaObject(ctx context.Context, id string) error {
 	query := `DELETE FROM schema_objects WHERE id = ?`
@@ -238,6 +259,26 @@ func (t *SQLiteTxStore) ListSchemaObjectsBySource(ctx context.Context, sourceID 
 		objects = append(objects, &obj)
 	}
 	return objects, rows.Err()
+}
+
+func (t *SQLiteTxStore) UpdateSchemaObject(ctx context.Context, id string, updates *SchemaObjectUpdate) error {
+	query := `
+		UPDATE schema_objects
+		SET type = ?, schema = ?, description = ?, row_count = ?, size_bytes = ?, column_count = ?, updated_at = datetime('now')
+		WHERE id = ?
+	`
+	result, err := t.tx.ExecContext(ctx, query,
+		updates.Type, updates.Schema, updates.Description, updates.RowCount, updates.SizeBytes, updates.ColumnCount, id,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update schema object: %w", err)
+	}
+
+	affected, _ := result.RowsAffected()
+	if affected == 0 {
+		return fmt.Errorf("schema object not found: %s", id)
+	}
+	return nil
 }
 
 func (t *SQLiteTxStore) DeleteSchemaObject(ctx context.Context, id string) error {

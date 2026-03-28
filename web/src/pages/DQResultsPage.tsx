@@ -82,7 +82,11 @@ export const DQResultsPage: React.FC = () => {
               placeholder="输入批次ID"
             />
             <div className="flex items-end">
-              <Button variant="secondary" onClick={clearFilters} className="w-full">
+              <Button
+                variant="secondary"
+                onClick={clearFilters}
+                className="w-full"
+              >
                 清除筛选
               </Button>
             </div>

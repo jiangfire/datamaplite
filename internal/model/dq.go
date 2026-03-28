@@ -6,13 +6,13 @@ import "time"
 type DQRuleType string
 
 const (
-	DQRuleTypeNotNull      DQRuleType = "not_null"
-	DQRuleTypeUnique       DQRuleType = "unique"
-	DQRuleTypeRegex        DQRuleType = "regex"
-	DQRuleTypeRange        DQRuleType = "range"
-	DQRuleTypeEnum         DQRuleType = "enum"
-	DQRuleTypeCustomSQL    DQRuleType = "custom_sql"
-	DQRuleTypeReferential  DQRuleType = "referential"
+	DQRuleTypeNotNull     DQRuleType = "not_null"
+	DQRuleTypeUnique      DQRuleType = "unique"
+	DQRuleTypeRegex       DQRuleType = "regex"
+	DQRuleTypeRange       DQRuleType = "range"
+	DQRuleTypeEnum        DQRuleType = "enum"
+	DQRuleTypeCustomSQL   DQRuleType = "custom_sql"
+	DQRuleTypeReferential DQRuleType = "referential"
 )
 
 // DQSeverity 数据质量问题严重级别
@@ -35,27 +35,28 @@ const (
 
 // DQRule 数据质量规则
 type DQRule struct {
-	ID          string                 `json:"id" db:"id"`
-	SourceID    *string                `json:"source_id,omitempty" db:"source_id"`
-	ObjectID    *string                `json:"object_id,omitempty" db:"object_id"`
-	ColumnID    *string                `json:"column_id,omitempty" db:"column_id"`
-	Name        string                 `json:"name" db:"name"`
-	Description *string                `json:"description,omitempty" db:"description"`
-	RuleType    DQRuleType             `json:"rule_type" db:"rule_type"`
-	RuleConfig  map[string]interface{} `json:"rule_config" db:"rule_config"`
-	Severity    DQSeverity             `json:"severity" db:"severity"`
-	IsActive    bool                   `json:"is_active" db:"is_active"`
-	CreatedAt   time.Time              `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time              `json:"updated_at" db:"updated_at"`
+	ID           string                 `json:"id" db:"id"`
+	SourceID     *string                `json:"source_id,omitempty" db:"source_id"`
+	ObjectID     *string                `json:"object_id,omitempty" db:"object_id"`
+	ColumnID     *string                `json:"column_id,omitempty" db:"column_id"`
+	Name         string                 `json:"name" db:"name"`
+	Description  *string                `json:"description,omitempty" db:"description"`
+	RuleType     DQRuleType             `json:"rule_type" db:"rule_type"`
+	RuleConfig   map[string]interface{} `json:"rule_config" db:"rule_config"`
+	Severity     DQSeverity             `json:"severity" db:"severity"`
+	IsActive     bool                   `json:"is_active" db:"is_active"`
+	CreatedAt    time.Time              `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time              `json:"updated_at" db:"updated_at"`
+	LatestResult *DQResult              `json:"latest_result,omitempty"`
 }
 
 // DQRuleFilter 规则过滤器
 type DQRuleFilter struct {
-	SourceID *string    `json:"source_id,omitempty" form:"source_id"`
-	ObjectID *string    `json:"object_id,omitempty" form:"object_id"`
-	ColumnID *string    `json:"column_id,omitempty" form:"column_id"`
+	SourceID *string     `json:"source_id,omitempty" form:"source_id"`
+	ObjectID *string     `json:"object_id,omitempty" form:"object_id"`
+	ColumnID *string     `json:"column_id,omitempty" form:"column_id"`
 	RuleType *DQRuleType `json:"rule_type,omitempty" form:"rule_type"`
-	IsActive *bool      `json:"is_active,omitempty" form:"is_active"`
+	IsActive *bool       `json:"is_active,omitempty" form:"is_active"`
 }
 
 // DQRuleRequest 创建/更新规则请求
@@ -73,46 +74,46 @@ type DQRuleRequest struct {
 
 // DQResult 数据质量检测结果
 type DQResult struct {
-	ID            string                 `json:"id" db:"id"`
-	RuleID        string                 `json:"rule_id" db:"rule_id"`
-	CheckBatchID  string                 `json:"check_batch_id" db:"check_batch_id"`
-	ColumnID      *string                `json:"column_id,omitempty" db:"column_id"`
-	Status        DQResultStatus         `json:"status" db:"status"`
-	TotalRows     int64                  `json:"total_rows" db:"total_rows"`
-	FailedRows    int64                  `json:"failed_rows" db:"failed_rows"`
-	PassRate      float64                `json:"pass_rate" db:"pass_rate"`
-	SampleErrors  []map[string]interface{} `json:"sample_errors,omitempty" db:"sample_errors"`
-	ErrorMessage  *string                `json:"error_message,omitempty" db:"error_message"`
-	CheckedAt     time.Time              `json:"checked_at" db:"checked_at"`
+	ID           string                   `json:"id" db:"id"`
+	RuleID       string                   `json:"rule_id" db:"rule_id"`
+	CheckBatchID string                   `json:"check_batch_id" db:"check_batch_id"`
+	ColumnID     *string                  `json:"column_id,omitempty" db:"column_id"`
+	Status       DQResultStatus           `json:"status" db:"status"`
+	TotalRows    int64                    `json:"total_rows" db:"total_rows"`
+	FailedRows   int64                    `json:"failed_rows" db:"failed_rows"`
+	PassRate     float64                  `json:"pass_rate" db:"pass_rate"`
+	SampleErrors []map[string]interface{} `json:"sample_errors,omitempty" db:"sample_errors"`
+	ErrorMessage *string                  `json:"error_message,omitempty" db:"error_message"`
+	CheckedAt    time.Time                `json:"checked_at" db:"checked_at"`
 }
 
 // DQCheckRequest 执行数据质量检查请求
 type DQCheckRequest struct {
-	RuleIDs      []string `json:"rule_ids,omitempty"`
-	SourceID     *string  `json:"source_id,omitempty"`
-	ObjectID     *string  `json:"object_id,omitempty"`
-	ColumnID     *string  `json:"column_id,omitempty"`
-	CheckAll     bool     `json:"check_all"`
-	SampleLimit  int      `json:"sample_limit"` // 错误样本数量限制
+	RuleIDs     []string `json:"rule_ids,omitempty"`
+	SourceID    *string  `json:"source_id,omitempty"`
+	ObjectID    *string  `json:"object_id,omitempty"`
+	ColumnID    *string  `json:"column_id,omitempty"`
+	CheckAll    bool     `json:"check_all"`
+	SampleLimit int      `json:"sample_limit"` // 错误样本数量限制
 }
 
 // DQCheckResponse 数据质量检查响应
 type DQCheckResponse struct {
-	BatchID     string       `json:"batch_id"`
-	TotalRules  int          `json:"total_rules"`
-	PassedRules int          `json:"passed_rules"`
-	FailedRules int          `json:"failed_rules"`
-	Results     []*DQResult  `json:"results"`
-	CheckedAt   time.Time    `json:"checked_at"`
+	BatchID     string      `json:"batch_id"`
+	TotalRules  int         `json:"total_rules"`
+	PassedRules int         `json:"passed_rules"`
+	FailedRules int         `json:"failed_rules"`
+	Results     []*DQResult `json:"results"`
+	CheckedAt   time.Time   `json:"checked_at"`
 }
 
 // DQStats 数据质量统计
 type DQStats struct {
-	TotalRules    int     `json:"total_rules"`
-	ActiveRules   int     `json:"active_rules"`
-	TotalChecks   int64   `json:"total_checks"`
-	PassedChecks  int64   `json:"passed_checks"`
-	FailedChecks  int64   `json:"failed_checks"`
+	TotalRules      int     `json:"total_rules"`
+	ActiveRules     int     `json:"active_rules"`
+	TotalChecks     int64   `json:"total_checks"`
+	PassedChecks    int64   `json:"passed_checks"`
+	FailedChecks    int64   `json:"failed_checks"`
 	OverallPassRate float64 `json:"overall_pass_rate"`
 }
 
@@ -124,11 +125,11 @@ type DQRuleWithResult struct {
 
 // DQHistogramItem 数据质量历史直方图项
 type DQHistogramItem struct {
-	Date       string  `json:"date"`
-	Total      int64   `json:"total"`
-	Passed     int64   `json:"passed"`
-	Failed     int64   `json:"failed"`
-	PassRate   float64 `json:"pass_rate"`
+	Date     string  `json:"date"`
+	Total    int64   `json:"total"`
+	Passed   int64   `json:"passed"`
+	Failed   int64   `json:"failed"`
+	PassRate float64 `json:"pass_rate"`
 }
 
 // RuleConfig 各类规则的配置结构

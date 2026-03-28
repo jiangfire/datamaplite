@@ -92,7 +92,14 @@ export const useDQRule = (id: string | null) => {
 };
 
 // 检查结果Hook
-export const useDQResults = (params?: { rule_id?: string; batch_id?: string; limit?: number }) => {
+export const useDQResults = (params?: {
+  rule_id?: string;
+  batch_id?: string;
+  limit?: number;
+}) => {
+  const ruleId = params?.rule_id;
+  const batchId = params?.batch_id;
+  const limit = params?.limit;
   const [results, setResults] = useState<DQResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -101,14 +108,18 @@ export const useDQResults = (params?: { rule_id?: string; batch_id?: string; lim
     setLoading(true);
     setError(null);
     try {
-      const data = await dqService.getResults(params);
+      const data = await dqService.getResults({
+        rule_id: ruleId,
+        batch_id: batchId,
+        limit,
+      });
       setResults(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch results');
     } finally {
       setLoading(false);
     }
-  }, [params?.rule_id, params?.batch_id, params?.limit]);
+  }, [batchId, limit, ruleId]);
 
   useEffect(() => {
     fetchResults();

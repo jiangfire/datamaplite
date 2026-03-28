@@ -1,6 +1,13 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUp, ArrowDown, Database, Table, Hash, ArrowRight } from 'lucide-react';
+import {
+  ArrowUp,
+  ArrowDown,
+  Database,
+  Table,
+  Hash,
+  ArrowRight,
+} from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui';
 import type { LineageResponse, LineageEdge } from '../../types';
 
@@ -36,7 +43,9 @@ const LineageNode: React.FC<LineageNodeProps> = ({ node, isCurrent }) => {
     >
       <div
         className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-          isCurrent ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'
+          isCurrent
+            ? 'bg-indigo-100 text-indigo-600'
+            : 'bg-slate-100 text-slate-500'
         }`}
       >
         {icons[node.type]}
@@ -45,7 +54,9 @@ const LineageNode: React.FC<LineageNodeProps> = ({ node, isCurrent }) => {
         <Link
           to={node.type === 'column' ? `/columns/${node.id}` : `#`}
           className={`font-medium text-sm truncate block ${
-            isCurrent ? 'text-indigo-900' : 'text-slate-900 hover:text-indigo-600'
+            isCurrent
+              ? 'text-indigo-900'
+              : 'text-slate-900 hover:text-indigo-600'
           }`}
         >
           {node.name}
@@ -61,10 +72,10 @@ const LineageNode: React.FC<LineageNodeProps> = ({ node, isCurrent }) => {
   );
 };
 
-const EdgeConnector: React.FC<{ edge: LineageEdge; direction: 'up' | 'down' }> = ({
-  edge,
-  direction,
-}) => {
+const EdgeConnector: React.FC<{
+  edge: LineageEdge;
+  direction: 'up' | 'down';
+}> = ({ edge, direction }) => {
   const [showDetails, setShowDetails] = useState(false);
 
   return (
@@ -134,7 +145,9 @@ export const LineageGraph: React.FC<LineageGraphProps> = ({ lineage }) => {
             </div>
             <div>
               <p className="text-sm text-slate-500">当前字段</p>
-              <p className="text-lg font-semibold text-slate-900">{column_id}</p>
+              <p className="text-lg font-semibold text-slate-900">
+                {column_id}
+              </p>
             </div>
           </div>
         </CardContent>
