@@ -1,7 +1,7 @@
 # DataMap-Lite Makefile
 # Provides convenient commands for development and deployment
 
-.PHONY: help build build-backend build-frontend test lint clean docker-build docker-up docker-down dev backend frontend
+.PHONY: help build build-backend build-frontend embed-frontend test lint clean docker-build docker-up docker-down dev backend frontend
 
 # Default target
 .DEFAULT_GOAL := help
@@ -33,15 +33,15 @@ frontend: ## Start frontend development server
 	@cd web && pnpm dev
 
 # Build commands
-build: ## Build all binaries
-	@echo "$(GREEN)Building backend...$(RESET)"
+build: ## Build backend binary with embedded frontend
+	@$(MAKE) embed-frontend
+	@echo "$(GREEN)Building backend with embedded frontend...$(RESET)"
 	@mkdir -p bin
 	@go build -o bin/datamap ./cmd/datamap
-	@echo "$(GREEN)Building frontend...$(RESET)"
-	@cd web && pnpm build
 
-build-backend: ## Build backend binary only
-	@echo "$(GREEN)Building backend...$(RESET)"
+build-backend: ## Build backend binary with embedded frontend
+	@$(MAKE) embed-frontend
+	@echo "$(GREEN)Building backend with embedded frontend...$(RESET)"
 	@mkdir -p bin
 	@go build -ldflags="-w -s" -o bin/datamap ./cmd/datamap
 	@echo "$(GREEN)Binary created: bin/datamap$(RESET)"
@@ -49,6 +49,11 @@ build-backend: ## Build backend binary only
 build-frontend: ## Build frontend only
 	@echo "$(GREEN)Building frontend...$(RESET)"
 	@cd web && pnpm build
+
+embed-frontend: ## Build frontend assets and sync them for go:embed
+	@echo "$(GREEN)Building frontend assets for embedding...$(RESET)"
+	@cd web && pnpm build
+	@go run ./cmd/embedassets
 
 # Test commands
 test: ## Run all tests
@@ -89,11 +94,9 @@ fmt: ## Format all code
 	@cd web && pnpm format
 
 # Docker commands
-docker-build: ## Build all Docker images
-	@echo "$(GREEN)Building backend Docker image...$(RESET)"
+docker-build: ## Build backend Docker image with embedded frontend
+	@echo "$(GREEN)Building backend Docker image with embedded frontend...$(RESET)"
 	@docker build -t datamap-backend:latest .
-	@echo "$(GREEN)Building frontend Docker image...$(RESET)"
-	@docker build -t datamap-frontend:latest ./web
 
 docker-up: ## Start all services with docker-compose
 	@echo "$(GREEN)Starting services with docker-compose...$(RESET)"
@@ -103,8 +106,7 @@ docker-up: ## Start all services with docker-compose
 	fi
 	@docker-compose up -d
 	@echo "$(GREEN)Services started:$(RESET)"
-	@echo "  - API: http://localhost:8080"
-	@echo "  - Web: http://localhost"
+	@echo "  - App/API: http://localhost:8080"
 	@echo "  - pgAdmin: http://localhost:5050 (optional)"
 
 docker-down: ## Stop all services

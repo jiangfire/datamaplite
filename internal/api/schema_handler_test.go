@@ -233,6 +233,41 @@ func TestSchemaHandler_CreateColumnMapping(t *testing.T) {
 	mockSvc.AssertExpectations(t)
 }
 
+func TestSchemaHandler_CreateColumnMapping_PathIDOverridesBody(t *testing.T) {
+	router, mockSvc, handler := setupSchemaHandlerTest()
+
+	columnID := "550e8400-e29b-41d4-a716-446655440001"
+
+	mockSvc.
+		On("CreateColumnMapping", mock.Anything, mock.MatchedBy(func(req *model.ColumnMappingRequest) bool {
+			return req.SourceColumnID == columnID &&
+				req.TargetColumnID == "550e8400-e29b-41d4-a716-446655440004" &&
+				req.MappingType == "alias" &&
+				req.Confidence == 0.95
+		})).
+		Return(nil)
+
+	router.POST("/columns/:id/mappings", handler.CreateColumnMapping)
+
+	body := `{
+		"source_column_id": "different-column-id",
+		"target_column_id": "550e8400-e29b-41d4-a716-446655440004",
+		"mapping_type": "alias",
+		"confidence": 0.95
+	}`
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPost, "/columns/"+columnID+"/mappings", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, successCode, resp.Code)
+
+	mockSvc.AssertExpectations(t)
+}
+
 func TestSchemaHandler_CreateColumnMapping_InvalidRequest(t *testing.T) {
 	router, _, handler := setupSchemaHandlerTest()
 
@@ -248,6 +283,60 @@ func TestSchemaHandler_CreateColumnMapping_InvalidRequest(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestSchemaHandler_CreateColumnMapping_ValidationFailure(t *testing.T) {
+	router, _, handler := setupSchemaHandlerTest()
+
+	columnID := "550e8400-e29b-41d4-a716-446655440001"
+
+	router.POST("/columns/:id/mappings", handler.CreateColumnMapping)
+
+	body := `{
+		"target_column_id": "550e8400-e29b-41d4-a716-446655440004",
+		"mapping_type": "invalid",
+		"confidence": 1.5
+	}`
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPost, "/columns/"+columnID+"/mappings", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+	assert.Equal(t, "BAD_REQUEST", resp.ErrorCode)
+}
+
+func TestSchemaHandler_CreateColumnMapping_ServiceError(t *testing.T) {
+	router, mockSvc, handler := setupSchemaHandlerTest()
+
+	columnID := "550e8400-e29b-41d4-a716-446655440001"
+	mappingReq := &model.ColumnMappingRequest{
+		SourceColumnID: columnID,
+		TargetColumnID: "550e8400-e29b-41d4-a716-446655440004",
+		MappingType:    "alias",
+		Confidence:     0.95,
+	}
+
+	mockSvc.On("CreateColumnMapping", mock.Anything, mappingReq).Return(errors.New("create failed"))
+
+	router.POST("/columns/:id/mappings", handler.CreateColumnMapping)
+
+	body, _ := json.Marshal(mappingReq)
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPost, "/columns/"+columnID+"/mappings", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "INTERNAL_ERROR", resp.ErrorCode)
+
+	mockSvc.AssertExpectations(t)
 }
 
 func TestSchemaHandler_DeleteColumnMapping(t *testing.T) {
@@ -267,6 +356,28 @@ func TestSchemaHandler_DeleteColumnMapping(t *testing.T) {
 
 	resp := decodeHTTPResult(t, w.Body.Bytes())
 	assert.Equal(t, successCode, resp.Code)
+
+	mockSvc.AssertExpectations(t)
+}
+
+func TestSchemaHandler_DeleteColumnMapping_ServiceError(t *testing.T) {
+	router, mockSvc, handler := setupSchemaHandlerTest()
+
+	mappingID := "550e8400-e29b-41d4-a716-446655440003"
+
+	mockSvc.On("DeleteColumnMapping", mock.Anything, mappingID).Return(errors.New("delete failed"))
+
+	router.DELETE("/columns/:id/mappings/:mappingId", handler.DeleteColumnMapping)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodDelete, "/columns/col-1/mappings/"+mappingID, nil)
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "INTERNAL_ERROR", resp.ErrorCode)
 
 	mockSvc.AssertExpectations(t)
 }
@@ -306,6 +417,28 @@ func TestSchemaHandler_GetLineage(t *testing.T) {
 
 	resp := decodeHTTPResult(t, w.Body.Bytes())
 	assert.Equal(t, successCode, resp.Code)
+
+	mockSvc.AssertExpectations(t)
+}
+
+func TestSchemaHandler_GetImpactAnalysis_Error(t *testing.T) {
+	router, mockSvc, handler := setupSchemaHandlerTest()
+
+	columnID := "550e8400-e29b-41d4-a716-446655440001"
+
+	mockSvc.On("GetImpactAnalysis", mock.Anything, columnID).Return(nil, errors.New("impact failed"))
+
+	router.GET("/columns/:id/impact", handler.GetImpactAnalysis)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/columns/"+columnID+"/impact", nil)
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "INTERNAL_ERROR", resp.ErrorCode)
 
 	mockSvc.AssertExpectations(t)
 }

@@ -67,10 +67,10 @@ func TestDDLService_GenerateDDL_MySQL(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, objectID, resp.ObjectID)
-	assert.Contains(t, resp.SQL, "CREATE TABLE")
-	assert.Contains(t, resp.SQL, "users")
-	assert.Contains(t, resp.SQL, "id")
-	assert.Contains(t, resp.SQL, "name")
+	assert.Contains(t, resp.SQL, "CREATE TABLE `users`")
+	assert.Contains(t, resp.SQL, "`id` INT NOT NULL")
+	assert.Contains(t, resp.SQL, "`name` VARCHAR(255)")
+	assert.Contains(t, resp.SQL, "`created_at` TIMESTAMP NOT NULL DEFAULT now()")
 	mockStore.AssertExpectations(t)
 }
 
@@ -83,19 +83,28 @@ func TestDDLService_GenerateDDL_PostgreSQL(t *testing.T) {
 	mockStore.On("GetObjectWithColumns", ctx, objectID).Return(
 		&store.SchemaObjectRow{
 			ID:     objectID,
-			Name:   "users",
+			Name:   "User Profile",
 			Type:   "table",
-			Schema: strPtr("public"),
+			Schema: strPtr("analytics"),
 		},
 		[]*store.ColumnRow{
 			{
 				ID:              "col-1",
-				Name:            "id",
+				Name:            "user id",
 				DataType:        "integer",
-				FullDataType:    "integer",
+				FullDataType:    "int(11)",
 				IsNullable:      false,
 				IsPrimaryKey:    true,
 				OrdinalPosition: 1,
+			},
+			{
+				ID:              "col-2",
+				Name:            "created_at",
+				DataType:        "timestamp",
+				FullDataType:    "timestamp",
+				IsNullable:      false,
+				DefaultValue:    strPtr("CURRENT_TIMESTAMP"),
+				OrdinalPosition: 2,
 			},
 		},
 		nil,
@@ -105,7 +114,42 @@ func TestDDLService_GenerateDDL_PostgreSQL(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, objectID, resp.ObjectID)
-	assert.Contains(t, resp.SQL, "CREATE TABLE")
+	assert.Contains(t, resp.SQL, `CREATE TABLE "analytics"."User Profile"`)
+	assert.Contains(t, resp.SQL, `"user id" INTEGER NOT NULL`)
+	assert.Contains(t, resp.SQL, `"created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP`)
+	mockStore.AssertExpectations(t)
+}
+
+func TestDDLService_GenerateDDL_QuotesStringDefault(t *testing.T) {
+	ctx := context.Background()
+	service, mockStore := setupDDLService(t)
+
+	objectID := "obj-quoted-default"
+
+	mockStore.On("GetObjectWithColumns", ctx, objectID).Return(
+		&store.SchemaObjectRow{
+			ID:   objectID,
+			Name: "accounts",
+			Type: "table",
+		},
+		[]*store.ColumnRow{
+			{
+				ID:              "col-1",
+				Name:            "status",
+				DataType:        "varchar",
+				FullDataType:    "character varying(32)",
+				IsNullable:      false,
+				DefaultValue:    strPtr("guest"),
+				OrdinalPosition: 1,
+			},
+		},
+		nil,
+	)
+
+	resp, err := service.GenerateDDL(ctx, objectID, "mysql")
+
+	require.NoError(t, err)
+	assert.Contains(t, resp.SQL, "`status` VARCHAR(32) NOT NULL DEFAULT 'guest'")
 	mockStore.AssertExpectations(t)
 }
 

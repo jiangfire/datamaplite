@@ -337,6 +337,80 @@ func TestTermHandler_AssignTermToColumn(t *testing.T) {
 	mockSvc.AssertExpectations(t)
 }
 
+func TestTermHandler_AssignTermToColumn_Unassign(t *testing.T) {
+	router, mockSvc, _, handler := setupTermHandlerTest()
+
+	columnID := "550e8400-e29b-41d4-a716-446655440001"
+	assignReq := &model.AssignTermRequest{
+		TermID: nil,
+	}
+
+	mockSvc.On("AssignTermToColumn", mock.Anything, columnID, assignReq).Return(nil)
+
+	router.POST("/columns/:id/term", handler.AssignTermToColumn)
+
+	body, _ := json.Marshal(assignReq)
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPost, "/columns/"+columnID+"/term", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, successCode, resp.Code)
+
+	mockSvc.AssertExpectations(t)
+}
+
+func TestTermHandler_AssignTermToColumn_InvalidRequest(t *testing.T) {
+	router, _, _, handler := setupTermHandlerTest()
+
+	columnID := "550e8400-e29b-41d4-a716-446655440001"
+
+	router.POST("/columns/:id/term", handler.AssignTermToColumn)
+
+	body := `{"term_id": }`
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPost, "/columns/"+columnID+"/term", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+	assert.Equal(t, "BAD_REQUEST", resp.ErrorCode)
+}
+
+func TestTermHandler_AssignTermToColumn_ServiceError(t *testing.T) {
+	router, mockSvc, _, handler := setupTermHandlerTest()
+
+	columnID := "550e8400-e29b-41d4-a716-446655440001"
+	termID := "550e8400-e29b-41d4-a716-446655440010"
+	assignReq := &model.AssignTermRequest{
+		TermID: &termID,
+	}
+
+	mockSvc.On("AssignTermToColumn", mock.Anything, columnID, assignReq).Return(errors.New("assign failed"))
+
+	router.POST("/columns/:id/term", handler.AssignTermToColumn)
+
+	body, _ := json.Marshal(assignReq)
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPost, "/columns/"+columnID+"/term", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "INTERNAL_ERROR", resp.ErrorCode)
+
+	mockSvc.AssertExpectations(t)
+}
+
 func TestTermHandler_AssignTermToColumn_MissingColumnID(t *testing.T) {
 	router, _, _, handler := setupTermHandlerTest()
 
@@ -355,6 +429,33 @@ func TestTermHandler_AssignTermToColumn_MissingColumnID(t *testing.T) {
 
 	// gin将空字符串作为id参数传递，handler返回400而不是404
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestTermHandler_GenerateDDL_ServiceError(t *testing.T) {
+	router, _, mockDDLSvc, handler := setupTermHandlerTest()
+
+	ddlReq := &model.DDLGenerateRequest{
+		ObjectID:   "550e8400-e29b-41d4-a716-446655440002",
+		TargetType: "postgres",
+	}
+
+	mockDDLSvc.On("GenerateDDL", mock.Anything, ddlReq.ObjectID, ddlReq.TargetType).Return(nil, errors.New("ddl failed"))
+
+	router.POST("/ddl/generate", handler.GenerateDDL)
+
+	body, _ := json.Marshal(ddlReq)
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPost, "/ddl/generate", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+
+	resp := decodeHTTPResult(t, w.Body.Bytes())
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "INTERNAL_ERROR", resp.ErrorCode)
+
+	mockDDLSvc.AssertExpectations(t)
 }
 
 func TestTermHandler_GenerateDDL(t *testing.T) {

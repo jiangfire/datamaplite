@@ -440,10 +440,239 @@ func TestMetadataService_GetImpactAnalysis(t *testing.T) {
 	assert.Equal(t, columnID, impact.ColumnID)
 	assert.Len(t, impact.ImpactObjects, 2)
 	assert.Equal(t, 2, impact.TotalObjects)
-	assert.Equal(t, "dim_user_id", impact.ImpactObjects[0].Name)
-	assert.Equal(t, "dim_users", impact.ImpactObjects[0].ObjectName)
-	assert.Equal(t, "dm_mysql", impact.ImpactObjects[0].SourceName)
+
+	dimImpact := findImpactObjectByID(t, impact.ImpactObjects, "col-2")
+	assert.Equal(t, "dim_user_id", dimImpact.Name)
+	assert.Equal(t, "dim_users", dimImpact.ObjectName)
+	assert.Equal(t, "dm_mysql", dimImpact.SourceName)
+	assert.Equal(t, "user_id -> dim_user_id", dimImpact.ImpactPath)
+	assert.Equal(t, 1, dimImpact.Distance)
 	mockStore.AssertExpectations(t)
+}
+
+func TestMetadataService_GetImpactAnalysis_MultiHopShortestPath(t *testing.T) {
+	ctx := context.Background()
+	service, mockStore := setupMetadataService(t)
+
+	columnID := "col-1"
+
+	mockStore.On("GetLineageDownward", ctx, columnID, 10).Return([]*store.LineageEdgeRow{
+		{
+			ID:               "edge-1",
+			SourceID:         columnID,
+			TargetID:         "col-2",
+			SourceType:       "column",
+			TargetType:       "column",
+			SourceName:       "user_id",
+			TargetName:       "dim_user_id",
+			TargetObjectName: "dim_users",
+			TargetSourceName: "dm_mysql",
+		},
+		{
+			ID:               "edge-2",
+			SourceID:         "col-2",
+			TargetID:         "obj-1",
+			SourceType:       "column",
+			TargetType:       "object",
+			SourceName:       "dim_user_id",
+			TargetName:       "ads_user_profile",
+			TargetObjectName: "ads_user_profile",
+			TargetSourceName: "ads_mysql",
+		},
+		{
+			ID:               "edge-3",
+			SourceID:         columnID,
+			TargetID:         "obj-1",
+			SourceType:       "column",
+			TargetType:       "object",
+			SourceName:       "user_id",
+			TargetName:       "ads_user_profile",
+			TargetObjectName: "ads_user_profile",
+			TargetSourceName: "ads_mysql",
+		},
+		{
+			ID:               "edge-4",
+			SourceID:         "obj-1",
+			TargetID:         "col-3",
+			SourceType:       "object",
+			TargetType:       "column",
+			SourceName:       "ads_user_profile",
+			TargetName:       "user_profile_key",
+			TargetObjectName: "ads_user_profile",
+			TargetSourceName: "ads_mysql",
+		},
+	}, nil)
+
+	impact, err := service.GetImpactAnalysis(ctx, columnID)
+
+	require.NoError(t, err)
+	require.Len(t, impact.ImpactObjects, 3)
+
+	dimImpact := findImpactObjectByID(t, impact.ImpactObjects, "col-2")
+	assert.Equal(t, "dim_user_id", dimImpact.Name)
+	assert.Equal(t, 1, dimImpact.Distance)
+	assert.Equal(t, "user_id -> dim_user_id", dimImpact.ImpactPath)
+
+	objectImpact := findImpactObjectByID(t, impact.ImpactObjects, "obj-1")
+	assert.Equal(t, "ads_user_profile", objectImpact.Name)
+	assert.Equal(t, 1, objectImpact.Distance)
+	assert.Equal(t, "user_id -> ads_user_profile", objectImpact.ImpactPath)
+
+	columnImpact := findImpactObjectByID(t, impact.ImpactObjects, "col-3")
+	assert.Equal(t, "user_profile_key", columnImpact.Name)
+	assert.Equal(t, 2, columnImpact.Distance)
+	assert.Equal(
+		t,
+		"user_id -> ads_user_profile -> user_profile_key",
+		columnImpact.ImpactPath,
+	)
+
+	mockStore.AssertExpectations(t)
+}
+
+func TestMetadataService_GetImpactAnalysis_Empty(t *testing.T) {
+	ctx := context.Background()
+	service, mockStore := setupMetadataService(t)
+
+	columnID := "col-1"
+
+	mockStore.On("GetLineageDownward", ctx, columnID, 10).Return([]*store.LineageEdgeRow{}, nil)
+
+	impact, err := service.GetImpactAnalysis(ctx, columnID)
+
+	require.NoError(t, err)
+	assert.Equal(t, columnID, impact.ColumnID)
+	assert.Empty(t, impact.ImpactObjects)
+	assert.Equal(t, 0, impact.TotalObjects)
+	mockStore.AssertExpectations(t)
+}
+
+func TestMetadataService_GetImpactAnalysis_CycleKeepsShortestPath(t *testing.T) {
+	ctx := context.Background()
+	service, mockStore := setupMetadataService(t)
+
+	columnID := "col-1"
+
+	mockStore.On("GetLineageDownward", ctx, columnID, 10).Return([]*store.LineageEdgeRow{
+		{
+			ID:               "edge-1",
+			SourceID:         columnID,
+			TargetID:         "col-2",
+			SourceType:       "column",
+			TargetType:       "column",
+			SourceName:       "user_id",
+			TargetName:       "dim_user_id",
+			TargetObjectName: "dim_users",
+			TargetSourceName: "dm_mysql",
+		},
+		{
+			ID:               "edge-2",
+			SourceID:         "col-2",
+			TargetID:         "obj-1",
+			SourceType:       "column",
+			TargetType:       "object",
+			SourceName:       "dim_user_id",
+			TargetName:       "ads_users",
+			TargetObjectName: "ads_users",
+			TargetSourceName: "ads_mysql",
+		},
+		{
+			ID:               "edge-3",
+			SourceID:         "obj-1",
+			TargetID:         columnID,
+			SourceType:       "object",
+			TargetType:       "column",
+			SourceName:       "ads_users",
+			TargetName:       "user_id",
+			TargetObjectName: "users",
+			TargetSourceName: "dwd_mysql",
+		},
+		{
+			ID:               "edge-4",
+			SourceID:         "col-2",
+			TargetID:         "col-3",
+			SourceType:       "column",
+			TargetType:       "column",
+			SourceName:       "dim_user_id",
+			TargetName:       "user_profile_key",
+			TargetObjectName: "dim_users",
+			TargetSourceName: "dm_mysql",
+		},
+		{
+			ID:               "edge-5",
+			SourceID:         "obj-1",
+			TargetID:         "col-3",
+			SourceType:       "object",
+			TargetType:       "column",
+			SourceName:       "ads_users",
+			TargetName:       "user_profile_key",
+			TargetObjectName: "ads_users",
+			TargetSourceName: "ads_mysql",
+		},
+	}, nil)
+
+	impact, err := service.GetImpactAnalysis(ctx, columnID)
+
+	require.NoError(t, err)
+	require.Len(t, impact.ImpactObjects, 3)
+
+	assert.Empty(t, filterImpactObjectsByID(impact.ImpactObjects, columnID))
+
+	columnImpact := findImpactObjectByID(t, impact.ImpactObjects, "col-3")
+	assert.Equal(t, 2, columnImpact.Distance)
+	assert.Equal(t, "user_id -> dim_user_id -> user_profile_key", columnImpact.ImpactPath)
+	mockStore.AssertExpectations(t)
+}
+
+func TestMetadataService_GetImpactAnalysis_FallsBackToColumnIDWhenRootNameMissing(t *testing.T) {
+	ctx := context.Background()
+	service, mockStore := setupMetadataService(t)
+
+	columnID := "col-1"
+
+	mockStore.On("GetLineageDownward", ctx, columnID, 10).Return([]*store.LineageEdgeRow{
+		{
+			ID:               "edge-1",
+			SourceID:         columnID,
+			TargetID:         "col-2",
+			SourceType:       "column",
+			TargetType:       "column",
+			SourceName:       "",
+			TargetName:       "downstream_id",
+			TargetObjectName: "dim_users",
+			TargetSourceName: "dm_mysql",
+		},
+	}, nil)
+
+	impact, err := service.GetImpactAnalysis(ctx, columnID)
+
+	require.NoError(t, err)
+	require.Len(t, impact.ImpactObjects, 1)
+	assert.Equal(t, "col-1 -> downstream_id", impact.ImpactObjects[0].ImpactPath)
+	mockStore.AssertExpectations(t)
+}
+
+func findImpactObjectByID(t *testing.T, impacts []model.ImpactObject, id string) model.ImpactObject {
+	t.Helper()
+
+	for _, impact := range impacts {
+		if impact.ID == id {
+			return impact
+		}
+	}
+
+	t.Fatalf("impact object %s not found", id)
+	return model.ImpactObject{}
+}
+
+func filterImpactObjectsByID(impacts []model.ImpactObject, id string) []model.ImpactObject {
+	filtered := make([]model.ImpactObject, 0)
+	for _, impact := range impacts {
+		if impact.ID == id {
+			filtered = append(filtered, impact)
+		}
+	}
+	return filtered
 }
 
 func TestMetadataService_ListSchemaChanges(t *testing.T) {

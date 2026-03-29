@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"git.neolidy.top/neo/fuckcmdb/internal/model"
@@ -331,19 +332,70 @@ func (s *MetadataService) GetImpactAnalysis(ctx context.Context, columnID string
 		return nil, fmt.Errorf("failed to get impact analysis: %w", err)
 	}
 
-	var impacts []model.ImpactObject
-	for _, e := range downward {
-		impact := model.ImpactObject{
-			ID:         e.TargetID,
-			Name:       e.TargetName,
-			Type:       e.TargetType,
-			ObjectName: e.TargetObjectName,
-			SourceName: e.TargetSourceName,
-			ImpactPath: fmt.Sprintf("%s -> %s", e.SourceName, e.TargetName),
-			Distance:   1,
+	rootName := columnID
+	adjacency := make(map[string][]*store.LineageEdgeRow)
+	for _, edge := range downward {
+		if edge.SourceID == columnID && edge.SourceName != "" {
+			rootName = edge.SourceName
 		}
+		adjacency[edge.SourceID] = append(adjacency[edge.SourceID], edge)
+	}
+
+	type queueItem struct {
+		NodeID string
+		Path   []string
+	}
+
+	bestDistance := map[string]int{
+		columnID: 0,
+	}
+	queue := []queueItem{{
+		NodeID: columnID,
+		Path:   []string{rootName},
+	}}
+	impactMap := make(map[string]model.ImpactObject)
+
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+
+		for _, edge := range adjacency[current.NodeID] {
+			distance := bestDistance[current.NodeID] + 1
+			if previousDistance, exists := bestDistance[edge.TargetID]; exists && previousDistance <= distance {
+				continue
+			}
+
+			nextPath := append(append([]string{}, current.Path...), edge.TargetName)
+			bestDistance[edge.TargetID] = distance
+			impactMap[edge.TargetID] = model.ImpactObject{
+				ID:         edge.TargetID,
+				Name:       edge.TargetName,
+				Type:       edge.TargetType,
+				ObjectName: edge.TargetObjectName,
+				SourceName: edge.TargetSourceName,
+				ImpactPath: strings.Join(nextPath, " -> "),
+				Distance:   distance,
+			}
+			queue = append(queue, queueItem{
+				NodeID: edge.TargetID,
+				Path:   nextPath,
+			})
+		}
+	}
+
+	impacts := make([]model.ImpactObject, 0, len(impactMap))
+	for _, impact := range impactMap {
 		impacts = append(impacts, impact)
 	}
+	sort.Slice(impacts, func(i, j int) bool {
+		if impacts[i].Distance != impacts[j].Distance {
+			return impacts[i].Distance < impacts[j].Distance
+		}
+		if impacts[i].Name != impacts[j].Name {
+			return impacts[i].Name < impacts[j].Name
+		}
+		return impacts[i].ID < impacts[j].ID
+	})
 
 	return &model.ImpactAnalysisResponse{
 		ColumnID:      columnID,

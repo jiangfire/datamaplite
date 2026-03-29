@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import {
+  LoginPage,
   SourcesPage,
   SourceDetailPage,
   SearchPage,
@@ -13,45 +14,54 @@ import {
   AlertRulesPage,
   NotificationsPage,
 } from './pages';
+import { AuthProvider, PublicOnlyRoute, RequireAuth } from './auth';
 import './App.css';
 
 const App = () => {
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Data Sources */}
-        <Route path="/" element={<SourcesPage />} />
-        <Route path="/sources/:id" element={<SourceDetailPage />} />
+      <AuthProvider>
+        <Routes>
+          <Route element={<PublicOnlyRoute />}>
+            <Route path="/login" element={<LoginPage />} />
+          </Route>
 
-        {/* Search */}
-        <Route path="/search" element={<SearchPage />} />
+          <Route element={<RequireAuth />}>
+            {/* Data Sources */}
+            <Route path="/" element={<SourcesPage />} />
+            <Route path="/sources/:id" element={<SourceDetailPage />} />
 
-        {/* Column Detail */}
-        <Route path="/columns/:id" element={<ColumnDetailPage />} />
+            {/* Search */}
+            <Route path="/search" element={<SearchPage />} />
 
-        {/* Business Terms */}
-        <Route path="/terms" element={<TermsPage />} />
-        <Route path="/terms/:id" element={<TermDetailPage />} />
+            {/* Column Detail */}
+            <Route path="/columns/:id" element={<ColumnDetailPage />} />
 
-        {/* Lineage Analysis */}
-        <Route path="/lineage" element={<LineagePage />} />
+            {/* Business Terms */}
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/terms/:id" element={<TermDetailPage />} />
 
-        {/* Data Quality */}
-        <Route path="/dq/rules" element={<DQRulesPage />} />
-        <Route path="/dq/results" element={<DQResultsPage />} />
+            {/* Lineage Analysis */}
+            <Route path="/lineage" element={<LineagePage />} />
 
-        {/* Tags */}
-        <Route path="/tags" element={<TagsPage />} />
+            {/* Data Quality */}
+            <Route path="/dq/rules" element={<DQRulesPage />} />
+            <Route path="/dq/results" element={<DQResultsPage />} />
 
-        {/* Alert Rules */}
-        <Route path="/alerts" element={<AlertRulesPage />} />
+            {/* Tags */}
+            <Route path="/tags" element={<TagsPage />} />
 
-        {/* Notifications */}
-        <Route path="/notifications" element={<NotificationsPage />} />
+            {/* Alert Rules */}
+            <Route path="/alerts" element={<AlertRulesPage />} />
 
-        {/* Redirect unknown routes to home */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+            {/* Notifications */}
+            <Route path="/notifications" element={<NotificationsPage />} />
+          </Route>
+
+          {/* Redirect unknown routes to home */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
   );
 };

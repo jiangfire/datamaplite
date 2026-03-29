@@ -29,7 +29,7 @@ services:
     networks:
       - datamap-network
 
-  # Backend API Server
+  # Backend API + Embedded Frontend Server
   backend:
     build:
       context: .
@@ -60,26 +60,6 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    networks:
-      - datamap-network
-
-  # Frontend Web Server
-  frontend:
-    build:
-      context: ./web
-      dockerfile: Dockerfile
-    container_name: datamap-frontend
-    restart: unless-stopped
-    ports:
-      - "${WEB_PORT:-80}:80"
-    depends_on:
-      - backend
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
       interval: 30s
       timeout: 10s
       retries: 3

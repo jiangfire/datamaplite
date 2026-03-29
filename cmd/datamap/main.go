@@ -16,6 +16,7 @@ import (
 	"git.neolidy.top/neo/fuckcmdb/internal/scanner"
 	"git.neolidy.top/neo/fuckcmdb/internal/service"
 	"git.neolidy.top/neo/fuckcmdb/internal/store"
+	"git.neolidy.top/neo/fuckcmdb/internal/webui"
 	responsepkg "git.neolidy.top/neo/fuckcmdb/pkg/response"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -142,6 +143,7 @@ func run() error {
 	router.Register(engine)
 	engine.Any("/mcp", api.MCPAuthMiddleware(authService), api.GovernanceAuditMiddleware(), gin.WrapH(mcpHandler))
 	engine.Any("/mcp/", api.MCPAuthMiddleware(authService), api.GovernanceAuditMiddleware(), gin.WrapH(mcpHandler))
+	frontendSource := webui.Mount(engine)
 
 	// 创建HTTP服务器
 	srv := &http.Server{
@@ -156,6 +158,7 @@ func run() error {
 		logger.Info("HTTP server started",
 			zap.String("addr", srv.Addr),
 			zap.String("mcp_endpoint", "/mcp"),
+			zap.String("frontend_source", frontendSource),
 		)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Fatal("failed to start server", zap.Error(err))

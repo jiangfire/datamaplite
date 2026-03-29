@@ -39,26 +39,26 @@ export const useColumnDetail = (columnId: string | undefined) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchColumn = useCallback(async () => {
     if (!columnId) return;
 
-    const fetchColumn = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await columnService.getColumnDetail(columnId);
-        setColumn(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch column');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchColumn();
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await columnService.getColumnDetail(columnId);
+      setColumn(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch column');
+    } finally {
+      setLoading(false);
+    }
   }, [columnId]);
 
-  return { column, loading, error };
+  useEffect(() => {
+    fetchColumn();
+  }, [fetchColumn]);
+
+  return { column, loading, error, refetch: fetchColumn };
 };
 
 export const useColumnMappings = (columnId: string | undefined) => {
@@ -93,16 +93,15 @@ export const useColumnMappings = (columnId: string | undefined) => {
   }) => {
     if (!columnId) throw new Error('Column ID is required');
 
-    const newMapping = await columnService.createColumnMapping(columnId, data);
-    setMappings((prev) => [...prev, newMapping]);
-    return newMapping;
+    await columnService.createColumnMapping(columnId, data);
+    await fetchMappings();
   };
 
   const deleteMapping = async (mappingId: string) => {
     if (!columnId) throw new Error('Column ID is required');
 
     await columnService.deleteColumnMapping(columnId, mappingId);
-    setMappings((prev) => prev.filter((m) => m.id !== mappingId));
+    await fetchMappings();
   };
 
   return {

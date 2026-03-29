@@ -6,8 +6,9 @@ import type {
 } from 'axios';
 import type { ApiResponse, LoginResponse, UserInfo } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 const AUTH_STORAGE_KEY = 'datamap.auth';
+export const AUTH_SESSION_EVENT = 'datamap-auth-session-changed';
 
 interface StoredAuthSession {
   accessToken: string;
@@ -34,14 +35,22 @@ const readAuthStorage = (): StoredAuthSession | null => {
   }
 };
 
+const notifyAuthSessionChanged = () => {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(AUTH_SESSION_EVENT));
+  }
+};
+
 export const getStoredSession = () => readAuthStorage();
 
 export const setStoredSession = (session: StoredAuthSession) => {
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+  notifyAuthSessionChanged();
 };
 
 export const clearStoredSession = () => {
   localStorage.removeItem(AUTH_STORAGE_KEY);
+  notifyAuthSessionChanged();
 };
 
 const unwrapResponse = <T>(payload: ApiResponse<T>) => {

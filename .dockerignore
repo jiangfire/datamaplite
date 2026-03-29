@@ -1,0 +1,10 @@
+.git
+.env
+.gocache
+bin
+coverage
+coverage-internal
+web/node_modules
+web/dist
+internal/webui/generated/*
+!internal/webui/generated/.keep

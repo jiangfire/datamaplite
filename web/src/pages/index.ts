@@ -1,3 +1,4 @@
+export { LoginPage } from './LoginPage';
 export { SourcesPage } from './SourcesPage';
 export { SourceDetailPage } from './SourceDetailPage';
 export { SearchPage } from './SearchPage';

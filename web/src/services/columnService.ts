@@ -3,10 +3,10 @@ import type {
   ColumnDetail,
   ColumnSearchResult,
   ColumnMapping,
-  ColumnMappingCreate,
   LineageResponse,
   ImpactAnalysisResponse,
   AssignTermRequest,
+  ColumnMappingCreate,
 } from '../types';
 
 export const columnService = {
@@ -23,7 +23,7 @@ export const columnService = {
 
   // Create column mapping
   createColumnMapping: (id: string, data: ColumnMappingCreate) =>
-    api.post<ColumnMapping>(`/columns/${id}/mappings`, data),
+    api.post<void>(`/columns/${id}/mappings`, data),
 
   // Delete column mapping
   deleteColumnMapping: (columnId: string, mappingId: string) =>

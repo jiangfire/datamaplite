@@ -10,8 +10,11 @@ import {
   X,
   Bell,
   AlertTriangle,
+  LogOut,
+  UserCircle2,
 } from 'lucide-react';
 import { useState } from 'react';
+import { useAuth } from '../auth';
 
 interface NavItem {
   path: string;
@@ -35,6 +38,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { user, logout } = useAuth();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50/30">
@@ -73,13 +77,30 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({
               ))}
             </nav>
 
-            {/* Mobile Menu Button */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100"
-            >
-              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
+            <div className="flex items-center gap-2">
+              {user && (
+                <div className="hidden md:flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-3 py-2 text-sm text-slate-600 shadow-sm">
+                  <UserCircle2 size={16} className="text-indigo-600" />
+                  <span className="max-w-40 truncate">{user.username}</span>
+                  <button
+                    onClick={logout}
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                    title="退出登录"
+                  >
+                    <LogOut size={14} />
+                    退出
+                  </button>
+                </div>
+              )}
+
+              {/* Mobile Menu Button */}
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="md:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100"
+              >
+                {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -101,6 +122,24 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({
                 {item.label}
               </Link>
             ))}
+            {user && (
+              <div className="border-t border-slate-100 px-4 py-3">
+                <div className="flex items-center gap-2 text-sm text-slate-500 mb-3">
+                  <UserCircle2 size={16} className="text-indigo-600" />
+                  <span className="truncate">{user.username}</span>
+                </div>
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    logout();
+                  }}
+                  className="flex items-center gap-3 text-sm font-medium text-slate-600 hover:text-slate-900"
+                >
+                  <LogOut size={16} />
+                  退出登录
+                </button>
+              </div>
+            )}
           </nav>
         )}
       </header>

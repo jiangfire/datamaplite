@@ -1,7 +1,22 @@
 # DataMap-Lite Backend Dockerfile
 # Multi-stage build for production
 
-# Build stage
+# Frontend build stage
+FROM node:22-alpine AS web-builder
+
+WORKDIR /app/web
+
+RUN corepack enable
+
+COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
+
+RUN pnpm install --frozen-lockfile
+
+COPY web/ ./
+
+RUN pnpm build
+
+# Backend build stage
 FROM golang:1.25-alpine AS builder
 
 # Install build dependencies
@@ -19,8 +34,12 @@ RUN go mod download
 # Copy source code
 COPY . .
 
+# Copy built frontend assets and sync them into the embed directory.
+COPY --from=web-builder /app/web/dist ./web/dist
+
 # Build the binary
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o datamap ./cmd/datamap
+RUN go run ./cmd/embedassets && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o datamap ./cmd/datamap
 
 # Runtime stage
 FROM alpine:3.20

@@ -1,6 +1,6 @@
 # Web Frontend
 
-前端基于 React 19、TypeScript、Rsbuild 和 Tailwind CSS 4，默认通过 `VITE_API_URL` 访问后端 API；未配置时回落到 `http://localhost:8080/api/v1`。
+前端基于 React 19、TypeScript、Rsbuild 和 Tailwind CSS 4，默认通过同源路径 `/api/v1` 访问后端 API；开发环境下 `pnpm dev` 会把 `/api` 和 `/mcp` 代理到 `http://localhost:8080`。如有需要，也可以通过 `VITE_API_URL` 覆盖。
 
 ## 常用命令
 

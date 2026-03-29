@@ -62,53 +62,11 @@ jobs:
         cache-to: type=gha,mode=max
         platforms: linux/amd64,linux/arm64
 
-  # Build and push frontend image
-  frontend:
-    name: Build Frontend Image
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Login to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
-
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_PREFIX }}-frontend
-        tags: |
-          type=ref,event=tag
-          type=raw,value=latest,enable={{is_default_branch}}
-          type=raw,value=${{ github.event.inputs.version }},enable=${{ github.event_name == 'workflow_dispatch' }}
-
-    - name: Build and push
-      uses: docker/build-push-action@v6
-      with:
-        context: ./web
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-        platforms: linux/amd64,linux/arm64
-
   # Create GitHub Release
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: [backend, frontend]
+    needs: [backend]
     if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
@@ -121,8 +79,7 @@ jobs:
         echo "notes<<EOF" >> $GITHUB_OUTPUT
         echo "## Docker Images" >> $GITHUB_OUTPUT
         echo "" >> $GITHUB_OUTPUT
-        echo "- Backend: \`docker pull ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_PREFIX }}-backend:${{ github.ref_name }}\`" >> $GITHUB_OUTPUT
-        echo "- Frontend: \`docker pull ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_PREFIX }}-frontend:${{ github.ref_name }}\`" >> $GITHUB_OUTPUT
+        echo "- App (backend + embedded frontend): \`docker pull ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_PREFIX }}-backend:${{ github.ref_name }}\`" >> $GITHUB_OUTPUT
         echo "" >> $GITHUB_OUTPUT
         echo "## Quick Start" >> $GITHUB_OUTPUT
         echo "\`\`\`bash" >> $GITHUB_OUTPUT
@@ -149,7 +106,7 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    needs: [backend, frontend]
+    needs: [backend]
     if: github.ref == 'refs/heads/develop'
     environment: staging
 
