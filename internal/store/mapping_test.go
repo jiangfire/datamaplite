@@ -13,7 +13,7 @@ import (
 // testStoreWithMapping 创建支持映射的测试存储
 func testStoreWithMapping(t *testing.T) Store {
 	logger := zap.NewNop()
-	db, err := sql.Open("sqlite3", "file::memory:?_pragma=foreign_keys(1)")
+	db, err := sql.Open(sqliteDriverName, "file::memory:?_pragma=foreign_keys(1)")
 	require.NoError(t, err)
 
 	ctx := context.Background()

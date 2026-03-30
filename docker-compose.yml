@@ -10,7 +10,7 @@ version: '3.8'
 services:
   # PostgreSQL Database
   postgres:
-    image: postgres:16-alpine
+    image: ${DATAMAP_POSTGRES_IMAGE:-docker.m.daocloud.io/library/postgres:16-alpine}
     container_name: datamap-postgres
     restart: unless-stopped
     environment:
@@ -31,9 +31,18 @@ services:
 
   # Backend API + Embedded Frontend Server
   backend:
+    image: ${DATAMAP_BACKEND_IMAGE:-datamap-backend:latest}
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        NODE_IMAGE: ${DATAMAP_NODE_IMAGE:-docker.m.daocloud.io/library/node:22-alpine}
+        GO_IMAGE: ${DATAMAP_GO_IMAGE:-docker.m.daocloud.io/library/golang:1.25.4-alpine}
+        RUNTIME_IMAGE: ${DATAMAP_RUNTIME_IMAGE:-docker.m.daocloud.io/library/alpine:3.20}
+        PNPM_VERSION: ${DATAMAP_PNPM_VERSION:-10.28.0}
+        NPM_REGISTRY: ${DATAMAP_NPM_REGISTRY:-https://registry.npmmirror.com}
+        GOPROXY: ${DATAMAP_GOPROXY:-https://goproxy.cn,direct}
+        GOSUMDB: ${DATAMAP_GOSUMDB:-sum.golang.google.cn}
     container_name: datamap-backend
     restart: unless-stopped
     environment:
@@ -69,7 +78,7 @@ services:
 
   # Optional: pgAdmin for database management
   pgadmin:
-    image: dpage/pgadmin4:latest
+    image: ${DATAMAP_PGADMIN_IMAGE:-docker.m.daocloud.io/dpage/pgadmin4:latest}
     container_name: datamap-pgadmin
     restart: unless-stopped
     environment:

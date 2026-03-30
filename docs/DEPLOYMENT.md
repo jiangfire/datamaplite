@@ -23,6 +23,10 @@ make docker-up
 docker-compose up -d
 ```
 
+说明：
+- 默认 `docker-compose.yml` 使用中国网络环境友好的镜像与构建参数
+- 如需替换为公司内网镜像仓库，可直接覆盖 `.env` 中的 `DATAMAP_*_IMAGE`、`DATAMAP_GOPROXY`、`DATAMAP_NPM_REGISTRY`
+
 4. **访问服务**
 - Web UI: http://localhost
 - API: http://localhost:8080
@@ -39,7 +43,7 @@ wget https://git.neolidy.top/neo/fuckcmdb/raw/branch/main/.env.example -O .env
 echo "ENCRYPTION_KEY=your-32-byte-encryption-key-here!!" >> .env
 echo "JWT_SECRET=replace-this-jwt-secret" >> .env
 
-# 使用官方镜像
+# 使用预构建镜像
 docker-compose up -d
 ```
 
@@ -211,6 +215,13 @@ docker-compose down -v --rmi local
 | `API_PORT` | API端口 | 8080 |
 | `WEB_PORT` | Web端口 | 80 |
 | `LOG_LEVEL` | 日志级别 | info |
+| `DATAMAP_GOPROXY` | Go 依赖代理 | `https://goproxy.cn,direct` |
+| `DATAMAP_NPM_REGISTRY` | npm/pnpm 镜像源 | `https://registry.npmmirror.com` |
+| `DATAMAP_NODE_IMAGE` | 前端构建基础镜像 | `docker.m.daocloud.io/library/node:22-alpine` |
+| `DATAMAP_GO_IMAGE` | Go 构建基础镜像 | `docker.m.daocloud.io/library/golang:1.25.4-alpine` |
+| `DATAMAP_RUNTIME_IMAGE` | 运行时基础镜像 | `docker.m.daocloud.io/library/alpine:3.20` |
+| `DATAMAP_POSTGRES_IMAGE` | PostgreSQL 镜像 | `docker.m.daocloud.io/library/postgres:16-alpine` |
+| `DATAMAP_PGADMIN_IMAGE` | pgAdmin 镜像 | `docker.m.daocloud.io/dpage/pgadmin4:latest` |
 
 首次启动会自动创建默认管理员账号 `admin / admin123`，上线后请立即修改或重建。
 

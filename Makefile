@@ -1,7 +1,7 @@
 # DataMap-Lite Makefile
 # Provides convenient commands for development and deployment
 
-.PHONY: help build build-backend build-frontend embed-frontend test lint clean docker-build docker-up docker-down dev backend frontend
+.PHONY: help build build-backend build-frontend embed-frontend test test-backend test-backend-race test-coverage lint clean docker-build docker-up docker-down dev backend frontend
 
 # Default target
 .DEFAULT_GOAL := help
@@ -12,6 +12,14 @@ GREEN := \033[32m
 YELLOW := \033[33m
 RED := \033[31m
 RESET := \033[0m
+GO ?= go
+PNPM ?= pnpm
+CGO_ENABLED ?= 0
+GOPROXY ?= https://goproxy.cn,direct
+GOSUMDB ?= sum.golang.google.cn
+NPM_REGISTRY ?= https://registry.npmmirror.com
+PNPM_VERSION ?= 10.28.0
+LDFLAGS ?= -w -s
 
 help: ## Show this help message
 	@echo "$(BLUE)DataMap-Lite Makefile$(RESET)"
@@ -26,50 +34,54 @@ dev: ## Start development environment (backend + frontend)
 
 backend: ## Start backend development server
 	@echo "$(BLUE)Starting backend...$(RESET)"
-	@go run ./cmd/datamap
+	@GOPROXY=$(GOPROXY) GOSUMDB=$(GOSUMDB) $(GO) run ./cmd/datamap
 
 frontend: ## Start frontend development server
 	@echo "$(BLUE)Starting frontend...$(RESET)"
-	@cd web && pnpm dev
+	@cd web && NPM_CONFIG_REGISTRY=$(NPM_REGISTRY) $(PNPM) dev
 
 # Build commands
 build: ## Build backend binary with embedded frontend
 	@$(MAKE) embed-frontend
 	@echo "$(GREEN)Building backend with embedded frontend...$(RESET)"
 	@mkdir -p bin
-	@go build -o bin/datamap ./cmd/datamap
+	@CGO_ENABLED=$(CGO_ENABLED) GOPROXY=$(GOPROXY) GOSUMDB=$(GOSUMDB) $(GO) build -trimpath -ldflags="$(LDFLAGS)" -o bin/datamap ./cmd/datamap
 
 build-backend: ## Build backend binary with embedded frontend
 	@$(MAKE) embed-frontend
 	@echo "$(GREEN)Building backend with embedded frontend...$(RESET)"
 	@mkdir -p bin
-	@go build -ldflags="-w -s" -o bin/datamap ./cmd/datamap
+	@CGO_ENABLED=$(CGO_ENABLED) GOPROXY=$(GOPROXY) GOSUMDB=$(GOSUMDB) $(GO) build -trimpath -ldflags="$(LDFLAGS)" -o bin/datamap ./cmd/datamap
 	@echo "$(GREEN)Binary created: bin/datamap$(RESET)"
 
 build-frontend: ## Build frontend only
 	@echo "$(GREEN)Building frontend...$(RESET)"
-	@cd web && pnpm build
+	@cd web && NPM_CONFIG_REGISTRY=$(NPM_REGISTRY) $(PNPM) build
 
 embed-frontend: ## Build frontend assets and sync them for go:embed
 	@echo "$(GREEN)Building frontend assets for embedding...$(RESET)"
-	@cd web && pnpm build
-	@go run ./cmd/embedassets
+	@cd web && NPM_CONFIG_REGISTRY=$(NPM_REGISTRY) $(PNPM) build
+	@GOPROXY=$(GOPROXY) GOSUMDB=$(GOSUMDB) $(GO) run ./cmd/embedassets
 
 # Test commands
 test: ## Run all tests
 	@echo "$(GREEN)Running backend tests...$(RESET)"
-	@go test -v ./...
+	@CGO_ENABLED=$(CGO_ENABLED) GOPROXY=$(GOPROXY) GOSUMDB=$(GOSUMDB) $(GO) test -v ./...
 	@echo "$(GREEN)Running frontend tests...$(RESET)"
-	@cd web && pnpm test --if-present
+	@cd web && NPM_CONFIG_REGISTRY=$(NPM_REGISTRY) $(PNPM) test --if-present
 
 test-backend: ## Run backend tests only
 	@echo "$(GREEN)Running backend tests...$(RESET)"
-	@go test -v -race -cover ./...
+	@CGO_ENABLED=$(CGO_ENABLED) GOPROXY=$(GOPROXY) GOSUMDB=$(GOSUMDB) $(GO) test -v -cover ./...
+
+test-backend-race: ## Run backend race tests (requires CGO-capable toolchain)
+	@echo "$(GREEN)Running backend race tests...$(RESET)"
+	@GOPROXY=$(GOPROXY) GOSUMDB=$(GOSUMDB) $(GO) test -v -race ./...
 
 test-coverage: ## Run tests with coverage report
 	@echo "$(GREEN)Running tests with coverage...$(RESET)"
-	@go test -v -race -coverprofile=coverage.out ./...
-	@go tool cover -html=coverage.out -o coverage.html
+	@CGO_ENABLED=$(CGO_ENABLED) GOPROXY=$(GOPROXY) GOSUMDB=$(GOSUMDB) $(GO) test -v -coverprofile=coverage.out ./...
+	@$(GO) tool cover -html=coverage.out -o coverage.html
 	@echo "$(GREEN)Coverage report generated: coverage.html$(RESET)"
 
 # Lint commands
@@ -77,7 +89,7 @@ lint: ## Run all linters
 	@echo "$(GREEN)Running backend linter...$(RESET)"
 	@golangci-lint run ./...
 	@echo "$(GREEN)Running frontend linter...$(RESET)"
-	@cd web && pnpm lint
+	@cd web && NPM_CONFIG_REGISTRY=$(NPM_REGISTRY) $(PNPM) lint
 
 lint-backend: ## Run backend linter only
 	@echo "$(GREEN)Running golangci-lint...$(RESET)"
@@ -85,13 +97,13 @@ lint-backend: ## Run backend linter only
 
 lint-frontend: ## Run frontend linter only
 	@echo "$(GREEN)Running ESLint...$(RESET)"
-	@cd web && pnpm lint
+	@cd web && NPM_CONFIG_REGISTRY=$(NPM_REGISTRY) $(PNPM) lint
 
 fmt: ## Format all code
 	@echo "$(GREEN)Formatting Go code...$(RESET)"
 	@gofmt -w $$(find cmd internal pkg -name '*.go')
 	@echo "$(GREEN)Formatting frontend code...$(RESET)"
-	@cd web && pnpm format
+	@cd web && NPM_CONFIG_REGISTRY=$(NPM_REGISTRY) $(PNPM) format
 
 # Docker commands
 docker-build: ## Build backend Docker image with embedded frontend
@@ -180,17 +192,17 @@ setup: ## Initial project setup
 	@echo "$(GREEN)Setting up project...$(RESET)"
 	@cp .env.example .env
 	@echo "$(YELLOW)Please edit .env file with your configuration$(RESET)"
-	@go mod download
-	@cd web && pnpm install
+	@GOPROXY=$(GOPROXY) GOSUMDB=$(GOSUMDB) $(GO) mod download
+	@cd web && NPM_CONFIG_REGISTRY=$(NPM_REGISTRY) $(PNPM) install
 	@echo "$(GREEN)Setup complete!$(RESET)"
 	@echo "Run 'make docker-up' to start services"
 
 deps: ## Install/update dependencies
 	@echo "$(GREEN)Installing backend dependencies...$(RESET)"
-	@go mod download
-	@go mod tidy
+	@GOPROXY=$(GOPROXY) GOSUMDB=$(GOSUMDB) $(GO) mod download
+	@GOPROXY=$(GOPROXY) GOSUMDB=$(GOSUMDB) $(GO) mod tidy
 	@echo "$(GREEN)Installing frontend dependencies...$(RESET)"
-	@cd web && pnpm install
+	@cd web && NPM_CONFIG_REGISTRY=$(NPM_REGISTRY) $(PNPM) install
 
 # Info commands
 info: ## Show project information

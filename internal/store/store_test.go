@@ -19,7 +19,7 @@ func testStore(t *testing.T) Store {
 	logger := zap.NewNop()
 
 	// 使用内存数据库
-	db, err := sql.Open("sqlite3", "file::memory:?_pragma=foreign_keys(1)")
+	db, err := sql.Open(sqliteDriverName, "file::memory:?_pragma=foreign_keys(1)")
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS columns (
 CREATE TABLE IF NOT EXISTS schema_changes (
     id TEXT PRIMARY KEY,
     source_id TEXT NOT NULL REFERENCES data_sources(id) ON DELETE CASCADE,
-    object_id TEXT REFERENCES schema_objects(id) ON DELETE CASCADE,
+    object_id TEXT,
     change_type TEXT NOT NULL,
     object_type TEXT NOT NULL,
     object_name TEXT NOT NULL,
@@ -944,16 +944,24 @@ func TestSQLiteTxCreateNotification_RespectsNotifyInAppFlag(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	require.NoError(t, st.CreateSchemaChange(ctx, &SchemaChangeCreate{
+		ID:         "chg-notify-off",
+		SourceID:   sourceID,
+		ChangeType: "alter_column",
+		ObjectType: "column",
+		ObjectName: "users.email",
+	}))
+
 	err = st.WithTx(ctx, func(txStore Store) error {
 		_, err := txStore.CreateNotification(ctx, &NotificationCreate{
-			ChangeID:     "chg-notify-off",
-			SourceID:     sourceID,
-			Title:        "schema changed",
-			Message:      "no in-app notification expected",
-			ChangeType:   "alter_column",
-			ObjectType:   "column",
-			ObjectName:   "users.email",
-			NotifyInApp:  false,
+			ChangeID:    "chg-notify-off",
+			SourceID:    sourceID,
+			Title:       "schema changed",
+			Message:     "no in-app notification expected",
+			ChangeType:  "alter_column",
+			ObjectType:  "column",
+			ObjectName:  "users.email",
+			NotifyInApp: false,
 		})
 		return err
 	})

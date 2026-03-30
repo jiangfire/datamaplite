@@ -10,9 +10,11 @@ import (
 
 	"git.neolidy.top/neo/fuckcmdb/internal/config"
 	"github.com/google/uuid"
-	_ "github.com/mattn/go-sqlite3"
 	"go.uber.org/zap"
+	_ "modernc.org/sqlite"
 )
+
+const sqliteDriverName = "sqlite"
 
 // SQLiteStore SQLite存储实现
 type SQLiteStore struct {
@@ -32,7 +34,7 @@ func NewSQLiteStore(ctx context.Context, cfg *config.DatabaseConfig, log *zap.Lo
 
 	dsn := fmt.Sprintf("%s?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)", dbPath)
 
-	db, err := sql.Open("sqlite3", dsn)
+	db, err := sql.Open(sqliteDriverName, dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
@@ -351,7 +353,7 @@ CREATE INDEX IF NOT EXISTS idx_lineage_target ON lineage_edges(target_id, target
 CREATE TABLE IF NOT EXISTS schema_changes (
     id TEXT PRIMARY KEY,
     source_id TEXT NOT NULL REFERENCES data_sources(id) ON DELETE CASCADE,
-    object_id TEXT REFERENCES schema_objects(id) ON DELETE CASCADE,
+    object_id TEXT,
     change_type TEXT NOT NULL CHECK (change_type IN ('add_object', 'drop_object', 'add_column', 'drop_column', 'alter_column', 'change_type')),
     object_type TEXT NOT NULL CHECK (object_type IN ('column', 'object')),
     object_name TEXT NOT NULL,
@@ -453,7 +455,7 @@ CREATE INDEX IF NOT EXISTS idx_column_tags_tag ON column_tags(tag_id);
 CREATE TABLE IF NOT EXISTS alert_rules (
     id TEXT PRIMARY KEY,
     source_id TEXT REFERENCES data_sources(id) ON DELETE CASCADE,
-    object_id TEXT REFERENCES schema_objects(id) ON DELETE CASCADE,
+    object_id TEXT,
     name TEXT NOT NULL,
     description TEXT,
     change_types TEXT NOT NULL DEFAULT 'all',
@@ -547,6 +549,13 @@ CREATE INDEX IF NOT EXISTS idx_governance_outbox_event_id ON governance_outbox(e
 }
 
 func runSQLitePostMigrations(ctx context.Context, db *sql.DB) error {
+	if err := ensureSQLiteSchemaChangeAuditRetention(ctx, db); err != nil {
+		return err
+	}
+	if err := ensureSQLiteAlertRuleObjectRetention(ctx, db); err != nil {
+		return err
+	}
+
 	dedupeStatements := []string{
 		`DELETE FROM user_notifications
 		WHERE notification_id IN (
@@ -645,6 +654,152 @@ func runSQLitePostMigrations(ctx context.Context, db *sql.DB) error {
 		return err
 	}
 	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_governance_outbox_event_id ON governance_outbox(event_id)`); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func ensureSQLiteSchemaChangeAuditRetention(ctx context.Context, db *sql.DB) error {
+	var createSQL string
+	err := db.QueryRowContext(ctx, `
+		SELECT sql
+		FROM sqlite_master
+		WHERE type = 'table' AND name = 'schema_changes'
+	`).Scan(&createSQL)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil
+		}
+		return err
+	}
+
+	normalized := strings.ToLower(createSQL)
+	if !strings.Contains(normalized, "object_id text references schema_objects(id) on delete cascade") {
+		return nil
+	}
+
+	if _, err := db.ExecContext(ctx, `PRAGMA foreign_keys = OFF`); err != nil {
+		return err
+	}
+	defer func() {
+		_, _ = db.ExecContext(context.Background(), `PRAGMA foreign_keys = ON`)
+	}()
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	statements := []string{
+		`CREATE TABLE schema_changes_new (
+			id TEXT PRIMARY KEY,
+			source_id TEXT NOT NULL REFERENCES data_sources(id) ON DELETE CASCADE,
+			object_id TEXT,
+			change_type TEXT NOT NULL CHECK (change_type IN ('add_object', 'drop_object', 'add_column', 'drop_column', 'alter_column', 'change_type')),
+			object_type TEXT NOT NULL CHECK (object_type IN ('column', 'object')),
+			object_name TEXT NOT NULL,
+			old_value TEXT,
+			new_value TEXT,
+			detected_at TEXT DEFAULT (datetime('now')),
+			acknowledged INTEGER NOT NULL DEFAULT 0
+		)`,
+		`INSERT INTO schema_changes_new (id, source_id, object_id, change_type, object_type, object_name, old_value, new_value, detected_at, acknowledged)
+		 SELECT id, source_id, object_id, change_type, object_type, object_name, old_value, new_value, detected_at, acknowledged
+		 FROM schema_changes`,
+		`DROP TABLE schema_changes`,
+		`ALTER TABLE schema_changes_new RENAME TO schema_changes`,
+		`CREATE INDEX idx_schema_changes_source ON schema_changes(source_id)`,
+		`CREATE INDEX idx_schema_changes_detected ON schema_changes(detected_at DESC)`,
+		`CREATE INDEX idx_schema_changes_ack ON schema_changes(acknowledged)`,
+	}
+
+	for _, stmt := range statements {
+		if _, err := tx.ExecContext(ctx, stmt); err != nil {
+			return err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	if _, err := db.ExecContext(ctx, `PRAGMA foreign_keys = ON`); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func ensureSQLiteAlertRuleObjectRetention(ctx context.Context, db *sql.DB) error {
+	var createSQL string
+	err := db.QueryRowContext(ctx, `
+		SELECT sql
+		FROM sqlite_master
+		WHERE type = 'table' AND name = 'alert_rules'
+	`).Scan(&createSQL)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil
+		}
+		return err
+	}
+
+	normalized := strings.ToLower(createSQL)
+	if !strings.Contains(normalized, "object_id text references schema_objects(id) on delete cascade") {
+		return nil
+	}
+
+	if _, err := db.ExecContext(ctx, `PRAGMA foreign_keys = OFF`); err != nil {
+		return err
+	}
+	defer func() {
+		_, _ = db.ExecContext(context.Background(), `PRAGMA foreign_keys = ON`)
+	}()
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	statements := []string{
+		`CREATE TABLE alert_rules_new (
+			id TEXT PRIMARY KEY,
+			source_id TEXT REFERENCES data_sources(id) ON DELETE CASCADE,
+			object_id TEXT,
+			name TEXT NOT NULL,
+			description TEXT,
+			change_types TEXT NOT NULL DEFAULT 'all',
+			notify_webhook INTEGER NOT NULL DEFAULT 0,
+			webhook_url TEXT,
+			notify_in_app INTEGER NOT NULL DEFAULT 1,
+			is_active INTEGER NOT NULL DEFAULT 1,
+			created_at TEXT DEFAULT (datetime('now')),
+			updated_at TEXT DEFAULT (datetime('now'))
+		)`,
+		`INSERT INTO alert_rules_new (id, source_id, object_id, name, description, change_types, notify_webhook, webhook_url, notify_in_app, is_active, created_at, updated_at)
+		 SELECT id, source_id, object_id, name, description, change_types, notify_webhook, webhook_url, notify_in_app, is_active, created_at, updated_at
+		 FROM alert_rules`,
+		`DROP TABLE alert_rules`,
+		`ALTER TABLE alert_rules_new RENAME TO alert_rules`,
+		`CREATE INDEX idx_alert_rules_source ON alert_rules(source_id)`,
+		`CREATE INDEX idx_alert_rules_object ON alert_rules(object_id)`,
+		`CREATE INDEX idx_alert_rules_active ON alert_rules(is_active)`,
+	}
+
+	for _, stmt := range statements {
+		if _, err := tx.ExecContext(ctx, stmt); err != nil {
+			return err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	if _, err := db.ExecContext(ctx, `PRAGMA foreign_keys = ON`); err != nil {
 		return err
 	}
 

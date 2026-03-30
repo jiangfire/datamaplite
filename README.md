@@ -30,6 +30,10 @@ cp .env.example .env
 make docker-up
 ```
 
+说明：
+- 默认 `docker-compose.yml` 已切到适合中国网络环境的镜像源与构建参数，可直接使用 `goproxy.cn`、`sum.golang.google.cn`、`registry.npmmirror.com`
+- SQLite 运行时已切换到纯 Go 驱动 `modernc.org/sqlite`，生产构建不再依赖 CGO
+
 访问:
 - Web UI: http://localhost
 - API: http://localhost:8080
@@ -312,9 +316,9 @@ fuckcmdb/
 
 ## CI/CD
 
-- **CI**: GitHub Actions 自动运行测试、代码检查和构建
-- **CD**: 自动构建 Docker 镜像并推送到 Docker Hub
-- **发布**: 打 tag 自动创建 GitHub Release
+- **CI**: GitHub Actions 分离执行后端测试、前端构建、嵌入式构建校验和 Docker 构建校验
+- **CD**: 自动构建 Docker 镜像并推送到可配置的 OCI 仓库，默认按中国区仓库场景设计（推荐阿里云 ACR / 腾讯云 TCR / 华为云 SWR）
+- **发布**: 打 tag 自动生成 Linux / Windows / macOS 多平台二进制并创建 GitHub Release
 
 ## 技术栈
 
@@ -322,7 +326,7 @@ fuckcmdb/
 - Go 1.25
 - Gin Web Framework
 - PostgreSQL (pgx)
-- SQLite（本地开发）
+- SQLite（`modernc.org/sqlite` 纯 Go 驱动，无 CGO）
 - 内置启动迁移
 - Zap (日志)
 - Viper (配置)

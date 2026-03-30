@@ -1,12 +1,23 @@
+ARG NODE_IMAGE=docker.m.daocloud.io/library/node:22-alpine
+ARG GO_IMAGE=docker.m.daocloud.io/library/golang:1.25.4-alpine
+ARG RUNTIME_IMAGE=docker.m.daocloud.io/library/alpine:3.20
+ARG PNPM_VERSION=10.28.0
+ARG NPM_REGISTRY=https://registry.npmmirror.com
+ARG GOPROXY=https://goproxy.cn,direct
+ARG GOSUMDB=sum.golang.google.cn
+
 # DataMap-Lite Backend Dockerfile
-# Multi-stage build for production
+# Multi-stage build for production in mainland China friendly network defaults
 
 # Frontend build stage
-FROM node:22-alpine AS web-builder
+FROM ${NODE_IMAGE} AS web-builder
 
 WORKDIR /app/web
 
-RUN corepack enable
+ARG PNPM_VERSION
+ARG NPM_REGISTRY
+
+RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate && pnpm config set registry ${NPM_REGISTRY}
 
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
 
@@ -17,10 +28,18 @@ COPY web/ ./
 RUN pnpm build
 
 # Backend build stage
-FROM golang:1.25-alpine AS builder
+FROM ${GO_IMAGE} AS builder
 
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates
+
+ARG GOPROXY
+ARG GOSUMDB
+ENV CGO_ENABLED=0 \
+    GOOS=linux \
+    GOARCH=amd64 \
+    GOPROXY=${GOPROXY} \
+    GOSUMDB=${GOSUMDB}
 
 # Set working directory
 WORKDIR /app
@@ -39,10 +58,10 @@ COPY --from=web-builder /app/web/dist ./web/dist
 
 # Build the binary
 RUN go run ./cmd/embedassets && \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o datamap ./cmd/datamap
+    go build -trimpath -ldflags="-w -s" -o datamap ./cmd/datamap
 
 # Runtime stage
-FROM alpine:3.20
+FROM ${RUNTIME_IMAGE}
 
 # Install runtime dependencies
 RUN apk add --no-cache ca-certificates tzdata
