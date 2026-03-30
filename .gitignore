@@ -27,3 +27,5 @@ go.work.sum
 .gocache/
 internal/webui/generated/*
 !internal/webui/generated/.keep
+.omc/
+.claude/
