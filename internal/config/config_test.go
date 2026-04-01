@@ -3,12 +3,16 @@ package config
 import (
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestLoadWithoutConfigFile(t *testing.T) {
 	// Set required env vars
-	os.Setenv("DATAMAP_AUTH_JWT_SECRET", "test-secret-key-32-characters-long")
-	defer os.Unsetenv("DATAMAP_AUTH_JWT_SECRET")
+	require.NoError(t, os.Setenv("DATAMAP_AUTH_JWT_SECRET", "test-secret-key-32-characters-long"))
+	t.Cleanup(func() {
+		require.NoError(t, os.Unsetenv("DATAMAP_AUTH_JWT_SECRET"))
+	})
 
 	cfg, err := Load()
 	if err != nil {
@@ -34,14 +38,14 @@ func TestLoadWithoutConfigFile(t *testing.T) {
 }
 
 func TestLoadWithEnvOverride(t *testing.T) {
-	os.Setenv("DATAMAP_AUTH_JWT_SECRET", "test-secret")
-	os.Setenv("DATAMAP_SERVER_PORT", "9000")
-	os.Setenv("DATAMAP_DATABASE_SQLITE_PATH", "/tmp/test.db")
-	defer func() {
-		os.Unsetenv("DATAMAP_AUTH_JWT_SECRET")
-		os.Unsetenv("DATAMAP_SERVER_PORT")
-		os.Unsetenv("DATAMAP_DATABASE_SQLITE_PATH")
-	}()
+	require.NoError(t, os.Setenv("DATAMAP_AUTH_JWT_SECRET", "test-secret"))
+	require.NoError(t, os.Setenv("DATAMAP_SERVER_PORT", "9000"))
+	require.NoError(t, os.Setenv("DATAMAP_DATABASE_SQLITE_PATH", "/tmp/test.db"))
+	t.Cleanup(func() {
+		require.NoError(t, os.Unsetenv("DATAMAP_AUTH_JWT_SECRET"))
+		require.NoError(t, os.Unsetenv("DATAMAP_SERVER_PORT"))
+		require.NoError(t, os.Unsetenv("DATAMAP_DATABASE_SQLITE_PATH"))
+	})
 
 	cfg, err := Load()
 	if err != nil {

@@ -161,7 +161,7 @@ func setupTestData(ctx context.Context, t *testing.T, store Store) (sourceID, ob
 func TestCreateColumnMapping(t *testing.T) {
 	ctx := context.Background()
 	store := testStoreWithMapping(t)
-	defer store.Close()
+	registerStoreCleanup(t, store)
 
 	_, _, col1ID, col2ID := setupTestData(ctx, t, store)
 
@@ -188,7 +188,7 @@ func TestCreateColumnMapping(t *testing.T) {
 func TestGetColumnMappings(t *testing.T) {
 	ctx := context.Background()
 	store := testStoreWithMapping(t)
-	defer store.Close()
+	registerStoreCleanup(t, store)
 
 	_, _, col1ID, col2ID := setupTestData(ctx, t, store)
 
@@ -212,7 +212,7 @@ func TestGetColumnMappings(t *testing.T) {
 func TestDeleteColumnMapping(t *testing.T) {
 	ctx := context.Background()
 	store := testStoreWithMapping(t)
-	defer store.Close()
+	registerStoreCleanup(t, store)
 
 	_, _, col1ID, col2ID := setupTestData(ctx, t, store)
 
@@ -242,7 +242,7 @@ func TestDeleteColumnMapping(t *testing.T) {
 func TestCreateLineageEdge(t *testing.T) {
 	ctx := context.Background()
 	store := testStoreWithMapping(t)
-	defer store.Close()
+	registerStoreCleanup(t, store)
 
 	_, _, col1ID, col2ID := setupTestData(ctx, t, store)
 
@@ -271,7 +271,7 @@ func TestCreateLineageEdge(t *testing.T) {
 func TestGetLineageUpward(t *testing.T) {
 	ctx := context.Background()
 	store := testStoreWithMapping(t)
-	defer store.Close()
+	registerStoreCleanup(t, store)
 
 	_, _, col1ID, col2ID := setupTestData(ctx, t, store)
 
@@ -295,7 +295,7 @@ func TestGetLineageUpward(t *testing.T) {
 func TestGetLineageDownward(t *testing.T) {
 	ctx := context.Background()
 	store := testStoreWithMapping(t)
-	defer store.Close()
+	registerStoreCleanup(t, store)
 
 	_, _, col1ID, col2ID := setupTestData(ctx, t, store)
 
@@ -319,7 +319,7 @@ func TestGetLineageDownward(t *testing.T) {
 func TestLineageDepthLimit(t *testing.T) {
 	ctx := context.Background()
 	store := testStoreWithMapping(t)
-	defer store.Close()
+	registerStoreCleanup(t, store)
 
 	_, objID, col1ID, col2ID := setupTestData(ctx, t, store)
 
@@ -370,7 +370,7 @@ func TestLineageDepthLimit(t *testing.T) {
 func TestDuplicateMappingPrevention(t *testing.T) {
 	ctx := context.Background()
 	store := testStoreWithMapping(t)
-	defer store.Close()
+	registerStoreCleanup(t, store)
 
 	_, _, col1ID, col2ID := setupTestData(ctx, t, store)
 

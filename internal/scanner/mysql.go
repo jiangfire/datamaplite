@@ -23,7 +23,9 @@ func (s *MySQLScanner) TestConnection(ctx context.Context, config ConnectionConf
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() {
+		ignoreError(db.Close())
+	}()
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -37,7 +39,9 @@ func (s *MySQLScanner) ScanSchema(ctx context.Context, config ConnectionConfig) 
 	if err != nil {
 		return nil, err
 	}
-	defer db.Close()
+	defer func() {
+		ignoreError(db.Close())
+	}()
 
 	objects, err := s.getTables(ctx, db, config.Database)
 	if err != nil {
@@ -77,7 +81,9 @@ func (s *MySQLScanner) connect(ctx context.Context, config ConnectionConfig) (*s
 	defer cancel()
 
 	if err := db.PingContext(ctx); err != nil {
-		db.Close()
+		if closeErr := db.Close(); closeErr != nil {
+			return nil, fmt.Errorf("failed to ping mysql: %w (close failed: %v)", err, closeErr)
+		}
 		return nil, fmt.Errorf("failed to ping mysql: %w", err)
 	}
 
@@ -102,7 +108,9 @@ func (s *MySQLScanner) getTables(ctx context.Context, db *sql.DB, database strin
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		ignoreError(rows.Close())
+	}()
 
 	var objects []ObjectInfo
 	for rows.Next() {
@@ -163,7 +171,9 @@ func (s *MySQLScanner) getColumns(ctx context.Context, db *sql.DB, database, tab
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		ignoreError(rows.Close())
+	}()
 
 	// 获取主键列
 	pkColumns, err := s.getPrimaryKeyColumns(ctx, db, database, table)
@@ -223,7 +233,9 @@ func (s *MySQLScanner) getPrimaryKeyColumns(ctx context.Context, db *sql.DB, dat
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		ignoreError(rows.Close())
+	}()
 
 	pkColumns := make(map[string]bool)
 	for rows.Next() {

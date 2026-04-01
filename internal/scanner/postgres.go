@@ -23,7 +23,9 @@ func (s *PostgresScanner) TestConnection(ctx context.Context, config ConnectionC
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() {
+		ignoreError(db.Close())
+	}()
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -37,7 +39,9 @@ func (s *PostgresScanner) ScanSchema(ctx context.Context, config ConnectionConfi
 	if err != nil {
 		return nil, err
 	}
-	defer db.Close()
+	defer func() {
+		ignoreError(db.Close())
+	}()
 
 	objects, err := s.getTables(ctx, db)
 	if err != nil {
@@ -82,7 +86,9 @@ func (s *PostgresScanner) connect(ctx context.Context, config ConnectionConfig) 
 	defer cancel()
 
 	if err := db.PingContext(ctx); err != nil {
-		db.Close()
+		if closeErr := db.Close(); closeErr != nil {
+			return nil, fmt.Errorf("failed to ping postgres: %w (close failed: %v)", err, closeErr)
+		}
 		return nil, fmt.Errorf("failed to ping postgres: %w", err)
 	}
 
@@ -111,7 +117,9 @@ func (s *PostgresScanner) getTables(ctx context.Context, db *sql.DB) ([]ObjectIn
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		ignoreError(rows.Close())
+	}()
 
 	var objects []ObjectInfo
 	for rows.Next() {
@@ -185,7 +193,9 @@ func (s *PostgresScanner) getColumns(ctx context.Context, db *sql.DB, schemaName
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		ignoreError(rows.Close())
+	}()
 
 	var columns []ColumnInfo
 	for rows.Next() {

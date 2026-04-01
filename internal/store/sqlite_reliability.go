@@ -73,7 +73,7 @@ func (s *SQLiteStore) ClaimGovernanceOutboxEvents(ctx context.Context, ownerID s
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin governance outbox claim tx: %w", err)
 	}
-	defer tx.Rollback()
+	defer rollbackSQLTx(tx, s.log)
 
 	rows, err := claimSQLiteGovernanceOutboxEvents(ctx, tx, tx, ownerID, now, leaseUntil, limit)
 	if err != nil {
@@ -299,7 +299,7 @@ func claimSQLiteGovernanceOutboxEvents(ctx context.Context, queryer sqliteQuerye
 	if err != nil {
 		return nil, fmt.Errorf("failed to list claimable governance outbox events: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	ids := make([]string, 0, limit)
 	for rows.Next() {
@@ -443,7 +443,7 @@ func listSQLiteGovernanceOutboxEvents(ctx context.Context, queryer sqliteQueryer
 	if err != nil {
 		return nil, fmt.Errorf("failed to list governance outbox events: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var result []*GovernanceOutboxEventRow
 	for rows.Next() {

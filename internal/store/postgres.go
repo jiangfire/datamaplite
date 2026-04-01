@@ -95,11 +95,15 @@ func runPostgresMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 		}
 
 		if _, err := tx.Exec(ctx, string(migrationSQL)); err != nil {
-			tx.Rollback(ctx)
+			if rollbackErr := tx.Rollback(ctx); rollbackErr != nil && rollbackErr != pgx.ErrTxClosed {
+				return fmt.Errorf("run migration %s failed: %w (rollback failed: %v)", migration.version, err, rollbackErr)
+			}
 			return err
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO schema_migrations (version) VALUES ($1)`, migration.version); err != nil {
-			tx.Rollback(ctx)
+			if rollbackErr := tx.Rollback(ctx); rollbackErr != nil && rollbackErr != pgx.ErrTxClosed {
+				return fmt.Errorf("record migration %s failed: %w (rollback failed: %v)", migration.version, err, rollbackErr)
+			}
 			return err
 		}
 		if err := tx.Commit(ctx); err != nil {
@@ -123,7 +127,11 @@ func (s *PostgresStore) WithTx(ctx context.Context, fn func(Store) error) error 
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	defer tx.Rollback(ctx)
+	defer func() {
+		if rollbackErr := tx.Rollback(ctx); rollbackErr != nil && rollbackErr != pgx.ErrTxClosed && s.log != nil {
+			s.log.Warn("failed to rollback postgres transaction", zap.Error(rollbackErr))
+		}
+	}()
 
 	txStore := &PostgresTxStore{tx: tx, log: s.log}
 	if err := fn(txStore); err != nil {

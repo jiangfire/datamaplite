@@ -54,7 +54,9 @@ func (s *DQService) executeRule(ctx context.Context, rule *store.DQRuleRow, batc
 	if err != nil {
 		return nil, err
 	}
-	defer db.Close()
+	defer func() {
+		ignoreError(db.Close())
+	}()
 
 	totalQuery, totalArgs, failedQuery, failedArgs, sampleQuery, sampleArgs, err := s.buildRuleQueries(execCtx, rule, ruleConfig)
 	if err != nil {
@@ -384,7 +386,7 @@ func (s *DQService) querySampleRows(ctx context.Context, db *sql.DB, query strin
 	if err != nil {
 		return nil, fmt.Errorf("dq sample query failed: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	columns, err := rows.Columns()
 	if err != nil {

@@ -62,7 +62,7 @@ func (s *SQLiteStore) ListDataSources(ctx context.Context) ([]*DataSourceRow, er
 	if err != nil {
 		return nil, fmt.Errorf("failed to list data sources: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var sources []*DataSourceRow
 	for rows.Next() {
@@ -166,7 +166,7 @@ func (s *SQLiteStore) getObjectIDsBySource(ctx context.Context, sourceID string)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list object ids: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var ids []string
 	for rows.Next() {
@@ -257,7 +257,7 @@ func (t *SQLiteTxStore) ListDataSources(ctx context.Context) ([]*DataSourceRow, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to list data sources: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var sources []*DataSourceRow
 	for rows.Next() {

@@ -96,11 +96,18 @@ CREATE TABLE IF NOT EXISTS schema_changes (
 	return &SQLiteStore{db: db, log: logger}
 }
 
+func registerStoreCleanup(t *testing.T, st Store) {
+	t.Helper()
+	t.Cleanup(func() {
+		require.NoError(t, st.Close())
+	})
+}
+
 // TestDataSourceCRUD 测试数据源CRUD
 func TestDataSourceCRUD(t *testing.T) {
 	ctx := context.Background()
 	store := testStore(t)
-	defer store.Close()
+	registerStoreCleanup(t, store)
 
 	desc := "Test MySQL source"
 	source := &DataSourceCreate{
@@ -195,7 +202,7 @@ func TestDataSourceCRUD(t *testing.T) {
 func TestSchemaObjectCRUD(t *testing.T) {
 	ctx := context.Background()
 	store := testStore(t)
-	defer store.Close()
+	registerStoreCleanup(t, store)
 
 	// 先创建数据源
 	source := &DataSourceCreate{
@@ -266,7 +273,7 @@ func TestSchemaObjectCRUD(t *testing.T) {
 func TestColumnCRUD(t *testing.T) {
 	ctx := context.Background()
 	store := testStore(t)
-	defer store.Close()
+	registerStoreCleanup(t, store)
 
 	// 创建数据源和对象
 	source := &DataSourceCreate{
@@ -344,7 +351,7 @@ func TestColumnCRUD(t *testing.T) {
 func TestSchemaChangeCRUD(t *testing.T) {
 	ctx := context.Background()
 	store := testStore(t)
-	defer store.Close()
+	registerStoreCleanup(t, store)
 
 	// 创建数据源
 	source := &DataSourceCreate{
@@ -413,7 +420,7 @@ func TestSchemaChangeCRUD(t *testing.T) {
 func TestTransaction(t *testing.T) {
 	ctx := context.Background()
 	store := testStore(t)
-	defer store.Close()
+	registerStoreCleanup(t, store)
 
 	// Test successful transaction
 	err := store.WithTx(ctx, func(txStore Store) error {
@@ -441,7 +448,7 @@ func TestTransaction(t *testing.T) {
 func TestDeleteCascade(t *testing.T) {
 	ctx := context.Background()
 	store := testStore(t)
-	defer store.Close()
+	registerStoreCleanup(t, store)
 
 	// 创建数据源
 	source := &DataSourceCreate{
@@ -497,7 +504,7 @@ func TestDeleteCascade(t *testing.T) {
 func TestSearchColumns(t *testing.T) {
 	ctx := context.Background()
 	store := testStore(t)
-	defer store.Close()
+	registerStoreCleanup(t, store)
 
 	// 创建数据源和对象
 	source := &DataSourceCreate{
@@ -545,7 +552,7 @@ func TestSearchColumns(t *testing.T) {
 func TestSQLiteSyncLease_AcquireRenewReleaseAndExpiry(t *testing.T) {
 	ctx := context.Background()
 	st := testSQLiteStoreWithMigrations(t)
-	defer st.Close()
+	registerStoreCleanup(t, st)
 
 	sourceID, err := st.CreateDataSource(ctx, &DataSourceCreate{
 		Name:             "lease-source",
@@ -586,7 +593,7 @@ func TestSQLiteSyncLease_AcquireRenewReleaseAndExpiry(t *testing.T) {
 func TestSQLiteSyncLease_GetAndForceRelease(t *testing.T) {
 	ctx := context.Background()
 	st := testSQLiteStoreWithMigrations(t)
-	defer st.Close()
+	registerStoreCleanup(t, st)
 
 	sourceID, err := st.CreateDataSource(ctx, &DataSourceCreate{
 		Name:             "lease-force-release",
@@ -625,7 +632,7 @@ func TestSQLiteSyncLease_GetAndForceRelease(t *testing.T) {
 func TestSQLiteGovernanceOutbox_ClaimRetryAndDedupe(t *testing.T) {
 	ctx := context.Background()
 	st := testSQLiteStoreWithMigrations(t)
-	defer st.Close()
+	registerStoreCleanup(t, st)
 
 	event := &GovernanceOutboxEventCreate{
 		ID:            "outbox-1",
@@ -683,7 +690,7 @@ func TestSQLiteGovernanceOutbox_ClaimRetryAndDedupe(t *testing.T) {
 func TestSQLiteGovernanceOutbox_DeadLetterReplayAndStats(t *testing.T) {
 	ctx := context.Background()
 	st := testSQLiteStoreWithMigrations(t)
-	defer st.Close()
+	registerStoreCleanup(t, st)
 
 	created, err := st.EnqueueGovernanceOutboxEvent(ctx, &GovernanceOutboxEventCreate{
 		ID:            "outbox-dead-letter",
@@ -761,7 +768,7 @@ func TestSQLiteGovernanceOutbox_DeadLetterReplayAndStats(t *testing.T) {
 func TestSQLiteGovernanceOutbox_ReplayRejectsDeliveredEvent(t *testing.T) {
 	ctx := context.Background()
 	st := testSQLiteStoreWithMigrations(t)
-	defer st.Close()
+	registerStoreCleanup(t, st)
 
 	created, err := st.EnqueueGovernanceOutboxEvent(ctx, &GovernanceOutboxEventCreate{
 		ID:            "outbox-delivered-no-replay",
@@ -794,7 +801,7 @@ func TestSQLiteGovernanceOutbox_ReplayRejectsDeliveredEvent(t *testing.T) {
 func TestSQLiteGovernanceOutboxStats_RetryableCountUsesRealTimestampComparison(t *testing.T) {
 	ctx := context.Background()
 	st := testSQLiteStoreWithMigrations(t)
-	defer st.Close()
+	registerStoreCleanup(t, st)
 
 	created, err := st.EnqueueGovernanceOutboxEvent(ctx, &GovernanceOutboxEventCreate{
 		ID:            "outbox-retryable-now",
@@ -821,7 +828,7 @@ func TestSQLiteGovernanceOutboxStats_RetryableCountUsesRealTimestampComparison(t
 func TestSQLiteAlertRuleMatching_UsesExactChangeTypeTokens(t *testing.T) {
 	ctx := context.Background()
 	st := testSQLiteStoreWithMigrations(t)
-	defer st.Close()
+	registerStoreCleanup(t, st)
 
 	sourceID, err := st.CreateDataSource(ctx, &DataSourceCreate{
 		Name:             "alert-source",
@@ -879,7 +886,7 @@ func TestSQLiteAlertRuleMatching_UsesExactChangeTypeTokens(t *testing.T) {
 func TestSQLiteTxAlertRuleMatching_UsesExactChangeTypeTokens(t *testing.T) {
 	ctx := context.Background()
 	st := testSQLiteStoreWithMigrations(t)
-	defer st.Close()
+	registerStoreCleanup(t, st)
 
 	sourceID, err := st.CreateDataSource(ctx, &DataSourceCreate{
 		Name:             "alert-source-tx",
@@ -924,7 +931,7 @@ func TestSQLiteTxAlertRuleMatching_UsesExactChangeTypeTokens(t *testing.T) {
 func TestSQLiteTxCreateNotification_RespectsNotifyInAppFlag(t *testing.T) {
 	ctx := context.Background()
 	st := testSQLiteStoreWithMigrations(t)
-	defer st.Close()
+	registerStoreCleanup(t, st)
 
 	sourceID, err := st.CreateDataSource(ctx, &DataSourceCreate{
 		Name:             "notify-source",
@@ -975,7 +982,7 @@ func TestSQLiteTxCreateNotification_RespectsNotifyInAppFlag(t *testing.T) {
 func TestSQLiteAssignTermToColumn_RejectsMissingColumn(t *testing.T) {
 	ctx := context.Background()
 	st := testSQLiteStoreWithMigrations(t)
-	defer st.Close()
+	registerStoreCleanup(t, st)
 
 	err := st.AssignTermToColumn(ctx, "missing-column", nil)
 
@@ -986,7 +993,7 @@ func TestSQLiteAssignTermToColumn_RejectsMissingColumn(t *testing.T) {
 func TestSQLiteTxAssignTermToColumn_RejectsMissingColumn(t *testing.T) {
 	ctx := context.Background()
 	st := testSQLiteStoreWithMigrations(t)
-	defer st.Close()
+	registerStoreCleanup(t, st)
 
 	err := st.WithTx(ctx, func(txStore Store) error {
 		return txStore.AssignTermToColumn(ctx, "missing-column", nil)
@@ -999,7 +1006,7 @@ func TestSQLiteTxAssignTermToColumn_RejectsMissingColumn(t *testing.T) {
 func TestSQLiteDQStats_CountsErrorResultsAsFailures(t *testing.T) {
 	ctx := context.Background()
 	st := testSQLiteStoreWithMigrations(t)
-	defer st.Close()
+	registerStoreCleanup(t, st)
 
 	ruleID, err := st.CreateDQRule(ctx, &DQRuleCreate{
 		Name:       "dq-stats-rule",
@@ -1054,7 +1061,7 @@ func TestSQLiteDQStats_CountsErrorResultsAsFailures(t *testing.T) {
 func TestSQLiteTxDQStats_CountsErrorResultsAsFailures(t *testing.T) {
 	ctx := context.Background()
 	st := testSQLiteStoreWithMigrations(t)
-	defer st.Close()
+	registerStoreCleanup(t, st)
 
 	ruleID, err := st.CreateDQRule(ctx, &DQRuleCreate{
 		Name:       "dq-stats-rule-tx",

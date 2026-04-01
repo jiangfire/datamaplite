@@ -13,10 +13,17 @@ import (
 	"go.uber.org/zap"
 )
 
+func registerIntegrationStoreCleanup(t *testing.T, st store.Store) {
+	t.Helper()
+	t.Cleanup(func() {
+		require.NoError(t, st.Close())
+	})
+}
+
 func TestMetadataServiceIntegration_TermAssignmentAndColumnDetail(t *testing.T) {
 	ctx := context.Background()
 	st := newSQLiteServiceIntegrationStore(t)
-	defer st.Close()
+	registerIntegrationStoreCleanup(t, st)
 
 	metadataService := NewMetadataService(st)
 	termService := NewTermService(st)
@@ -64,7 +71,7 @@ func TestMetadataServiceIntegration_TermAssignmentAndColumnDetail(t *testing.T) 
 func TestMetadataServiceIntegration_MappingCreateDeleteAndDetailProjection(t *testing.T) {
 	ctx := context.Background()
 	st := newSQLiteServiceIntegrationStore(t)
-	defer st.Close()
+	registerIntegrationStoreCleanup(t, st)
 
 	metadataService := NewMetadataService(st)
 
@@ -126,7 +133,7 @@ func TestMetadataServiceIntegration_MappingCreateDeleteAndDetailProjection(t *te
 func TestMetadataServiceIntegration_ImpactAnalysisUsesRecursiveStoreResults(t *testing.T) {
 	ctx := context.Background()
 	st := newSQLiteServiceIntegrationStore(t)
-	defer st.Close()
+	registerIntegrationStoreCleanup(t, st)
 
 	metadataService := NewMetadataService(st)
 

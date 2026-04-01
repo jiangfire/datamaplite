@@ -68,7 +68,7 @@ func (t *SQLiteTxStore) ListTags(ctx context.Context) ([]*TagRow, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tags: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var tags []*TagRow
 	for rows.Next() {
@@ -159,7 +159,7 @@ func (t *SQLiteTxStore) GetColumnTags(ctx context.Context, columnID string) ([]*
 	if err != nil {
 		return nil, fmt.Errorf("failed to get column tags: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var tags []*TagRow
 	for rows.Next() {
@@ -195,7 +195,7 @@ func (t *SQLiteTxStore) SearchColumnsByTag(ctx context.Context, tagID string, li
 	if err != nil {
 		return nil, fmt.Errorf("failed to search columns by tag: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var columns []*ColumnSearchRow
 	for rows.Next() {

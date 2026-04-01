@@ -97,7 +97,7 @@ func (s *SQLiteStore) ListSchemaObjectsBySource(ctx context.Context, sourceID st
 	if err != nil {
 		return nil, fmt.Errorf("failed to list schema objects: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var objects []*SchemaObjectRow
 	for rows.Next() {
@@ -243,7 +243,7 @@ func (t *SQLiteTxStore) ListSchemaObjectsBySource(ctx context.Context, sourceID 
 	if err != nil {
 		return nil, fmt.Errorf("failed to list schema objects: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var objects []*SchemaObjectRow
 	for rows.Next() {

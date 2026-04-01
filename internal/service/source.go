@@ -300,13 +300,13 @@ func (s *SourceService) TriggerSync(ctx context.Context, sourceID string) error 
 		schemaInfo, err := sc.ScanSchema(bgCtx, *connConfig)
 		if err != nil {
 			errMsg := err.Error()
-			s.store.UpdateDataSourceSyncStatus(bgCtx, sourceID, "error", &errMsg)
+			s.updateSyncStatus(bgCtx, sourceID, "error", &errMsg)
 			return
 		}
 		leaseOwned, err := s.syncLeaseOwned(bgCtx, sourceID)
 		if err != nil {
 			errMsg := err.Error()
-			s.store.UpdateDataSourceSyncStatus(bgCtx, sourceID, "error", &errMsg)
+			s.updateSyncStatus(bgCtx, sourceID, "error", &errMsg)
 			return
 		}
 		if !leaseOwned {
@@ -317,13 +317,13 @@ func (s *SourceService) TriggerSync(ctx context.Context, sourceID string) error 
 		// 保存扫描结果
 		if err := s.saveSchema(bgCtx, sourceID, schemaInfo); err != nil {
 			errMsg := err.Error()
-			s.store.UpdateDataSourceSyncStatus(bgCtx, sourceID, "error", &errMsg)
+			s.updateSyncStatus(bgCtx, sourceID, "error", &errMsg)
 			return
 		}
 		leaseOwned, err = s.syncLeaseOwned(bgCtx, sourceID)
 		if err != nil {
 			errMsg := err.Error()
-			s.store.UpdateDataSourceSyncStatus(bgCtx, sourceID, "error", &errMsg)
+			s.updateSyncStatus(bgCtx, sourceID, "error", &errMsg)
 			return
 		}
 		if !leaseOwned {
@@ -331,7 +331,7 @@ func (s *SourceService) TriggerSync(ctx context.Context, sourceID string) error 
 			return
 		}
 
-		s.store.UpdateDataSourceSyncStatus(bgCtx, sourceID, "active", nil)
+		s.updateSyncStatus(bgCtx, sourceID, "active", nil)
 	}()
 
 	return nil
@@ -452,7 +452,7 @@ func (s *SourceService) handleLostSyncLease(ctx context.Context, sourceID string
 	}
 
 	errMsg := fmt.Sprintf("sync lease lost for source %s", sourceID)
-	_ = s.store.UpdateDataSourceSyncStatus(context.WithoutCancel(ctx), sourceID, "error", &errMsg)
+	s.updateSyncStatus(context.WithoutCancel(ctx), sourceID, "error", &errMsg)
 }
 
 // saveSchema 保存Schema信息
@@ -651,7 +651,10 @@ func (s *SourceService) saveSchema(ctx context.Context, sourceID string, schemaI
 	// 触发告警
 	if s.alertService != nil {
 		for _, change := range detectedChanges {
-			go s.alertService.ProcessSchemaChange(context.Background(), change)
+			changeCopy := change
+			go func() {
+				ignoreError(s.alertService.ProcessSchemaChange(context.Background(), changeCopy))
+			}()
 		}
 	}
 
@@ -686,10 +689,6 @@ func (s *SourceService) publishSchemaChangeEvent(ctx context.Context, sourceName
 	switch change.ChangeType {
 	case "drop_object", "drop_column":
 		priority = "high"
-	case "add_object", "add_column":
-		priority = "medium"
-	default:
-		priority = "medium"
 	}
 
 	payload := map[string]interface{}{
@@ -732,6 +731,10 @@ func (s *SourceService) publishSchemaChangeEvent(ctx context.Context, sourceName
 		TraceID:      traceID,
 		Payload:      payload,
 	})
+}
+
+func (s *SourceService) updateSyncStatus(ctx context.Context, sourceID string, status string, errMsg *string) {
+	ignoreError(s.store.UpdateDataSourceSyncStatus(ctx, sourceID, status, errMsg))
 }
 
 // toSourceResponse 转换为响应格式

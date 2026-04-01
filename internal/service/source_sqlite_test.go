@@ -1317,8 +1317,8 @@ func waitForSchemaObjectByName(t *testing.T, st store.Store, sourceID string, na
 		time.Sleep(20 * time.Millisecond)
 	}
 
-	obj, err := st.GetSchemaObjectByName(context.Background(), sourceID, name, schema)
+	_, err := st.GetSchemaObjectByName(context.Background(), sourceID, name, schema)
 	require.NoError(t, err)
 	t.Fatalf("timed out waiting for schema object %s", name)
-	return obj
+	return nil
 }

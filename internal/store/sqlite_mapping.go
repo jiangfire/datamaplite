@@ -38,7 +38,7 @@ func (s *SQLiteStore) GetColumnMappings(ctx context.Context, columnID string) ([
 	if err != nil {
 		return nil, fmt.Errorf("failed to get column mappings: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var mappings []*ColumnMappingRow
 	for rows.Next() {
@@ -136,7 +136,7 @@ func (s *SQLiteStore) GetLineageUpward(ctx context.Context, columnID string, dep
 	if err != nil {
 		return nil, fmt.Errorf("failed to get lineage upward: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var edges []*LineageEdgeRow
 	for rows.Next() {
@@ -207,7 +207,7 @@ func (s *SQLiteStore) GetLineageDownward(ctx context.Context, columnID string, d
 	if err != nil {
 		return nil, fmt.Errorf("failed to get lineage downward: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var edges []*LineageEdgeRow
 	for rows.Next() {
@@ -266,7 +266,7 @@ func (t *SQLiteTxStore) GetColumnMappings(ctx context.Context, columnID string) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get column mappings: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var mappings []*ColumnMappingRow
 	for rows.Next() {
@@ -358,7 +358,7 @@ func (t *SQLiteTxStore) GetLineageUpward(ctx context.Context, columnID string, d
 	if err != nil {
 		return nil, fmt.Errorf("failed to get lineage upward: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var edges []*LineageEdgeRow
 	for rows.Next() {
@@ -425,7 +425,7 @@ func (t *SQLiteTxStore) GetLineageDownward(ctx context.Context, columnID string,
 	if err != nil {
 		return nil, fmt.Errorf("failed to get lineage downward: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var edges []*LineageEdgeRow
 	for rows.Next() {

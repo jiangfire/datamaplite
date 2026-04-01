@@ -82,7 +82,7 @@ func (t *SQLiteTxStore) ListAlertRules(ctx context.Context, sourceID *string) ([
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var rules []*AlertRuleRow
 	for rows.Next() {
@@ -204,7 +204,7 @@ func (t *SQLiteTxStore) ListMatchingAlertRules(ctx context.Context, sourceID str
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var rules []*AlertRuleRow
 	for rows.Next() {
@@ -387,7 +387,7 @@ func (t *SQLiteTxStore) ListNotifications(ctx context.Context, userID string, un
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var notifications []*NotificationRow
 	for rows.Next() {

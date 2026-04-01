@@ -130,7 +130,7 @@ func (s *SQLiteStore) ListUsers(ctx context.Context) ([]*UserRow, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to list users: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var users []*UserRow
 	for rows.Next() {
@@ -202,7 +202,7 @@ func (s *SQLiteStore) WithTx(ctx context.Context, fn func(Store) error) error {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	defer tx.Rollback()
+	defer rollbackSQLTx(tx, s.log)
 
 	txStore := &SQLiteTxStore{tx: tx, log: s.log}
 	if err := fn(txStore); err != nil {
@@ -690,7 +690,7 @@ func ensureSQLiteSchemaChangeAuditRetention(ctx context.Context, db *sql.DB) err
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer rollbackSQLTx(tx, nil)
 
 	statements := []string{
 		`CREATE TABLE schema_changes_new (
@@ -762,7 +762,7 @@ func ensureSQLiteAlertRuleObjectRetention(ctx context.Context, db *sql.DB) error
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer rollbackSQLTx(tx, nil)
 
 	statements := []string{
 		`CREATE TABLE alert_rules_new (
@@ -886,7 +886,7 @@ func (t *SQLiteTxStore) ListUsers(ctx context.Context) ([]*UserRow, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to list users: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var users []*UserRow
 	for rows.Next() {
@@ -1025,7 +1025,7 @@ func (s *SQLiteStore) ListDQRules(ctx context.Context, filter *DQRuleFilter) ([]
 	if err != nil {
 		return nil, fmt.Errorf("failed to list dq rules: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var rules []*DQRuleRow
 	for rows.Next() {
@@ -1149,7 +1149,7 @@ func (s *SQLiteStore) ListDQResults(ctx context.Context, filter *DQResultFilter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list dq results: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var results []*DQResultRow
 	for rows.Next() {
@@ -1285,7 +1285,7 @@ func (t *SQLiteTxStore) ListDQRules(ctx context.Context, filter *DQRuleFilter) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to list dq rules: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var rules []*DQRuleRow
 	for rows.Next() {
@@ -1409,7 +1409,7 @@ func (t *SQLiteTxStore) ListDQResults(ctx context.Context, filter *DQResultFilte
 	if err != nil {
 		return nil, fmt.Errorf("failed to list dq results: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var results []*DQResultRow
 	for rows.Next() {

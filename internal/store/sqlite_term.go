@@ -75,7 +75,7 @@ func (s *SQLiteStore) ListBusinessTerms(ctx context.Context, category string) ([
 	if err != nil {
 		return nil, fmt.Errorf("failed to list business terms: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var terms []*BusinessTermRow
 	for rows.Next() {
@@ -239,7 +239,7 @@ func (t *SQLiteTxStore) ListBusinessTerms(ctx context.Context, category string) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to list business terms: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var terms []*BusinessTermRow
 	for rows.Next() {

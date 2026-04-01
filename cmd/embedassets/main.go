@@ -82,7 +82,7 @@ func cleanTargetDir(dir string) error {
 	return nil
 }
 
-func copyFile(sourcePath string, targetPath string, entry fs.DirEntry) error {
+func copyFile(sourcePath string, targetPath string, entry fs.DirEntry) (err error) {
 	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
 		return err
 	}
@@ -91,7 +91,11 @@ func copyFile(sourcePath string, targetPath string, entry fs.DirEntry) error {
 	if err != nil {
 		return err
 	}
-	defer sourceFile.Close()
+	defer func() {
+		if closeErr := sourceFile.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	info, err := entry.Info()
 	if err != nil {
@@ -102,7 +106,11 @@ func copyFile(sourcePath string, targetPath string, entry fs.DirEntry) error {
 	if err != nil {
 		return err
 	}
-	defer targetFile.Close()
+	defer func() {
+		if closeErr := targetFile.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	if _, err := io.Copy(targetFile, sourceFile); err != nil {
 		return err

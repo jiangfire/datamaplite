@@ -68,7 +68,7 @@ func (s *SQLiteStore) ListColumnsByObject(ctx context.Context, objectID string) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to list columns: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var columns []*ColumnRow
 	for rows.Next() {
@@ -150,7 +150,7 @@ func (s *SQLiteStore) SearchColumns(ctx context.Context, query string, limit int
 	if err != nil {
 		return nil, fmt.Errorf("failed to search columns: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var columns []*ColumnSearchRow
 	for rows.Next() {
@@ -239,7 +239,7 @@ func (t *SQLiteTxStore) ListColumnsByObject(ctx context.Context, objectID string
 	if err != nil {
 		return nil, fmt.Errorf("failed to list columns: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var columns []*ColumnRow
 	for rows.Next() {
@@ -281,7 +281,7 @@ func (t *SQLiteTxStore) SearchColumns(ctx context.Context, query string, limit i
 	if err != nil {
 		return nil, fmt.Errorf("failed to search columns: %w", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(rows)
 
 	var columns []*ColumnSearchRow
 	for rows.Next() {

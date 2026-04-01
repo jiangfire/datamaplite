@@ -374,7 +374,6 @@ func (s *PostgresStore) ListNotifications(ctx context.Context, userID string, un
 	if limit > 0 {
 		query += fmt.Sprintf(" LIMIT $%d", argIdx)
 		args = append(args, limit)
-		argIdx++
 	}
 
 	rows, err := s.pool.Query(ctx, query, args...)

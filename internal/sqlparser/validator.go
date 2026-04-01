@@ -164,7 +164,7 @@ func (v *Validator) ExtractTableNames(sql string) ([]string, error) {
 
 	tables := make([]string, 0)
 	seen := make(map[string]struct{})
-	sqlparser.Walk(func(node sqlparser.SQLNode) (kontinue bool, err error) {
+	if err := sqlparser.Walk(func(node sqlparser.SQLNode) (kontinue bool, err error) {
 		if t, ok := node.(sqlparser.TableName); ok {
 			tableName := t.Name.String()
 			if t.Qualifier.String() != "" {
@@ -180,7 +180,9 @@ func (v *Validator) ExtractTableNames(sql string) ([]string, error) {
 			}
 		}
 		return true, nil
-	}, stmt)
+	}, stmt); err != nil {
+		return nil, err
+	}
 
 	return tables, nil
 }
@@ -204,13 +206,15 @@ func (v *Validator) IsSimpleSelect(sql string) (bool, error) {
 
 	// 检查是否有子查询
 	hasSubquery := false
-	sqlparser.Walk(func(node sqlparser.SQLNode) (kontinue bool, err error) {
+	if err := sqlparser.Walk(func(node sqlparser.SQLNode) (kontinue bool, err error) {
 		if _, ok := node.(*sqlparser.Subquery); ok {
 			hasSubquery = true
 			return false, nil
 		}
 		return true, nil
-	}, selectStmt)
+	}, selectStmt); err != nil {
+		return false, err
+	}
 
 	return !hasSubquery, nil
 }

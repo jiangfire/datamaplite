@@ -15,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 // MockSourceService 是SourceService的mock
@@ -180,9 +181,10 @@ func TestSourceHandler_ListSources(t *testing.T) {
 	resp := decodeHTTPResult(t, w.Body.Bytes())
 	assert.Equal(t, successCode, resp.Code)
 
-	data, _ := json.Marshal(resp.Data)
+	data, err := json.Marshal(resp.Data)
+	require.NoError(t, err)
 	var result []*model.SourceListItem
-	json.Unmarshal(data, &result)
+	require.NoError(t, json.Unmarshal(data, &result))
 	assert.Len(t, result, 1)
 	assert.Equal(t, "Test MySQL", result[0].Name)
 
@@ -475,8 +477,9 @@ func TestSourceHandler_TriggerSync(t *testing.T) {
 	assert.Equal(t, successCode, resp.Code)
 
 	var syncResp model.SyncResponse
-	data, _ := json.Marshal(resp.Data)
-	json.Unmarshal(data, &syncResp)
+	data, err := json.Marshal(resp.Data)
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(data, &syncResp))
 	assert.Equal(t, sourceID, syncResp.SourceID)
 	assert.WithinDuration(t, time.Now(), syncResp.StartedAt, time.Second)
 

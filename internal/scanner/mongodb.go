@@ -30,7 +30,9 @@ func (s *MongoDBScanner) TestConnection(ctx context.Context, config ConnectionCo
 	if err != nil {
 		return err
 	}
-	defer client.Disconnect(ctx)
+	defer func() {
+		ignoreError(client.Disconnect(ctx))
+	}()
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -44,7 +46,9 @@ func (s *MongoDBScanner) ScanSchema(ctx context.Context, config ConnectionConfig
 	if err != nil {
 		return nil, err
 	}
-	defer client.Disconnect(ctx)
+	defer func() {
+		ignoreError(client.Disconnect(ctx))
+	}()
 
 	db := client.Database(config.Database)
 
@@ -85,7 +89,9 @@ func (s *MongoDBScanner) connect(ctx context.Context, config ConnectionConfig) (
 	}
 
 	if err := client.Ping(ctx, nil); err != nil {
-		client.Disconnect(ctx)
+		if disconnectErr := client.Disconnect(ctx); disconnectErr != nil {
+			return nil, fmt.Errorf("failed to ping mongodb: %w (disconnect failed: %v)", err, disconnectErr)
+		}
 		return nil, fmt.Errorf("failed to ping mongodb: %w", err)
 	}
 
@@ -103,7 +109,7 @@ func (s *MongoDBScanner) inferCollectionSchema(ctx context.Context, db *mongo.Da
 	}
 
 	// 获取文档数量（估计值）
-	stats, err := db.RunCommand(ctx, bson.M{"collStats": collName}).DecodeBytes()
+	stats, err := db.RunCommand(ctx, bson.M{"collStats": collName}).Raw()
 	if err == nil {
 		if count, ok := stats.Lookup("count").Int64OK(); ok {
 			obj.RowCount = &count
@@ -124,7 +130,9 @@ func (s *MongoDBScanner) inferCollectionSchema(ctx context.Context, db *mongo.Da
 	if err != nil {
 		return nil, err
 	}
-	defer cursor.Close(ctx)
+	defer func() {
+		ignoreError(cursor.Close(ctx))
+	}()
 
 	sampleCount := 0
 	for cursor.Next(ctx) {

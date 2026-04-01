@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -55,7 +57,11 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("failed to init logger: %w", err)
 	}
-	defer logger.Sync()
+	defer func() {
+		if syncErr := logger.Sync(); syncErr != nil && !shouldIgnoreLoggerSyncError(syncErr) {
+			fmt.Fprintf(os.Stderr, "logger sync failed: %v\n", syncErr)
+		}
+	}()
 
 	logger.Info("starting DataMap-Lite",
 		zap.String("version", "1.0.0"),
@@ -84,7 +90,11 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("failed to init store: %w", err)
 	}
-	defer store.Close()
+	defer func() {
+		if closeErr := store.Close(); closeErr != nil {
+			logger.Warn("failed to close store", zap.Error(closeErr))
+		}
+	}()
 
 	// 初始化扫描器注册表
 	registry := scanner.NewRegistry()
@@ -209,6 +219,17 @@ func initLogger(cfg config.LogConfig) (*zap.Logger, error) {
 	}
 
 	return loggerConfig.Build()
+}
+
+func shouldIgnoreLoggerSyncError(err error) bool {
+	if err == nil {
+		return true
+	}
+	if errors.Is(err, syscall.ENOTTY) || errors.Is(err, syscall.EINVAL) {
+		return true
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "inappropriate ioctl for device") || strings.Contains(msg, "invalid argument")
 }
 
 func loggingMiddleware(logger *zap.Logger) gin.HandlerFunc {

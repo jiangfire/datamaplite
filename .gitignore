@@ -29,3 +29,4 @@ internal/webui/generated/*
 !internal/webui/generated/.keep
 .omc/
 .claude/
+.cache/

@@ -384,7 +384,9 @@ func (s *DQService) validateCustomSQL(sqlText string) error {
 // toDQRule 转换为模型
 func (s *DQService) toDQRule(row *store.DQRuleRow) *model.DQRule {
 	var ruleConfig map[string]interface{}
-	json.Unmarshal([]byte(row.RuleConfig), &ruleConfig)
+	if err := json.Unmarshal([]byte(row.RuleConfig), &ruleConfig); err != nil {
+		ruleConfig = map[string]interface{}{}
+	}
 
 	return &model.DQRule{
 		ID:          row.ID,
@@ -405,7 +407,9 @@ func (s *DQService) toDQRule(row *store.DQRuleRow) *model.DQRule {
 // toDQResult 转换为模型
 func (s *DQService) toDQResult(row *store.DQResultRow) *model.DQResult {
 	var sampleErrors []map[string]interface{}
-	json.Unmarshal([]byte(row.SampleErrors), &sampleErrors)
+	if err := json.Unmarshal([]byte(row.SampleErrors), &sampleErrors); err != nil {
+		sampleErrors = []map[string]interface{}{}
+	}
 
 	return &model.DQResult{
 		ID:           row.ID,

@@ -323,7 +323,14 @@ func (s *GovernanceEventService) sendEvent(ctx context.Context, event Governance
 		s.logError("send governance event failed", event, err)
 		return fmt.Errorf("send governance event failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil && s.logger != nil {
+			s.logger.Warn("close governance response body failed",
+				zap.String("eventID", event.EventID),
+				zap.Error(closeErr),
+			)
+		}
+	}()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		if resp.StatusCode == http.StatusConflict || resp.StatusCode == http.StatusAlreadyReported {
