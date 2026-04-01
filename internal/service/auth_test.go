@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func setupAuthService(t *testing.T) (*AuthService, *MockStore) {
+func setupAuthService(_ *testing.T) (*AuthService, *MockStore) {
 	mockStore := new(MockStore)
 	config := &AuthConfig{
 		Enabled:         true,

@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func setupTermService(t *testing.T) (*TermService, *MockStore) {
+func setupTermService(_ *testing.T) (*TermService, *MockStore) {
 	mockStore := new(MockStore)
 	service := NewTermService(mockStore)
 	return service, mockStore

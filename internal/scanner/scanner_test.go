@@ -265,7 +265,6 @@ func TestObjectInfo_WithOptionalFields(t *testing.T) {
 		Description: &desc,
 		RowCount:    &rowCount,
 		SizeBytes:   &sizeBytes,
-		Columns:     []ColumnInfo{},
 	}
 
 	assert.Equal(t, "test_table", obj.Name)

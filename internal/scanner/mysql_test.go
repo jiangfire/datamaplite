@@ -44,12 +44,7 @@ func TestMySQLScanner_connectionConfig(t *testing.T) {
 
 func TestMySQLScanner_connectionConfig_WithSSL(t *testing.T) {
 	config := ConnectionConfig{
-		Host:     "secure.db.example.com",
-		Port:     3306,
-		Database: "production",
-		Username: "app",
-		Password: "secret",
-		SSLMode:  "require",
+		SSLMode: "require",
 	}
 
 	assert.Equal(t, "require", config.SSLMode)

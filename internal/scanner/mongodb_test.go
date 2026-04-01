@@ -254,7 +254,6 @@ func TestMongoDBScanner_connectionConfig(t *testing.T) {
 		Database: "testdb",
 		Username: "mongo",
 		Password: "password",
-		SSLMode:  "",
 	}
 
 	assert.Equal(t, "localhost", config.Host)
@@ -266,12 +265,7 @@ func TestMongoDBScanner_connectionConfig(t *testing.T) {
 
 func TestMongoDBScanner_connectionConfig_WithSSL(t *testing.T) {
 	config := ConnectionConfig{
-		Host:     "secure.mongo.example.com",
-		Port:     27017,
-		Database: "production",
-		Username: "app",
-		Password: "secret",
-		SSLMode:  "require",
+		SSLMode: "require",
 	}
 
 	assert.Equal(t, "require", config.SSLMode)

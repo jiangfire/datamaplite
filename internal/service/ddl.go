@@ -301,7 +301,7 @@ func (g *DDLGenerator) quoteIdentifier(name string, dialect string) string {
 	}
 }
 
-func (g *DDLGenerator) formatDefaultValue(col *store.ColumnRow, dialect string) string {
+func (g *DDLGenerator) formatDefaultValue(col *store.ColumnRow, _ string) string {
 	if col.DefaultValue == nil {
 		return ""
 	}

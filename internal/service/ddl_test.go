@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func setupDDLService(t *testing.T) (*DDLService, *MockStore) {
+func setupDDLService(_ *testing.T) (*DDLService, *MockStore) {
 	mockStore := new(MockStore)
 	service := &DDLService{
 		store:     mockStore,

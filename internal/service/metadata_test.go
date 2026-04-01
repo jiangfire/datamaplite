@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func setupMetadataService(t *testing.T) (*MetadataService, *MockStore) {
+func setupMetadataService(_ *testing.T) (*MetadataService, *MockStore) {
 	mockStore := new(MockStore)
 	service := NewMetadataService(mockStore)
 	return service, mockStore
