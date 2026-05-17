@@ -21,15 +21,17 @@ type CreateSourceRequest struct {
 	SSLMode     string         `json:"ssl_mode"`
 }
 
-// UpdateSourceRequest 更新数据源请求
+// UpdateSourceRequest 更新数据源请求。
+// 所有字段使用指针：nil 表示"不修改"，非 nil（含空串）表示"显式设置/清空"。
+// Description 允许置空；其余字段如 Name/Host/Port 等若显式传入空值仍会被存储层拒绝（NOT NULL）。
 type UpdateSourceRequest struct {
-	Name        string `json:"name,omitempty" validate:"omitempty,max=100"`
-	Description string `json:"description,omitempty"`
-	Host        string `json:"host,omitempty" validate:"omitempty,max=255"`
-	Port        int    `json:"port,omitempty" validate:"omitempty,min=1,max=65535"`
-	Database    string `json:"database,omitempty" validate:"omitempty,max=255"`
-	Username    string `json:"username,omitempty" validate:"omitempty,max=100"`
-	Password    string `json:"password,omitempty" validate:"omitempty,max=255"`
+	Name        *string `json:"name,omitempty" validate:"omitempty,max=100"`
+	Description *string `json:"description,omitempty"`
+	Host        *string `json:"host,omitempty" validate:"omitempty,max=255"`
+	Port        *int    `json:"port,omitempty" validate:"omitempty,min=1,max=65535"`
+	Database    *string `json:"database,omitempty" validate:"omitempty,max=255"`
+	Username    *string `json:"username,omitempty" validate:"omitempty,max=100"`
+	Password    *string `json:"password,omitempty" validate:"omitempty,max=255"`
 }
 
 // SourceResponse 数据源响应

@@ -14,8 +14,6 @@ const typeLabels: Record<string, string> = {
   mysql: 'MySQL',
   postgres: 'PostgreSQL',
   mongodb: 'MongoDB',
-  oracle: 'Oracle',
-  mssql: 'SQL Server',
 };
 
 const statusLabels: Record<string, string> = {

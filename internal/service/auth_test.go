@@ -217,10 +217,17 @@ func TestDefaultAuthConfig(t *testing.T) {
 	cfg := DefaultAuthConfig()
 
 	assert.True(t, cfg.Enabled)
-	assert.NotEmpty(t, cfg.JWTSecret)
+	// JWTSecret 故意留空，由调用方显式提供（避免源码里出现弱默认密钥）
+	assert.Empty(t, cfg.JWTSecret)
 	assert.Equal(t, 15*time.Minute, cfg.AccessTokenTTL)
 	assert.Equal(t, 7*24*time.Hour, cfg.RefreshTokenTTL)
 	assert.Equal(t, 10, cfg.BcryptCost)
+}
+
+func TestNewAuthService_PanicsOnMissingSecret(t *testing.T) {
+	assert.Panics(t, func() {
+		NewAuthService(nil, &AuthConfig{Enabled: true, JWTSecret: ""})
+	})
 }
 
 func TestAuthService_ResolveAnonymousAuthContext(t *testing.T) {

@@ -7,7 +7,7 @@ interface DQStatsCardProps {
 }
 
 export const DQStatsCard: React.FC<DQStatsCardProps> = ({ stats }) => {
-  const passRatePercent = Math.round(stats.overall_pass_rate * 100);
+  const passRatePercent = Math.round(stats.overall_pass_rate);
 
   const items = [
     {

@@ -71,15 +71,16 @@ type UserNotification struct {
 	Notification *Notification `json:"notification,omitempty" db:"-"`
 }
 
-// AlertRuleRequest 创建/更新告警规则请求
+// AlertRuleRequest 创建/更新告警规则请求。
+// Description 和 WebhookURL 使用指针：nil 表示"不修改"，非 nil（含空串）表示"显式设置/清空"。
 type AlertRuleRequest struct {
 	SourceID      *string `json:"source_id,omitempty" validate:"omitempty,uuid"`
 	ObjectID      *string `json:"object_id,omitempty" validate:"omitempty,uuid"`
 	Name          string  `json:"name" validate:"required,max=255"`
-	Description   string  `json:"description,omitempty"`
+	Description   *string `json:"description,omitempty"`
 	ChangeTypes   string  `json:"change_types" validate:"required"`
 	NotifyWebhook bool    `json:"notify_webhook"`
-	WebhookURL    string  `json:"webhook_url,omitempty" validate:"omitempty,url"`
+	WebhookURL    *string `json:"webhook_url,omitempty" validate:"omitempty,url"`
 	NotifyInApp   bool    `json:"notify_in_app"`
 	IsActive      bool    `json:"is_active"`
 }

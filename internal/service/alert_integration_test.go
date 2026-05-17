@@ -43,7 +43,7 @@ func TestAlertService_CreateAlertRule_SQLiteRoundTrip(t *testing.T) {
 	resp, err := env.alertService.CreateAlertRule(ctx, &model.AlertRuleRequest{
 		SourceID:      &env.sourceEnv.sourceID,
 		Name:          "schema-change-rule",
-		Description:   "watch schema changes",
+		Description:   strPtr("watch schema changes"),
 		ChangeTypes:   "alter_column",
 		NotifyWebhook: false,
 		NotifyInApp:   true,
@@ -92,7 +92,7 @@ func TestAlertService_CreateAlertRule_RejectsObjectFromDifferentSource(t *testin
 		SourceID:      &env.sourceEnv.sourceID,
 		ObjectID:      &foreignObj.ID,
 		Name:          "cross-source-rule",
-		Description:   "invalid cross source rule",
+		Description:   strPtr("invalid cross source rule"),
 		ChangeTypes:   "alter_column",
 		NotifyWebhook: false,
 		NotifyInApp:   true,
@@ -109,7 +109,7 @@ func TestAlertService_CreateAlertRule_NormalizesChangeTypes(t *testing.T) {
 	resp, err := env.alertService.CreateAlertRule(ctx, &model.AlertRuleRequest{
 		SourceID:      &env.sourceEnv.sourceID,
 		Name:          "normalized-change-types",
-		Description:   "normalize spaces and duplicates",
+		Description:   strPtr("normalize spaces and duplicates"),
 		ChangeTypes:   " drop_column, alter_column , drop_column ",
 		NotifyWebhook: false,
 		NotifyInApp:   true,
@@ -129,7 +129,7 @@ func TestAlertService_CreateAlertRule_RejectsEmptyNormalizedChangeTypes(t *testi
 	_, err := env.alertService.CreateAlertRule(ctx, &model.AlertRuleRequest{
 		SourceID:      &env.sourceEnv.sourceID,
 		Name:          "invalid-change-types",
-		Description:   "invalid",
+		Description:   strPtr("invalid"),
 		ChangeTypes:   " , , ",
 		NotifyWebhook: false,
 		NotifyInApp:   true,
@@ -487,13 +487,18 @@ func createAlertRuleForTest(
 ) *model.AlertRuleResponse {
 	t.Helper()
 
+	desc := name
+	var whURL *string
+	if webhookURL != "" {
+		whURL = &webhookURL
+	}
 	resp, err := env.alertService.CreateAlertRule(context.Background(), &model.AlertRuleRequest{
 		SourceID:      &env.sourceEnv.sourceID,
 		Name:          name,
-		Description:   name,
+		Description:   &desc,
 		ChangeTypes:   changeTypes,
 		NotifyWebhook: notifyWebhook,
-		WebhookURL:    webhookURL,
+		WebhookURL:    whURL,
 		NotifyInApp:   notifyInApp,
 		IsActive:      true,
 	})
@@ -513,14 +518,19 @@ func createAlertRuleForTestWithObject(
 ) *model.AlertRuleResponse {
 	t.Helper()
 
+	desc := name
+	var whURL *string
+	if webhookURL != "" {
+		whURL = &webhookURL
+	}
 	resp, err := env.alertService.CreateAlertRule(context.Background(), &model.AlertRuleRequest{
 		SourceID:      &env.sourceEnv.sourceID,
 		ObjectID:      objectID,
 		Name:          name,
-		Description:   name,
+		Description:   &desc,
 		ChangeTypes:   changeTypes,
 		NotifyWebhook: notifyWebhook,
-		WebhookURL:    webhookURL,
+		WebhookURL:    whURL,
 		NotifyInApp:   notifyInApp,
 		IsActive:      true,
 	})

@@ -11,17 +11,26 @@ import {
   DQRulesPage,
   DQResultsPage,
   TagsPage,
+  TagDetailPage,
   AlertRulesPage,
   NotificationsPage,
+  AdminUsersPage,
 } from './pages';
-import { AuthProvider, PublicOnlyRoute, RequireAuth } from './auth';
+import {
+  AuthProvider,
+  PublicOnlyRoute,
+  RequireAuth,
+  RequireRole,
+} from './auth';
+import { ToastProvider } from './components/ToastProvider';
 import './App.css';
 
 const App = () => {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
+        <ToastProvider>
+          <Routes>
           <Route element={<PublicOnlyRoute />}>
             <Route path="/login" element={<LoginPage />} />
           </Route>
@@ -50,19 +59,26 @@ const App = () => {
 
             {/* Tags */}
             <Route path="/tags" element={<TagsPage />} />
+            <Route path="/tags/:id" element={<TagDetailPage />} />
 
             {/* Alert Rules */}
             <Route path="/alerts" element={<AlertRulesPage />} />
 
             {/* Notifications */}
             <Route path="/notifications" element={<NotificationsPage />} />
+
+            {/* Admin */}
+            <Route element={<RequireRole role="admin" />}>
+              <Route path="/admin/users" element={<AdminUsersPage />} />
+            </Route>
           </Route>
 
           {/* Redirect unknown routes to home */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </AuthProvider>
-    </BrowserRouter>
+      </ToastProvider>
+    </AuthProvider>
+  </BrowserRouter>
   );
 };
 

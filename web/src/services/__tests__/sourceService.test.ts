@@ -112,15 +112,6 @@ describe('SourceService', () => {
   });
 
   describe('testConnection', () => {
-    it('should test connection with existing source', async () => {
-      vi.mocked(api.post).mockResolvedValue(undefined);
-
-      const result = await sourceService.testConnection('1');
-
-      expect(api.post).toHaveBeenCalledWith('/sources/1/test', undefined);
-      expect(result).toBeUndefined();
-    });
-
     it('should test connection with config', async () => {
       const config = {
         type: 'mysql' as const,
@@ -132,9 +123,9 @@ describe('SourceService', () => {
       };
       vi.mocked(api.post).mockResolvedValue(undefined);
 
-      const result = await sourceService.testConnection('1', config);
+      const result = await sourceService.testConnection(config);
 
-      expect(api.post).toHaveBeenCalledWith('/sources/1/test', config);
+      expect(api.post).toHaveBeenCalledWith('/sources/test-connection', config);
       expect(result).toBeUndefined();
     });
   });

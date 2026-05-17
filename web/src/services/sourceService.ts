@@ -27,9 +27,9 @@ export const sourceService = {
   // Delete data source
   deleteSource: (id: string) => api.delete<void>(`/sources/${id}`),
 
-  // Test connection
-  testConnection: (id: string, config?: ConnectionTestRequest) =>
-    api.post<void>(`/sources/${id}/test`, config),
+  // Test connection（独立路由，不需要 source id）
+  testConnection: (config: ConnectionTestRequest) =>
+    api.post<void>('/sources/test-connection', config),
 
   // Trigger sync
   triggerSync: (id: string) => api.post<SyncResponse>(`/sources/${id}/sync`),

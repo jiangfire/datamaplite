@@ -36,7 +36,7 @@ export const DQResultCard: React.FC<DQResultCardProps> = ({
   ruleName,
 }) => {
   const config = statusConfig[result.status];
-  const passRatePercent = Math.round(result.pass_rate * 100);
+  const passRatePercent = Math.round(result.pass_rate);
 
   return (
     <Card className="overflow-hidden">

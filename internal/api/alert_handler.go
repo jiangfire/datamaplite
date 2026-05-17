@@ -3,20 +3,19 @@ package api
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/jiangfire/datamaplite/internal/model"
-	"github.com/jiangfire/datamaplite/internal/service"
 	"go.uber.org/zap"
 )
 
 // AlertHandler 告警处理器
 type AlertHandler struct {
 	*Handler
-	alertService *service.AlertService
-	notifService *service.NotificationService
+	alertService AlertService
+	notifService NotificationService
 	logger       *zap.Logger
 }
 
 // NewAlertHandler 创建告警处理器
-func NewAlertHandler(alertService *service.AlertService, notifService *service.NotificationService, logger *zap.Logger) *AlertHandler {
+func NewAlertHandler(alertService AlertService, notifService NotificationService, logger *zap.Logger) *AlertHandler {
 	return &AlertHandler{
 		Handler:      NewHandler(),
 		alertService: alertService,
@@ -106,12 +105,12 @@ func (h *AlertHandler) DeleteAlertRule(c *gin.Context) {
 // NotificationHandler 通知处理器
 type NotificationHandler struct {
 	*Handler
-	notifService *service.NotificationService
+	notifService NotificationService
 	logger       *zap.Logger
 }
 
 // NewNotificationHandler 创建通知处理器
-func NewNotificationHandler(notifService *service.NotificationService, logger *zap.Logger) *NotificationHandler {
+func NewNotificationHandler(notifService NotificationService, logger *zap.Logger) *NotificationHandler {
 	return &NotificationHandler{
 		Handler:      NewHandler(),
 		notifService: notifService,

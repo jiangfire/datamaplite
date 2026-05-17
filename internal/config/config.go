@@ -181,7 +181,7 @@ func setDefaults() {
 	viper.SetDefault("governance.enabled", false)
 	viper.SetDefault("governance.endpoint", "")
 	viper.SetDefault("governance.integration_token", "")
-	viper.SetDefault("governance.source_system", "fuckcmdb")
+	viper.SetDefault("governance.source_system", "cornerstone")
 	viper.SetDefault("governance.timeout", "5s")
 }
 
@@ -233,6 +233,11 @@ func GetEncryptionKey() (string, error) {
 	}
 	if len(key) != 32 {
 		return "", fmt.Errorf("DATAMAP_ENCRYPTION_KEY must be 32 bytes (got %d)", len(key))
+	}
+	if strings.Contains(strings.ToLower(key), "change-me") ||
+		strings.Contains(strings.ToLower(key), "replace_me") ||
+		strings.Contains(strings.ToLower(key), "replace-me") {
+		return "", fmt.Errorf("DATAMAP_ENCRYPTION_KEY appears to be a placeholder (contains change-me/replace_me). Generate a real 32-byte key, e.g. `openssl rand -hex 16`")
 	}
 	return key, nil
 }

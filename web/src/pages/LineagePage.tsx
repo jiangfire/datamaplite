@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { GitBranch, Search } from 'lucide-react';
 import {
@@ -18,11 +18,20 @@ export const LineagePage: React.FC = () => {
   const { results, search } = useColumnSearch();
   const { lineage } = useLineage(columnId || undefined);
   const { impact } = useImpactAnalysis(columnId || undefined);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    search(query, 10);
-  };
+  const handleSearch = useCallback(
+    (query: string) => {
+      setSearchQuery(query);
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+      searchTimeoutRef.current = setTimeout(() => {
+        search(query, 10);
+      }, 300);
+    },
+    [search],
+  );
 
   const handleSelectColumn = (id: string) => {
     setSearchQuery('');

@@ -3,17 +3,16 @@ package api
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/jiangfire/datamaplite/internal/model"
-	"github.com/jiangfire/datamaplite/internal/service"
 )
 
 // TagHandler 标签处理器
 type TagHandler struct {
 	*Handler
-	tagService *service.TagService
+	tagService TagService
 }
 
 // NewTagHandler 创建标签处理器
-func NewTagHandler(tagService *service.TagService) *TagHandler {
+func NewTagHandler(tagService TagService) *TagHandler {
 	return &TagHandler{
 		Handler:    NewHandler(),
 		tagService: tagService,

@@ -57,22 +57,32 @@ export const useSource = (id: string | undefined) => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id) {
+      setSource(null);
+      return;
+    }
 
-    const fetchSource = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await sourceService.getSource(id);
-        setSource(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch source');
-      } finally {
-        setLoading(false);
-      }
+    let active = true;
+    setLoading(true);
+    setError(null);
+    sourceService
+      .getSource(id)
+      .then((data) => {
+        if (active) setSource(data);
+      })
+      .catch((err) => {
+        if (active)
+          setError(
+            err instanceof Error ? err.message : 'Failed to fetch source',
+          );
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
     };
-
-    fetchSource();
   }, [id]);
 
   return { source, loading, error };

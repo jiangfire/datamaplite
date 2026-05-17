@@ -1,6 +1,7 @@
 package scanner
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -275,7 +276,7 @@ func TestMongoDBScanner_connectionConfig_WithSSL(t *testing.T) {
 // 运行此测试需要本地MongoDB实例
 // 可以通过设置环境变量 MONGODB_TEST_URI 来启用
 func TestMongoDBScanner_Integration(t *testing.T) {
-	uri := "" // 从环境变量读取: os.Getenv("MONGODB_TEST_URI")
+	uri := os.Getenv("MONGODB_TEST_URI")
 	if uri == "" {
 		t.Skip("Skipping MongoDB integration test: MONGODB_TEST_URI not set")
 	}

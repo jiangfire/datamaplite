@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { sourceService } from '../services';
 import type { SchemaTree, SchemaChange } from '../types';
 
@@ -6,27 +6,42 @@ export const useSchemaTree = (sourceId: string | undefined) => {
   const [schemaTree, setSchemaTree] = useState<SchemaTree | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const fetchSchemaTree = useCallback(async () => {
-    if (!sourceId) return;
-
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await sourceService.getSchemaTree(sourceId);
-      setSchemaTree(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch schema');
-    } finally {
-      setLoading(false);
-    }
-  }, [sourceId]);
+  const [refreshTick, setRefreshTick] = useState(0);
 
   useEffect(() => {
-    fetchSchemaTree();
-  }, [fetchSchemaTree]);
+    if (!sourceId) {
+      setSchemaTree(null);
+      return;
+    }
 
-  return { schemaTree, loading, error, refetch: fetchSchemaTree };
+    let active = true;
+    setLoading(true);
+    setError(null);
+    sourceService
+      .getSchemaTree(sourceId)
+      .then((data) => {
+        if (active) setSchemaTree(data);
+      })
+      .catch((err) => {
+        if (active)
+          setError(
+            err instanceof Error ? err.message : 'Failed to fetch schema',
+          );
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [sourceId, refreshTick]);
+
+  const refetch = useCallback(async () => {
+    setRefreshTick((t) => t + 1);
+  }, []);
+
+  return { schemaTree, loading, error, refetch };
 };
 
 export const useSchemaChanges = (sourceId: string | undefined) => {
@@ -35,24 +50,32 @@ export const useSchemaChanges = (sourceId: string | undefined) => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!sourceId) return;
+    if (!sourceId) {
+      setChanges([]);
+      return;
+    }
 
-    const fetchChanges = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await sourceService.getSchemaChanges(sourceId);
-        setChanges(data);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : 'Failed to fetch changes',
-        );
-      } finally {
-        setLoading(false);
-      }
+    let active = true;
+    setLoading(true);
+    setError(null);
+    sourceService
+      .getSchemaChanges(sourceId)
+      .then((data) => {
+        if (active) setChanges(data);
+      })
+      .catch((err) => {
+        if (active)
+          setError(
+            err instanceof Error ? err.message : 'Failed to fetch changes',
+          );
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
     };
-
-    fetchChanges();
   }, [sourceId]);
 
   return { changes, loading, error };

@@ -1,6 +1,7 @@
 package scanner
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -54,7 +55,7 @@ func TestMySQLScanner_connectionConfig_WithSSL(t *testing.T) {
 // 运行此测试需要本地MySQL实例
 // 可以通过设置环境变量 MYSQL_TEST_DSN 来启用
 func TestMySQLScanner_Integration(t *testing.T) {
-	dsn := "" // 从环境变量读取: os.Getenv("MYSQL_TEST_DSN")
+	dsn := os.Getenv("MYSQL_TEST_DSN")
 	if dsn == "" {
 		t.Skip("Skipping MySQL integration test: MYSQL_TEST_DSN not set")
 	}

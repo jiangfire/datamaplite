@@ -339,8 +339,9 @@ func TestSourceHandler_UpdateSource(t *testing.T) {
 	router, mockSvc, _, handler := setupSourceHandlerTest()
 
 	sourceID := "550e8400-e29b-41d4-a716-446655440000"
+	updateName := "Updated MySQL"
 	updateReq := &model.UpdateSourceRequest{
-		Name: "Updated MySQL",
+		Name: &updateName,
 	}
 
 	mockSvc.On("UpdateSource", mock.Anything, sourceID, updateReq).Return(nil)

@@ -13,7 +13,7 @@ const highlightText = (text: string, query: string) => {
 
   const regex = new RegExp(
     `(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`,
-    'gi',
+    'i',
   );
   const parts = text.split(regex);
 
@@ -36,8 +36,6 @@ const ResultItem: React.FC<{ result: ColumnSearchResult; query: string }> = ({
     mysql: '🔷',
     postgres: '🐘',
     mongodb: '🍃',
-    oracle: '🔴',
-    mssql: '📊',
   };
 
   return (

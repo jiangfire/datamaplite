@@ -20,11 +20,12 @@ type AuthConfig struct {
 	BcryptCost      int
 }
 
-// DefaultAuthConfig 默认认证配置
+// DefaultAuthConfig 默认认证配置。
+// 注意：JWTSecret 故意留空——必须由调用方显式提供，避免源码里出现可被反向利用的弱密钥。
 func DefaultAuthConfig() *AuthConfig {
 	return &AuthConfig{
 		Enabled:         true,
-		JWTSecret:       "your-secret-key-change-in-production",
+		JWTSecret:       "",
 		AccessTokenTTL:  15 * time.Minute,
 		RefreshTokenTTL: 7 * 24 * time.Hour,
 		BcryptCost:      10,
@@ -51,10 +52,15 @@ type AuthService struct {
 	config *AuthConfig
 }
 
-// NewAuthService 创建认证服务
+// NewAuthService 创建认证服务。
+// 当 config.Enabled 为 true 但未提供 JWTSecret 时直接 panic，
+// 避免静默回退到硬编码默认值导致的认证旁路。
 func NewAuthService(store store.Store, config *AuthConfig) *AuthService {
 	if config == nil {
 		config = DefaultAuthConfig()
+	}
+	if config.Enabled && config.JWTSecret == "" {
+		panic("service.NewAuthService: JWTSecret is required when authentication is enabled")
 	}
 	return &AuthService{
 		store:  store,
@@ -219,6 +225,74 @@ func (s *AuthService) GetUserByID(ctx context.Context, id string) (*model.UserIn
 	}, nil
 }
 
+// ListUsers 列出所有用户（管理员使用）
+func (s *AuthService) ListUsers(ctx context.Context) ([]*model.UserInfo, error) {
+	rows, err := s.store.ListUsers(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	infos := make([]*model.UserInfo, 0, len(rows))
+	for _, row := range rows {
+		infos = append(infos, &model.UserInfo{
+			ID:        row.ID,
+			Username:  row.Username,
+			Email:     row.Email,
+			Role:      model.UserRole(row.Role),
+			CreatedAt: parseTime(row.CreatedAt),
+		})
+	}
+	return infos, nil
+}
+
+// UpdateUser 更新用户（管理员使用）。Username 不允许修改。
+func (s *AuthService) UpdateUser(ctx context.Context, id string, req *model.UpdateUserRequest) (*model.UserInfo, error) {
+	if _, err := s.store.GetUserByID(ctx, id); err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	update := &store.UserUpdate{}
+	if req.Email != nil {
+		email := *req.Email
+		update.Email = &email
+	}
+	if req.Role != nil {
+		role := string(*req.Role)
+		update.Role = &role
+	}
+	if req.Password != nil {
+		hash, err := bcrypt.GenerateFromPassword([]byte(*req.Password), s.config.BcryptCost)
+		if err != nil {
+			return nil, fmt.Errorf("failed to hash password: %w", err)
+		}
+		hashStr := string(hash)
+		update.PasswordHash = &hashStr
+	}
+
+	if err := s.store.UpdateUser(ctx, id, update); err != nil {
+		return nil, fmt.Errorf("failed to update user: %w", err)
+	}
+
+	return s.GetUserByID(ctx, id)
+}
+
+// DeleteUser 删除用户（管理员使用）
+func (s *AuthService) DeleteUser(ctx context.Context, id string) error {
+	if _, err := s.store.GetUserByID(ctx, id); err != nil {
+		return fmt.Errorf("user not found")
+	}
+	return s.store.DeleteUser(ctx, id)
+}
+
+// jwtClaims 内部 JWT Claims（B8: 使用 RegisteredClaims 而非 MapClaims）。
+type jwtClaims struct {
+	UserID    string `json:"user_id"`
+	Username  string `json:"username"`
+	Role      string `json:"role"`
+	TokenType string `json:"token_type"`
+	jwt.RegisteredClaims
+}
+
 // generateToken 生成JWT Token
 func (s *AuthService) generateToken(userID, username string, role model.UserRole, tokenType string) (string, error) {
 	now := time.Now()
@@ -229,13 +303,15 @@ func (s *AuthService) generateToken(userID, username string, role model.UserRole
 		expiry = now.Add(s.config.RefreshTokenTTL)
 	}
 
-	claims := jwt.MapClaims{
-		"user_id":    userID,
-		"username":   username,
-		"role":       string(role),
-		"token_type": tokenType,
-		"exp":        expiry.Unix(),
-		"iat":        now.Unix(),
+	claims := &jwtClaims{
+		UserID:    userID,
+		Username:  username,
+		Role:      string(role),
+		TokenType: tokenType,
+		RegisteredClaims: jwt.RegisteredClaims{
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(expiry),
+		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -247,13 +323,15 @@ func (s *AuthService) ParseToken(tokenString string) (*model.Claims, error) {
 	return s.parseToken(tokenString)
 }
 
-// parseToken 解析JWT Token（内部方法）
+// parseToken 解析JWT Token（内部方法）。
+// jwt v5 在 ParseWithClaims 中默认会校验 ExpiresAt，所以无需手动 exp 检查。
 func (s *AuthService) parseToken(tokenString string) (*model.Claims, error) {
 	if !s.IsEnabled() {
 		return nil, fmt.Errorf("authentication is disabled")
 	}
 
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+	claims := &jwtClaims{}
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
@@ -268,26 +346,12 @@ func (s *AuthService) parseToken(tokenString string) (*model.Claims, error) {
 		return nil, fmt.Errorf("invalid token")
 	}
 
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return nil, fmt.Errorf("invalid claims")
-	}
-
 	return &model.Claims{
-		UserID:    getStringClaim(claims, "user_id"),
-		Username:  getStringClaim(claims, "username"),
-		Role:      model.UserRole(getStringClaim(claims, "role")),
-		TokenType: getStringClaim(claims, "token_type"),
+		UserID:    claims.UserID,
+		Username:  claims.Username,
+		Role:      model.UserRole(claims.Role),
+		TokenType: claims.TokenType,
 	}, nil
-}
-
-// getStringClaim 安全地获取字符串claim
-func getStringClaim(claims jwt.MapClaims, key string) string {
-	val, ok := claims[key].(string)
-	if !ok {
-		return ""
-	}
-	return val
 }
 
 // parseTime 解析时间字符串

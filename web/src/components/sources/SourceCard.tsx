@@ -23,16 +23,12 @@ const typeIcons: Record<DataSourceType, string> = {
   mysql: '🔷',
   postgres: '🐘',
   mongodb: '🍃',
-  oracle: '🔴',
-  mssql: '📊',
 };
 
 const typeLabels: Record<DataSourceType, string> = {
   mysql: 'MySQL',
   postgres: 'PostgreSQL',
   mongodb: 'MongoDB',
-  oracle: 'Oracle',
-  mssql: 'SQL Server',
 };
 
 const statusVariants: Record<

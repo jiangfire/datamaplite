@@ -12,8 +12,9 @@ import {
   AlertTriangle,
   LogOut,
   UserCircle2,
+  Users,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAuth } from '../auth';
 
 interface NavItem {
@@ -22,7 +23,7 @@ interface NavItem {
   icon: React.ReactNode;
 }
 
-const navItems: NavItem[] = [
+const baseNavItems: NavItem[] = [
   { path: '/', label: '数据源', icon: <Database size={20} /> },
   { path: '/search', label: '字段搜索', icon: <Search size={20} /> },
   { path: '/terms', label: '业务术语', icon: <BookOpen size={20} /> },
@@ -33,12 +34,24 @@ const navItems: NavItem[] = [
   { path: '/notifications', label: '通知中心', icon: <Bell size={20} /> },
 ];
 
+const adminNavItem: NavItem = {
+  path: '/admin/users',
+  label: '用户管理',
+  icon: <Users size={20} />,
+};
+
 export const Layout: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
+
+  const navItems = useMemo(
+    () =>
+      user?.role === 'admin' ? [...baseNavItems, adminNavItem] : baseNavItems,
+    [user?.role],
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50/30">

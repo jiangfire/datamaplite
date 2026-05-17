@@ -57,8 +57,10 @@ services:
       DATAMAP_SERVER_HOST: 0.0.0.0
       DATAMAP_SERVER_PORT: 8080
       # Security
-      DATAMAP_AUTH_JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
-      DATAMAP_ENCRYPTION_KEY: ${ENCRYPTION_KEY:-change-me-in-production-32bytes}
+      # NOTE: 这两个变量没有 fallback；必须在 .env 中显式设置，否则容器启动会 fail-closed。
+      # ENCRYPTION_KEY 必须为 32 字节，建议用 `openssl rand -hex 16`（32 hex chars = 32 bytes）。
+      DATAMAP_AUTH_JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set (no insecure default)}
+      DATAMAP_ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY must be set to a 32-byte string (no insecure default)}
       # Log
       DATAMAP_LOG_LEVEL: ${LOG_LEVEL:-info}
       DATAMAP_LOG_FORMAT: ${LOG_FORMAT:-json}

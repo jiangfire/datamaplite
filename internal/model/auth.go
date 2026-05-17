@@ -48,6 +48,13 @@ type RegisterRequest struct {
 	Role     UserRole `json:"role" binding:"omitempty,oneof=admin user"`
 }
 
+// UpdateUserRequest 更新用户请求（管理员使用）
+type UpdateUserRequest struct {
+	Email    *string   `json:"email,omitempty" binding:"omitempty,email"`
+	Password *string   `json:"password,omitempty" binding:"omitempty,min=6,max=128"`
+	Role     *UserRole `json:"role,omitempty" binding:"omitempty,oneof=admin user"`
+}
+
 // UserInfo 用户信息（不含敏感字段）
 type UserInfo struct {
 	ID        string    `json:"id"`

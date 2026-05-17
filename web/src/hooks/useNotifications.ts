@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { notificationService } from '../services';
+import { useToastContext } from '../components/ToastProvider';
 import type { Notification, NotificationStats } from '../types';
 
 export const useNotifications = (unreadOnly?: boolean) => {
@@ -32,15 +33,27 @@ export const useNotifications = (unreadOnly?: boolean) => {
   }, [fetchNotifications]);
 
   const markAsRead = async (notificationIds: string[]) => {
-    await notificationService.markAsRead({
-      notification_ids: notificationIds,
-    });
-    await fetchNotifications();
+    try {
+      await notificationService.markAsRead({
+        notification_ids: notificationIds,
+      });
+      await fetchNotifications();
+      toast('已标记为已读', 'success');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : '标记已读失败', 'error');
+      throw err;
+    }
   };
 
   const markAllAsRead = async () => {
-    await notificationService.markAsRead({ mark_all: true });
-    await fetchNotifications();
+    try {
+      await notificationService.markAsRead({ mark_all: true });
+      await fetchNotifications();
+      toast('全部标记为已读', 'success');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : '标记全部已读失败', 'error');
+      throw err;
+    }
   };
 
   return {

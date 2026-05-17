@@ -6,6 +6,7 @@ import {
   clearStoredSession,
   getStoredSession,
   setStoredSession,
+  restoreSession,
 } from '../services/api';
 import { AuthContext, type AuthContextValue } from './context';
 
@@ -15,12 +16,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [user, setUser] = useState<UserInfo | null>(syncUserFromStorage);
-  const [loading, setLoading] = useState(() => !!getStoredSession()?.accessToken);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const handleSessionChange = () => {
       setUser(syncUserFromStorage());
-      setLoading(false);
     };
 
     window.addEventListener(AUTH_SESSION_EVENT, handleSessionChange);
@@ -30,33 +30,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   useEffect(() => {
-    const session = getStoredSession();
-    if (!session?.accessToken) {
-      return;
-    }
-
     let active = true;
-    authService
-      .getCurrentUser()
-      .then((currentUser) => {
+
+    const bootstrap = async () => {
+      let session = getStoredSession();
+      // 页面刷新后 accessToken 在内存中丢失，尝试用 refresh_token 恢复
+      if (!session) {
+        session = await restoreSession();
+      }
+      if (!session?.accessToken) {
+        if (active) setLoading(false);
+        return;
+      }
+
+      try {
+        const currentUser = await authService.getCurrentUser();
         if (!active) return;
         setStoredSession({
           ...session,
           user: currentUser,
         });
         setUser(currentUser);
-      })
-      .catch(() => {
+      } catch {
         if (!active) return;
         clearStoredSession();
         setUser(null);
-      })
-      .finally(() => {
-        if (active) {
-          setLoading(false);
-        }
-      });
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
 
+    bootstrap();
     return () => {
       active = false;
     };

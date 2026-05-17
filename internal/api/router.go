@@ -59,8 +59,11 @@ func (r *Router) Register(engine *gin.Engine) {
 			// 当前用户信息
 			authorized.GET("/auth/me", r.authHandler.GetCurrentUser)
 
-			// 用户注册（需要管理员权限）
+			// 用户管理（需要管理员权限）
 			authorized.POST("/auth/register", AdminMiddleware(), r.authHandler.Register)
+			authorized.GET("/auth/users", AdminMiddleware(), r.authHandler.ListUsers)
+			authorized.PUT("/auth/users/:id", AdminMiddleware(), r.authHandler.UpdateUser)
+			authorized.DELETE("/auth/users/:id", AdminMiddleware(), r.authHandler.DeleteUser)
 
 			// 数据源管理
 			sources := authorized.Group("/sources")
@@ -70,6 +73,7 @@ func (r *Router) Register(engine *gin.Engine) {
 				sources.GET("/:id", r.sourceHandler.GetSource)
 				sources.PUT("/:id", r.sourceHandler.UpdateSource)
 				sources.DELETE("/:id", r.sourceHandler.DeleteSource)
+				sources.POST("/test-connection", r.sourceHandler.TestConnection)
 				sources.POST("/:id/test", r.sourceHandler.TestConnection)
 				sources.POST("/:id/sync", r.sourceHandler.TriggerSync)
 				sources.GET("/:id/schema", r.sourceHandler.GetSchemaTree)

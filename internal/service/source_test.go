@@ -760,8 +760,8 @@ func TestUpdateSource(t *testing.T) {
 	mockStore.On("UpdateDataSource", ctx, sourceID, mock.AnythingOfType("*store.DataSourceUpdate")).Return(nil)
 
 	req := &model.UpdateSourceRequest{
-		Name: "updated-name",
-		Host: "new-host",
+		Name: strPtr("updated-name"),
+		Host: strPtr("new-host"),
 	}
 
 	err := service.UpdateSource(ctx, sourceID, req)

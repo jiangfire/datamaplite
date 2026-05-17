@@ -53,6 +53,6 @@ governance:
   enabled: false               # DATAMAP_GOVERNANCE_ENABLED
   endpoint: ""                 # DATAMAP_GOVERNANCE_ENDPOINT
   integration_token: ""        # DATAMAP_GOVERNANCE_INTEGRATION_TOKEN
-  source_system: "fuckcmdb"    # DATAMAP_GOVERNANCE_SOURCE_SYSTEM
+  source_system: "cornerstone"    # DATAMAP_GOVERNANCE_SOURCE_SYSTEM
   timeout: 5s                  # DATAMAP_GOVERNANCE_TIMEOUT
 

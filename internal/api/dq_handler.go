@@ -5,7 +5,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jiangfire/datamaplite/internal/model"
-	"github.com/jiangfire/datamaplite/internal/service"
 )
 
 // parseInt 解析字符串为整数
@@ -16,11 +15,11 @@ func parseInt(s string) (int, error) {
 // DQHandler 数据质量处理器
 type DQHandler struct {
 	*Handler
-	dqService *service.DQService
+	dqService DQService
 }
 
 // NewDQHandler 创建数据质量处理器
-func NewDQHandler(dqService *service.DQService) *DQHandler {
+func NewDQHandler(dqService DQService) *DQHandler {
 	return &DQHandler{
 		Handler:   NewHandler(),
 		dqService: dqService,

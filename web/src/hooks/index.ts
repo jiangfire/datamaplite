@@ -15,6 +15,7 @@ export {
   useDQCheck,
   useDQStats,
 } from './useDQ';
-export { useTags, useColumnTags } from './useTags';
+export { useTags, useColumnTags, useTag } from './useTags';
 export { useAlerts } from './useAlerts';
 export { useNotifications, useNotificationStats } from './useNotifications';
+export { useUsers } from './useUsers';

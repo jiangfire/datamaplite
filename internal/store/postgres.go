@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jiangfire/datamaplite/internal/config"
+	"github.com/jiangfire/datamaplite/migrations"
 	"go.uber.org/zap"
 )
 
@@ -84,7 +86,7 @@ func runPostgresMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 			continue
 		}
 
-		migrationSQL, err := os.ReadFile(migration.path)
+		migrationSQL, err := readMigration(migration.path)
 		if err != nil {
 			return err
 		}
@@ -112,6 +114,15 @@ func runPostgresMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 	}
 
 	return nil
+}
+
+// readMigration 优先从嵌入的 FS 读取迁移 SQL；
+// 找不到时回落到磁盘（便于本地开发时临时增删 SQL 不重新编译）。
+func readMigration(path string) ([]byte, error) {
+	if data, err := migrations.FS.ReadFile(filepath.Base(path)); err == nil {
+		return data, nil
+	}
+	return os.ReadFile(path)
 }
 
 // Close 关闭存储连接

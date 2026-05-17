@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { termService } from '../services';
+import { useToastContext } from '../components/ToastProvider';
 import type { BusinessTerm, BusinessTermCreate } from '../types';
 
 export const useTerms = (category?: string) => {
+  const { toast } = useToastContext();
   const [terms, setTerms] = useState<BusinessTerm[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,19 +27,37 @@ export const useTerms = (category?: string) => {
   }, [fetchTerms]);
 
   const createTerm = async (data: BusinessTermCreate) => {
-    const newTerm = await termService.createTerm(data);
-    setTerms((prev) => [...prev, newTerm]);
-    return newTerm;
+    try {
+      const newTerm = await termService.createTerm(data);
+      setTerms((prev) => [...prev, newTerm]);
+      toast('业务术语创建成功', 'success');
+      return newTerm;
+    } catch (err) {
+      toast(err instanceof Error ? err.message : '创建业务术语失败', 'error');
+      throw err;
+    }
   };
 
   const updateTerm = async (id: string, data: BusinessTermCreate) => {
-    await termService.updateTerm(id, data);
-    await fetchTerms();
+    try {
+      await termService.updateTerm(id, data);
+      await fetchTerms();
+      toast('业务术语更新成功', 'success');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : '更新业务术语失败', 'error');
+      throw err;
+    }
   };
 
   const deleteTerm = async (id: string) => {
-    await termService.deleteTerm(id);
-    setTerms((prev) => prev.filter((t) => t.id !== id));
+    try {
+      await termService.deleteTerm(id);
+      setTerms((prev) => prev.filter((t) => t.id !== id));
+      toast('业务术语已删除', 'success');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : '删除业务术语失败', 'error');
+      throw err;
+    }
   };
 
   return {
@@ -57,22 +77,30 @@ export const useTerm = (id: string | undefined) => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id) {
+      setTerm(null);
+      return;
+    }
 
-    const fetchTerm = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await termService.getTerm(id);
-        setTerm(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch term');
-      } finally {
-        setLoading(false);
-      }
+    let active = true;
+    setLoading(true);
+    setError(null);
+    termService
+      .getTerm(id)
+      .then((data) => {
+        if (active) setTerm(data);
+      })
+      .catch((err) => {
+        if (active)
+          setError(err instanceof Error ? err.message : 'Failed to fetch term');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
     };
-
-    fetchTerm();
   }, [id]);
 
   return { term, loading, error };

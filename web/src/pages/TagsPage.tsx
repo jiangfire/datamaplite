@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Plus, Tag, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Tag, Trash2, Pencil } from 'lucide-react';
 import { Layout, Button, Card, CardContent } from '../components';
 import { useTags } from '../hooks';
 import type { TagCreate } from '../types';
@@ -23,11 +24,16 @@ const PRESET_COLORS = [
 ];
 
 export const TagsPage: React.FC = () => {
-  const { tags, loading, error, createTag, deleteTag } = useTags();
+  const navigate = useNavigate();
+  const { tags, loading, error, createTag, updateTag, deleteTag } = useTags();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [newTagDesc, setNewTagDesc] = useState('');
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[10]);
+  const [editingTag, setEditingTag] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editColor, setEditColor] = useState('');
 
   const handleCreate = async () => {
     if (!newTagName.trim()) return;
@@ -40,6 +46,31 @@ export const TagsPage: React.FC = () => {
     setNewTagName('');
     setNewTagDesc('');
     setShowCreateForm(false);
+  };
+
+  const startEdit = (tag: (typeof tags)[number]) => {
+    setEditingTag(tag.id);
+    setEditName(tag.name);
+    setEditDesc(tag.description || '');
+    setEditColor(tag.color);
+  };
+
+  const cancelEdit = () => {
+    setEditingTag(null);
+    setEditName('');
+    setEditDesc('');
+    setEditColor('');
+  };
+
+  const handleUpdate = async (id: string) => {
+    if (!editName.trim()) return;
+    const data: TagCreate = {
+      name: editName.trim(),
+      color: editColor,
+      description: editDesc.trim() || undefined,
+    };
+    await updateTag(id, data);
+    cancelEdit();
   };
 
   return (
@@ -135,26 +166,73 @@ export const TagsPage: React.FC = () => {
           {tags.map((tag) => (
             <Card key={tag.id}>
               <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <span
-                    className="w-4 h-4 rounded-full"
-                    style={{ backgroundColor: tag.color }}
-                  />
-                  <div className="flex-1">
-                    <h3 className="font-medium">{tag.name}</h3>
-                    {tag.description && (
-                      <p className="text-sm text-slate-500">
-                        {tag.description}
-                      </p>
-                    )}
+                {editingTag === tag.id ? (
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                    />
+                    <input
+                      type="text"
+                      value={editDesc}
+                      onChange={(e) => setEditDesc(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                      placeholder="描述"
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      {PRESET_COLORS.map((color) => (
+                        <button
+                          key={color}
+                          onClick={() => setEditColor(color)}
+                          className={`w-6 h-6 rounded-full ${editColor === color ? 'ring-2 ring-offset-2 ring-slate-400' : ''}`}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="secondary" size="sm" onClick={cancelEdit}>
+                        取消
+                      </Button>
+                      <Button size="sm" onClick={() => handleUpdate(tag.id)}>
+                        保存
+                      </Button>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => deleteTag(tag.id)}
-                    className="p-2 text-slate-400 hover:text-red-500"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="w-4 h-4 rounded-full shrink-0"
+                      style={{ backgroundColor: tag.color }}
+                    />
+                    <div
+                      className="flex-1 cursor-pointer"
+                      onClick={() => navigate(`/tags/${tag.id}`)}
+                    >
+                      <h3 className="font-medium">{tag.name}</h3>
+                      {tag.description && (
+                        <p className="text-sm text-slate-500">
+                          {tag.description}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => startEdit(tag)}
+                      className="p-2 text-slate-400 hover:text-indigo-500"
+                      aria-label="编辑"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <button
+                      onClick={() => deleteTag(tag.id)}
+                      className="p-2 text-slate-400 hover:text-red-500"
+                      aria-label="删除"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}

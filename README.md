@@ -20,7 +20,7 @@
 ```bash
 # 克隆仓库
 git clone https://github.com/jiangfire/datamaplite.git
-cd fuckcmdb
+cd datamaplite
 
 # 配置环境
 cp .env.example .env
@@ -35,7 +35,7 @@ make docker-up
 - SQLite 运行时已切换到纯 Go 驱动 `modernc.org/sqlite`，生产构建不再依赖 CGO
 
 访问:
-- Web UI: http://localhost
+- Web UI: http://localhost:8080
 - API: http://localhost:8080
 
 ## 统一 HTTP 响应结构
@@ -103,13 +103,13 @@ pnpm build
 
 ### 启用方式
 
-在 `fuckcmdb` 环境变量中增加：
+在 `datamaplite` 环境变量中增加：
 
 ```env
 DATAMAP_GOVERNANCE_ENABLED=true
 DATAMAP_GOVERNANCE_ENDPOINT=http://localhost:8081/api/integrations/events
 DATAMAP_GOVERNANCE_INTEGRATION_TOKEN=your-integration-token
-DATAMAP_GOVERNANCE_SOURCE_SYSTEM=fuckcmdb
+DATAMAP_GOVERNANCE_SOURCE_SYSTEM=cornerstone
 DATAMAP_GOVERNANCE_TIMEOUT=5s
 ```
 
@@ -117,21 +117,21 @@ DATAMAP_GOVERNANCE_TIMEOUT=5s
 
 - `DATAMAP_GOVERNANCE_ENABLED=false` 时不会发送治理事件
 - `DATAMAP_GOVERNANCE_INTEGRATION_TOKEN` 需要与 `cornerstone` 的 `INTEGRATION_SHARED_TOKEN` 或 `INTEGRATION_TOKENS` 对应
-- `DATAMAP_GOVERNANCE_SOURCE_SYSTEM` 默认值为 `fuckcmdb`
+- `DATAMAP_GOVERNANCE_SOURCE_SYSTEM` 默认值为 `cornerstone`
 
 ### 明日联调建议步骤
 
 1. 在 `cornerstone` 配置 `INTEGRATION_SHARED_TOKEN` 或 `INTEGRATION_TOKENS`
 2. 启动 `cornerstone`
-3. 启动 `fuckcmdb` 并开启治理事件发送
-4. 在 `fuckcmdb` 触发一次数据源同步，确认 `cornerstone` 自动生成结构变更任务
-5. 在 `fuckcmdb` 触发一次 DQ 检查且保证至少一条失败，确认 `cornerstone` 自动生成 DQ 任务
+3. 启动 `datamaplite` 并开启治理事件发送
+4. 在 `datamaplite` 触发一次数据源同步，确认 `cornerstone` 自动生成结构变更任务
+5. 在 `datamaplite` 触发一次 DQ 检查且保证至少一条失败，确认 `cornerstone` 自动生成 DQ 任务
 
 ### 当前边界
 
 当前已完成：
 
-- `fuckcmdb -> cornerstone` HTTP 治理事件推送
+- `datamaplite -> cornerstone` HTTP 治理事件推送
 - 结构变更事件发送
 - DQ 失败事件发送
 - 治理事件 outbox 持久化与后台补偿投递
@@ -140,7 +140,7 @@ DATAMAP_GOVERNANCE_TIMEOUT=5s
 
 - `dq.alert.triggered`
 - `ai.recommendation.generated`
-- `cornerstone -> fuckcmdb` 审核通过后回写
+- `cornerstone -> datamaplite` 审核通过后回写
 
 ## MCP 服务
 
@@ -298,7 +298,7 @@ docker-compose up -d
 ## 项目结构
 
 ```
-fuckcmdb/
+datamaplite/
 ├── cmd/datamap/          # 应用入口
 ├── internal/
 │   ├── api/              # HTTP handlers

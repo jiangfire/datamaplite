@@ -62,10 +62,10 @@ func (s *AlertService) CreateAlertRule(ctx context.Context, req *model.AlertRule
 		SourceID:      req.SourceID,
 		ObjectID:      req.ObjectID,
 		Name:          req.Name,
-		Description:   &req.Description,
+		Description:   req.Description,
 		ChangeTypes:   changeTypes,
 		NotifyWebhook: req.NotifyWebhook,
-		WebhookURL:    &req.WebhookURL,
+		WebhookURL:    req.WebhookURL,
 		NotifyInApp:   req.NotifyInApp,
 		IsActive:      req.IsActive,
 	}
@@ -151,9 +151,10 @@ func (s *AlertService) UpdateAlertRule(ctx context.Context, id string, req *mode
 
 	updates := &store.AlertRuleUpdate{
 		Name:          &req.Name,
-		Description:   &req.Description,
+		Description:   req.Description,
 		ChangeTypes:   &changeTypes,
 		NotifyWebhook: &req.NotifyWebhook,
+		WebhookURL:    req.WebhookURL,
 		NotifyInApp:   &req.NotifyInApp,
 		IsActive:      &req.IsActive,
 	}
@@ -163,12 +164,6 @@ func (s *AlertService) UpdateAlertRule(ctx context.Context, id string, req *mode
 	}
 	if req.ObjectID != nil {
 		updates.ObjectID = req.ObjectID
-	}
-	if req.WebhookURL != "" {
-		updates.WebhookURL = &req.WebhookURL
-	} else {
-		emptyURL := ""
-		updates.WebhookURL = &emptyURL
 	}
 
 	if err := s.store.UpdateAlertRule(ctx, id, updates); err != nil {

@@ -17,18 +17,31 @@ interface StoredAuthSession {
   user: UserInfo | null;
 }
 
+interface PersistedAuthData {
+  refreshToken: string;
+  expiresIn: number;
+  user: UserInfo | null;
+}
+
+// Access token 保存在内存中，降低 XSS 泄露风险（B16）。
+let accessTokenMemory: string | null = null;
+
 interface RetryableRequestConfig extends InternalAxiosRequestConfig {
   _retry?: boolean;
 }
 
-const readAuthStorage = (): StoredAuthSession | null => {
+const readPersistedData = (): PersistedAuthData | null => {
   const raw = localStorage.getItem(AUTH_STORAGE_KEY);
-  if (!raw) {
-    return null;
-  }
-
+  if (!raw) return null;
   try {
-    return JSON.parse(raw) as StoredAuthSession;
+    const parsed = JSON.parse(raw) as Partial<StoredAuthSession> & Partial<PersistedAuthData>;
+    // 兼容旧格式：旧格式同时存了 accessToken，迁移时忽略它
+    if (!parsed.refreshToken) return null;
+    return {
+      refreshToken: parsed.refreshToken,
+      expiresIn: parsed.expiresIn ?? 0,
+      user: parsed.user ?? null,
+    };
   } catch {
     localStorage.removeItem(AUTH_STORAGE_KEY);
     return null;
@@ -41,16 +54,42 @@ const notifyAuthSessionChanged = () => {
   }
 };
 
-export const getStoredSession = () => readAuthStorage();
+export const getStoredSession = (): StoredAuthSession | null => {
+  const persisted = readPersistedData();
+  if (!persisted || !accessTokenMemory) return null;
+  return {
+    accessToken: accessTokenMemory,
+    refreshToken: persisted.refreshToken,
+    expiresIn: persisted.expiresIn,
+    user: persisted.user,
+  };
+};
 
 export const setStoredSession = (session: StoredAuthSession) => {
-  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+  accessTokenMemory = session.accessToken;
+  const persisted: PersistedAuthData = {
+    refreshToken: session.refreshToken,
+    expiresIn: session.expiresIn,
+    user: session.user,
+  };
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(persisted));
   notifyAuthSessionChanged();
 };
 
 export const clearStoredSession = () => {
+  accessTokenMemory = null;
   localStorage.removeItem(AUTH_STORAGE_KEY);
   notifyAuthSessionChanged();
+};
+
+// 页面刷新后尝试用 refresh_token 恢复 access_token
+export const restoreSession = async (): Promise<StoredAuthSession | null> => {
+  const persisted = readPersistedData();
+  if (!persisted?.refreshToken) return null;
+  if (accessTokenMemory) return getStoredSession();
+  const newToken = await refreshAccessToken();
+  if (!newToken) return null;
+  return getStoredSession();
 };
 
 const unwrapResponse = <T>(payload: ApiResponse<T>) => {
@@ -79,17 +118,30 @@ const apiClient: AxiosInstance = axios.create({
 
 let refreshPromise: Promise<string | null> | null = null;
 
+const redirectToLogin = () => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const { pathname, search } = window.location;
+  if (pathname === '/login') {
+    return;
+  }
+  const next = encodeURIComponent(`${pathname}${search}`);
+  window.location.assign(`/login?next=${next}`);
+};
+
 const refreshAccessToken = async (): Promise<string | null> => {
-  const session = getStoredSession();
-  if (!session?.refreshToken) {
+  const persisted = readPersistedData();
+  if (!persisted?.refreshToken) {
     clearStoredSession();
+    redirectToLogin();
     return null;
   }
 
   if (!refreshPromise) {
     refreshPromise = refreshClient
       .post<ApiResponse<LoginResponse>>('/auth/refresh', {
-        refresh_token: session.refreshToken,
+        refresh_token: persisted.refreshToken,
       })
       .then((response) => {
         const refreshed = unwrapResponse(response.data);
@@ -103,6 +155,7 @@ const refreshAccessToken = async (): Promise<string | null> => {
       })
       .catch(() => {
         clearStoredSession();
+        redirectToLogin();
         return null;
       })
       .finally(() => {

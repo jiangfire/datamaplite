@@ -1,12 +1,7 @@
 // DataMap-Lite Frontend Types
 
 // ============ DataSource Types ============
-export type DataSourceType =
-  | 'mysql'
-  | 'postgres'
-  | 'mongodb'
-  | 'oracle'
-  | 'mssql';
+export type DataSourceType = 'mysql' | 'postgres' | 'mongodb';
 export type DataSourceStatus = 'active' | 'inactive' | 'error' | 'syncing';
 
 export interface DataSource {
@@ -302,6 +297,19 @@ export interface LoginResponse {
   refresh_token: string;
   expires_in: number;
   user: UserInfo;
+}
+
+export interface UserCreateRequest {
+  username: string;
+  password: string;
+  email: string;
+  role?: UserRole;
+}
+
+export interface UserUpdateRequest {
+  email?: string;
+  password?: string;
+  role?: UserRole;
 }
 
 // ============ Data Quality Types ============

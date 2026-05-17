@@ -16,9 +16,10 @@ export const LoginPage: React.FC = () => {
   const from =
     (location.state as { from?: { pathname?: string; search?: string } } | null)
       ?.from;
+  const nextParam = new URLSearchParams(location.search).get('next');
   const redirectTo = from?.pathname
     ? `${from.pathname}${from.search || ''}`
-    : '/';
+    : nextParam || '/';
 
   if (isAuthenticated) {
     return <Navigate to={redirectTo} replace />;

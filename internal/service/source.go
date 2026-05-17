@@ -127,35 +127,25 @@ func (s *SourceService) GetSource(ctx context.Context, id string) (*model.Source
 	return s.toSourceResponse(src), nil
 }
 
-// UpdateSource 更新数据源
+// UpdateSource 更新数据源。
+// 字段语义：req.Xxx == nil 表示"未传"；非 nil 即"显式设置"，含空字符串"清空"。
 func (s *SourceService) UpdateSource(ctx context.Context, id string, req *model.UpdateSourceRequest) error {
-	updates := &store.DataSourceUpdate{}
-
-	if req.Name != "" {
-		updates.Name = &req.Name
-	}
-	if req.Description != "" {
-		updates.Description = &req.Description
-	}
-	if req.Host != "" {
-		updates.Host = &req.Host
-	}
-	if req.Port != 0 {
-		updates.Port = &req.Port
-	}
-	if req.Database != "" {
-		updates.Database = &req.Database
+	updates := &store.DataSourceUpdate{
+		Name:        req.Name,
+		Description: req.Description,
+		Host:        req.Host,
+		Port:        req.Port,
+		Database:    req.Database,
 	}
 
-	// 如果有密码相关更新，需要重新加密连接配置
-	if req.Password != "" || req.Username != "" || req.Host != "" || req.Port != 0 || req.Database != "" {
-		// 获取现有记录来填充未提供的字段
+	// 任何凭据或连接参数变化都需要重建加密连接配置
+	needRebuild := req.Username != nil || req.Password != nil || req.Host != nil || req.Port != nil || req.Database != nil
+	if needRebuild {
 		existing, err := s.store.GetDataSource(ctx, id)
 		if err != nil {
 			return err
 		}
 
-		// 解密现有配置
 		configJSON, err := s.cipher.Decrypt(existing.ConnectionConfig)
 		if err != nil {
 			return fmt.Errorf("failed to decrypt connection config: %w", err)
@@ -166,24 +156,22 @@ func (s *SourceService) UpdateSource(ctx context.Context, id string, req *model.
 			return fmt.Errorf("failed to unmarshal connection config: %w", err)
 		}
 
-		// 更新提供的字段
-		if req.Username != "" {
-			connConfig.Username = req.Username
+		if req.Username != nil {
+			connConfig.Username = *req.Username
 		}
-		if req.Password != "" {
-			connConfig.Password = req.Password
+		if req.Password != nil {
+			connConfig.Password = *req.Password
 		}
-		if req.Host != "" {
-			connConfig.Host = req.Host
+		if req.Host != nil {
+			connConfig.Host = *req.Host
 		}
-		if req.Port != 0 {
-			connConfig.Port = req.Port
+		if req.Port != nil {
+			connConfig.Port = *req.Port
 		}
-		if req.Database != "" {
-			connConfig.Database = req.Database
+		if req.Database != nil {
+			connConfig.Database = *req.Database
 		}
 
-		// 重新加密
 		newConfigJSON, _ := connConfig.ToJSON()
 		encryptedConfig, err := s.cipher.Encrypt(newConfigJSON)
 		if err != nil {

@@ -33,8 +33,6 @@ const defaultPorts: Record<DataSourceType, number> = {
   mysql: 3306,
   postgres: 5432,
   mongodb: 27017,
-  oracle: 1521,
-  mssql: 1433,
 };
 
 export const SourceForm: React.FC<SourceFormProps> = ({
@@ -93,7 +91,16 @@ export const SourceForm: React.FC<SourceFormProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (validate()) {
+    if (!validate()) return;
+
+    if (mode === 'edit') {
+      // 编辑模式下不发送空的凭据字段，避免后端误解释为"清空"
+      const { username, password, ...rest } = formData;
+      const payload: DataSourceUpdate = { ...rest };
+      if (username) payload.username = username;
+      if (password) payload.password = password;
+      onSubmit(payload);
+    } else {
       onSubmit(formData);
     }
   };
@@ -104,7 +111,7 @@ export const SourceForm: React.FC<SourceFormProps> = ({
     setTesting(true);
     setConnectionCheck(null);
     try {
-      await sourceService.testConnection('test', {
+      await sourceService.testConnection({
         type: formData.type,
         host: formData.host,
         port: formData.port,

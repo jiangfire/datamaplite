@@ -9,5 +9,7 @@ export { LineagePage } from './LineagePage';
 export { DQRulesPage } from './DQRulesPage';
 export { DQResultsPage } from './DQResultsPage';
 export { TagsPage } from './TagsPage';
+export { TagDetailPage } from './TagDetailPage';
 export { AlertRulesPage } from './AlertRulesPage';
 export { NotificationsPage } from './NotificationsPage';
+export { AdminUsersPage } from './AdminUsersPage';
