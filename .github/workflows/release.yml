@@ -77,7 +77,8 @@ jobs:
             -o dist/datamap-${{ matrix.suffix }} ./cmd/datamap
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        # Gitea/GHES-compatible artifact backend; v4+ is not supported.
+        uses: actions/upload-artifact@v3
         with:
           name: datamap-${{ matrix.suffix }}
           path: dist/datamap-${{ matrix.suffix }}
@@ -94,7 +95,8 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v5
+        # Gitea/GHES-compatible artifact backend; v4+ is not supported.
+        uses: actions/download-artifact@v3
         with:
           path: artifacts
 

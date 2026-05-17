@@ -19,7 +19,7 @@
 
 ```bash
 # 克隆仓库
-git clone https://git.neolidy.top/neo/fuckcmdb.git
+git clone https://github.com/jiangfire/datamaplite.git
 cd fuckcmdb
 
 # 配置环境
@@ -276,7 +276,7 @@ make clean         # 清理构建产物
 docker-compose up -d
 
 # 或使用预构建镜像
-wget https://git.neolidy.top/neo/fuckcmdb/raw/branch/main/docker-compose.yml
+wget https://github.com/jiangfire/datamaplite/raw/branch/main/docker-compose.yml
 docker-compose up -d
 ```
 
@@ -353,4 +353,4 @@ MIT License
 
 ## 联系方式
 
-- 仓库: https://git.neolidy.top/neo/fuckcmdb
+- 仓库: https://github.com/jiangfire/datamaplite

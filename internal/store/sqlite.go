@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"git.neolidy.top/neo/fuckcmdb/internal/config"
 	"github.com/google/uuid"
+	"github.com/jiangfire/datamaplite/internal/config"
 	"go.uber.org/zap"
 	_ "modernc.org/sqlite"
 )

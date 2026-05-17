@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"git.neolidy.top/neo/fuckcmdb/internal/model"
-	"git.neolidy.top/neo/fuckcmdb/internal/service"
-	"git.neolidy.top/neo/fuckcmdb/internal/store"
 	"github.com/google/uuid"
+	"github.com/jiangfire/datamaplite/internal/model"
+	"github.com/jiangfire/datamaplite/internal/service"
+	"github.com/jiangfire/datamaplite/internal/store"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

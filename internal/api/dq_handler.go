@@ -3,9 +3,9 @@ package api
 import (
 	"strconv"
 
-	"git.neolidy.top/neo/fuckcmdb/internal/model"
-	"git.neolidy.top/neo/fuckcmdb/internal/service"
 	"github.com/gin-gonic/gin"
+	"github.com/jiangfire/datamaplite/internal/model"
+	"github.com/jiangfire/datamaplite/internal/service"
 )
 
 // parseInt 解析字符串为整数

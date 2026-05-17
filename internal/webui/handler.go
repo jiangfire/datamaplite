@@ -11,7 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	responsepkg "git.neolidy.top/neo/fuckcmdb/pkg/response"
+	responsepkg "github.com/jiangfire/datamaplite/pkg/response"
 )
 
 const (

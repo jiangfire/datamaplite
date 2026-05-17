@@ -246,8 +246,8 @@ package service
 import (
     "testing"
     
-    "git.neolidy.top/neo/fuckcmdb/internal/model"
-    "git.neolidy.top/neo/fuckcmdb/internal/store"
+    "github.com/jiangfire/datamaplite/internal/model"
+    "github.com/jiangfire/datamaplite/internal/store"
     "github.com/golang/mock/gomock"
 )
 

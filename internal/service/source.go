@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"git.neolidy.top/neo/fuckcmdb/internal/crypto"
-	"git.neolidy.top/neo/fuckcmdb/internal/model"
-	"git.neolidy.top/neo/fuckcmdb/internal/scanner"
-	"git.neolidy.top/neo/fuckcmdb/internal/store"
 	"github.com/google/uuid"
+	"github.com/jiangfire/datamaplite/internal/crypto"
+	"github.com/jiangfire/datamaplite/internal/model"
+	"github.com/jiangfire/datamaplite/internal/scanner"
+	"github.com/jiangfire/datamaplite/internal/store"
 )
 
 // SourceService 数据源服务

@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"git.neolidy.top/neo/fuckcmdb/internal/config"
-	"git.neolidy.top/neo/fuckcmdb/internal/store"
 	"github.com/google/uuid"
+	"github.com/jiangfire/datamaplite/internal/config"
+	"github.com/jiangfire/datamaplite/internal/store"
 	"go.uber.org/zap"
 )
 

@@ -3,10 +3,10 @@ package api
 import (
 	"net/http"
 
-	"git.neolidy.top/neo/fuckcmdb/internal/model"
-	responsepkg "git.neolidy.top/neo/fuckcmdb/pkg/response"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/jiangfire/datamaplite/internal/model"
+	responsepkg "github.com/jiangfire/datamaplite/pkg/response"
 )
 
 var validate = validator.New()

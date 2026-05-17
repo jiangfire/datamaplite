@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"git.neolidy.top/neo/fuckcmdb/internal/config"
+	"github.com/jiangfire/datamaplite/internal/config"
 	"go.uber.org/zap"
 )
 

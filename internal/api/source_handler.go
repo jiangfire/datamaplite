@@ -4,11 +4,11 @@ import (
 	"net/http"
 	"time"
 
-	"git.neolidy.top/neo/fuckcmdb/internal/model"
-	"git.neolidy.top/neo/fuckcmdb/internal/scanner"
-	"git.neolidy.top/neo/fuckcmdb/internal/service"
-	responsepkg "git.neolidy.top/neo/fuckcmdb/pkg/response"
 	"github.com/gin-gonic/gin"
+	"github.com/jiangfire/datamaplite/internal/model"
+	"github.com/jiangfire/datamaplite/internal/scanner"
+	"github.com/jiangfire/datamaplite/internal/service"
+	responsepkg "github.com/jiangfire/datamaplite/pkg/response"
 )
 
 // SourceHandler 数据源处理器

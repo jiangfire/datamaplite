@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"git.neolidy.top/neo/fuckcmdb/internal/model"
-	"git.neolidy.top/neo/fuckcmdb/internal/store"
+	"github.com/jiangfire/datamaplite/internal/model"
+	"github.com/jiangfire/datamaplite/internal/store"
 )
 
 // MetadataService 元数据服务

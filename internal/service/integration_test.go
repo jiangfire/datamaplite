@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"git.neolidy.top/neo/fuckcmdb/internal/config"
-	"git.neolidy.top/neo/fuckcmdb/internal/model"
-	"git.neolidy.top/neo/fuckcmdb/internal/store"
+	"github.com/jiangfire/datamaplite/internal/config"
+	"github.com/jiangfire/datamaplite/internal/model"
+	"github.com/jiangfire/datamaplite/internal/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"

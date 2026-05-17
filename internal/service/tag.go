@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"git.neolidy.top/neo/fuckcmdb/internal/model"
-	"git.neolidy.top/neo/fuckcmdb/internal/store"
+	"github.com/jiangfire/datamaplite/internal/model"
+	"github.com/jiangfire/datamaplite/internal/store"
 )
 
 // TagService 标签服务

@@ -3,8 +3,8 @@ package api
 import (
 	"context"
 
-	"git.neolidy.top/neo/fuckcmdb/internal/model"
-	"git.neolidy.top/neo/fuckcmdb/internal/scanner"
+	"github.com/jiangfire/datamaplite/internal/model"
+	"github.com/jiangfire/datamaplite/internal/scanner"
 )
 
 // SourceService 定义数据源服务接口

@@ -1,8 +1,8 @@
 package api
 
 import (
-	"git.neolidy.top/neo/fuckcmdb/internal/service"
 	"github.com/gin-gonic/gin"
+	"github.com/jiangfire/datamaplite/internal/service"
 )
 
 // Router 路由注册器

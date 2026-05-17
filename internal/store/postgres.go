@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"os"
 
-	"git.neolidy.top/neo/fuckcmdb/internal/config"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jiangfire/datamaplite/internal/config"
 	"go.uber.org/zap"
 )
 

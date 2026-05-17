@@ -8,8 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"git.neolidy.top/neo/fuckcmdb/internal/model"
 	"github.com/gin-gonic/gin"
+	"github.com/jiangfire/datamaplite/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

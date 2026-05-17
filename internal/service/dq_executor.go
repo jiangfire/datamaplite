@@ -8,11 +8,11 @@ import (
 	"math"
 	"strings"
 
-	"git.neolidy.top/neo/fuckcmdb/internal/model"
-	"git.neolidy.top/neo/fuckcmdb/internal/scanner"
-	"git.neolidy.top/neo/fuckcmdb/internal/store"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jiangfire/datamaplite/internal/model"
+	"github.com/jiangfire/datamaplite/internal/scanner"
+	"github.com/jiangfire/datamaplite/internal/store"
 )
 
 type dqDialect string

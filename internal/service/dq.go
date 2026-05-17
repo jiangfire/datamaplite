@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"git.neolidy.top/neo/fuckcmdb/internal/crypto"
-	"git.neolidy.top/neo/fuckcmdb/internal/model"
-	internalSQLParser "git.neolidy.top/neo/fuckcmdb/internal/sqlparser"
-	"git.neolidy.top/neo/fuckcmdb/internal/store"
 	"github.com/google/uuid"
+	"github.com/jiangfire/datamaplite/internal/crypto"
+	"github.com/jiangfire/datamaplite/internal/model"
+	internalSQLParser "github.com/jiangfire/datamaplite/internal/sqlparser"
+	"github.com/jiangfire/datamaplite/internal/store"
 )
 
 // DQService 数据质量服务

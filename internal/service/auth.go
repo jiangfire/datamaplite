@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"git.neolidy.top/neo/fuckcmdb/internal/model"
-	"git.neolidy.top/neo/fuckcmdb/internal/store"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/jiangfire/datamaplite/internal/model"
+	"github.com/jiangfire/datamaplite/internal/store"
 	"golang.org/x/crypto/bcrypt"
 )
 

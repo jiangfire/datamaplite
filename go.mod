@@ -1,4 +1,4 @@
-module git.neolidy.top/neo/fuckcmdb
+module github.com/jiangfire/datamaplite
 
 go 1.25.4
 

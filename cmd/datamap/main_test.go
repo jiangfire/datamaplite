@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	responsepkg "git.neolidy.top/neo/fuckcmdb/pkg/response"
 	"github.com/gin-gonic/gin"
+	responsepkg "github.com/jiangfire/datamaplite/pkg/response"
 	"github.com/stretchr/testify/require"
 )
 

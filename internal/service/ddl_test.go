@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"git.neolidy.top/neo/fuckcmdb/internal/store"
+	"github.com/jiangfire/datamaplite/internal/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

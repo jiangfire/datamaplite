@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	responsepkg "git.neolidy.top/neo/fuckcmdb/pkg/response"
+	responsepkg "github.com/jiangfire/datamaplite/pkg/response"
 	"github.com/stretchr/testify/require"
 )
 

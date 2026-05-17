@@ -12,6 +12,7 @@
 | [REMEDIATION_TASKS.md](./REMEDIATION_TASKS.md) | 详细任务跟踪清单 | 开发团队、测试团队 |
 | [IMPLEMENTATION_GUIDE.md](./IMPLEMENTATION_GUIDE.md) | 技术实施指南 | 后端/前端开发工程师 |
 | [MCP_USAGE.md](./MCP_USAGE.md) | MCP 服务启动、接入与治理使用说明 | 后端工程师、平台工程师、AI Agent 集成人员 |
+| [GITEA_ACTIONS_COMPATIBILITY.md](./GITEA_ACTIONS_COMPATIBILITY.md) | Gitea Actions 版本兼容与选型说明 | 平台工程师、后端工程师、CI 维护者 |
 
 ---
 

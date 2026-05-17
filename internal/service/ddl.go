@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"git.neolidy.top/neo/fuckcmdb/internal/store"
+	"github.com/jiangfire/datamaplite/internal/store"
 )
 
 // DDLGenerator DDL生成器
