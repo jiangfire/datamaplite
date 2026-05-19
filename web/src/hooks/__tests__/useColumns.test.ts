@@ -17,8 +17,9 @@ describe('useColumns hooks - race protection', () => {
 
   it('useLineage sets loading then resolves', async () => {
     vi.mocked(services.columnService.getLineage).mockResolvedValue({
-      upstream: [],
-      downstream: [],
+      column_id: 'col-1',
+      upward: [],
+      downward: [],
     });
 
     const { result } = renderHook(() => useLineage('col-1'));
@@ -30,8 +31,9 @@ describe('useColumns hooks - race protection', () => {
     });
 
     expect(result.current.lineage).toEqual({
-      upstream: [],
-      downstream: [],
+      column_id: 'col-1',
+      upward: [],
+      downward: [],
     });
   });
 
