@@ -125,7 +125,7 @@ jobs:
         run: pnpm --dir web exec tsc --noEmit
 
       - name: Run tests
-        run: pnpm --dir web test --if-present
+        run: pnpm --dir web test
 
       - name: Build frontend
         run: pnpm --dir web build
