@@ -8,6 +8,7 @@ These must be set in production environments:
 
 - `DATAMAP_AUTH_JWT_SECRET` - JWT signing secret (required, no default)
 - `DATAMAP_ENCRYPTION_KEY` - 32-byte encryption key for connection credentials (required)
+- `DATAMAP_BOOTSTRAP_ADMIN_PASSWORD` - Initial admin password when the database has no users (optional, recommended for first deploy)
 
 ## Server Configuration
 

@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useReducer } from 'react';
 import { termService } from '../services';
-import { useToastContext } from '../components/ToastProvider';
+import { useToastContext } from './useToastContext';
 import type { BusinessTerm, BusinessTermCreate } from '../types';
 
 export const useTerms = (category?: string) => {
@@ -71,31 +71,54 @@ export const useTerms = (category?: string) => {
   };
 };
 
+interface TermState {
+  term: BusinessTerm | null;
+  loading: boolean;
+  error: string | null;
+}
+
+type TermAction =
+  | { type: 'start' }
+  | { type: 'success'; term: BusinessTerm }
+  | { type: 'error'; error: string };
+
+function termReducer(state: TermState, action: TermAction): TermState {
+  switch (action.type) {
+    case 'start':
+      return { ...state, loading: true, error: null };
+    case 'success':
+      return { term: action.term, loading: false, error: null };
+    case 'error':
+      return { ...state, loading: false, error: action.error };
+    default:
+      return state;
+  }
+}
+
 export const useTerm = (id: string | undefined) => {
-  const [term, setTerm] = useState<BusinessTerm | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [state, dispatch] = useReducer(termReducer, {
+    term: null,
+    loading: false,
+    error: null,
+  });
 
   useEffect(() => {
-    if (!id) {
-      setTerm(null);
-      return;
-    }
+    if (!id) return;
 
     let active = true;
-    setLoading(true);
-    setError(null);
+    dispatch({ type: 'start' });
     termService
       .getTerm(id)
       .then((data) => {
-        if (active) setTerm(data);
+        if (active) dispatch({ type: 'success', term: data });
       })
       .catch((err) => {
         if (active)
-          setError(err instanceof Error ? err.message : 'Failed to fetch term');
-      })
-      .finally(() => {
-        if (active) setLoading(false);
+          dispatch({
+            type: 'error',
+            error:
+              err instanceof Error ? err.message : 'Failed to fetch term',
+          });
       });
 
     return () => {
@@ -103,7 +126,7 @@ export const useTerm = (id: string | undefined) => {
     };
   }, [id]);
 
-  return { term, loading, error };
+  return state;
 };
 
 export const useDDLGeneration = () => {

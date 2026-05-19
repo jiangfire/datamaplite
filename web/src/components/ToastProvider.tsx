@@ -1,17 +1,6 @@
-import React, { createContext, useContext } from 'react';
-import { useToast, type ToastType } from '../hooks/useToast';
-
-interface ToastContextValue {
-  toast: (message: string, type?: ToastType) => string;
-}
-
-const ToastContext = createContext<ToastContextValue | null>(null);
-
-export const useToastContext = () => {
-  const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error('useToastContext must be used within ToastProvider');
-  return ctx;
-};
+import React from 'react';
+import { useToast } from '../hooks/useToast';
+import { ToastContext } from './ToastContext';
 
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({
   children,

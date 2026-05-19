@@ -16,6 +16,7 @@ import (
 	"github.com/jiangfire/datamaplite/internal/config"
 	"github.com/jiangfire/datamaplite/internal/crypto"
 	"github.com/jiangfire/datamaplite/internal/mcpserver"
+	"github.com/jiangfire/datamaplite/internal/model"
 	"github.com/jiangfire/datamaplite/internal/scanner"
 	"github.com/jiangfire/datamaplite/internal/service"
 	"github.com/jiangfire/datamaplite/internal/store"
@@ -33,6 +34,39 @@ func initAuthService(cfg config.AuthConfig, store store.Store) *service.AuthServ
 		BcryptCost:      cfg.BcryptCost,
 	}
 	return service.NewAuthService(store, authCfg)
+}
+
+func bootstrapAdmin(ctx context.Context, st store.Store, authService *service.AuthService, logger *zap.Logger) {
+	if !authService.IsEnabled() {
+		return
+	}
+
+	users, err := st.ListUsers(ctx)
+	if err != nil {
+		logger.Warn("failed to list users during bootstrap", zap.Error(err))
+		return
+	}
+	if len(users) > 0 {
+		return
+	}
+
+	password := os.Getenv("DATAMAP_BOOTSTRAP_ADMIN_PASSWORD")
+	if password == "" {
+		logger.Warn("no users found and DATAMAP_BOOTSTRAP_ADMIN_PASSWORD not set; create the first admin via the API or set the env var")
+		return
+	}
+
+	_, err = authService.Register(ctx, &model.RegisterRequest{
+		Username: "admin",
+		Password: password,
+		Email:    "admin@datamap.local",
+		Role:     model.UserRoleAdmin,
+	})
+	if err != nil {
+		logger.Warn("failed to bootstrap admin user", zap.Error(err))
+		return
+	}
+	logger.Info("bootstrapped admin user from DATAMAP_BOOTSTRAP_ADMIN_PASSWORD", zap.String("username", "admin"))
 }
 
 func main() {
@@ -108,6 +142,7 @@ func run() error {
 	termService := service.NewTermService(store)
 	ddlService := service.NewDDLService(store)
 	authService := initAuthService(cfg.Auth, store)
+	bootstrapAdmin(ctx, store, authService, logger)
 	dqService := service.NewDQService(store, cipher)
 	tagService := service.NewTagService(store)
 	alertService := service.NewAlertService(store, logger)

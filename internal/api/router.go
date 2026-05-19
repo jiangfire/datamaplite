@@ -69,15 +69,15 @@ func (r *Router) Register(engine *gin.Engine) {
 			sources := authorized.Group("/sources")
 			{
 				sources.GET("", r.sourceHandler.ListSources)
-				sources.POST("", r.sourceHandler.CreateSource)
 				sources.GET("/:id", r.sourceHandler.GetSource)
-				sources.PUT("/:id", r.sourceHandler.UpdateSource)
-				sources.DELETE("/:id", r.sourceHandler.DeleteSource)
-				sources.POST("/test-connection", r.sourceHandler.TestConnection)
-				sources.POST("/:id/test", r.sourceHandler.TestConnection)
-				sources.POST("/:id/sync", r.sourceHandler.TriggerSync)
 				sources.GET("/:id/schema", r.sourceHandler.GetSchemaTree)
 				sources.GET("/:id/changes", r.sourceHandler.ListSchemaChanges)
+				sources.POST("", AdminMiddleware(), r.sourceHandler.CreateSource)
+				sources.PUT("/:id", AdminMiddleware(), r.sourceHandler.UpdateSource)
+				sources.DELETE("/:id", AdminMiddleware(), r.sourceHandler.DeleteSource)
+				sources.POST("/test-connection", AdminMiddleware(), r.sourceHandler.TestConnection)
+				sources.POST("/:id/test", AdminMiddleware(), r.sourceHandler.TestConnection)
+				sources.POST("/:id/sync", AdminMiddleware(), r.sourceHandler.TriggerSync)
 			}
 
 			// 全局搜索
@@ -88,35 +88,35 @@ func (r *Router) Register(engine *gin.Engine) {
 			{
 				columns.GET("/:id", r.schemaHandler.GetColumnDetail)
 				columns.GET("/:id/mappings", r.schemaHandler.GetColumnMappings)
-				columns.POST("/:id/mappings", r.schemaHandler.CreateColumnMapping)
-				columns.DELETE("/:id/mappings/:mappingId", r.schemaHandler.DeleteColumnMapping)
+				columns.POST("/:id/mappings", AdminMiddleware(), r.schemaHandler.CreateColumnMapping)
+				columns.DELETE("/:id/mappings/:mappingId", AdminMiddleware(), r.schemaHandler.DeleteColumnMapping)
 				columns.GET("/:id/lineage", r.schemaHandler.GetLineage)
 				columns.GET("/:id/impact", r.schemaHandler.GetImpactAnalysis)
-				columns.POST("/:id/term", r.termHandler.AssignTermToColumn)
-				columns.POST("/:id/tags", r.tagHandler.AssignTagsToColumn)
+				columns.POST("/:id/term", AdminMiddleware(), r.termHandler.AssignTermToColumn)
+				columns.POST("/:id/tags", AdminMiddleware(), r.tagHandler.AssignTagsToColumn)
 				columns.GET("/:id/tags", r.tagHandler.GetColumnTags)
-				columns.DELETE("/:id/tags/:tagId", r.tagHandler.RemoveTagFromColumn)
+				columns.DELETE("/:id/tags/:tagId", AdminMiddleware(), r.tagHandler.RemoveTagFromColumn)
 			}
 
 			// 业务术语管理
 			terms := authorized.Group("/terms")
 			{
 				terms.GET("", r.termHandler.ListTerms)
-				terms.POST("", r.termHandler.CreateTerm)
+				terms.POST("", AdminMiddleware(), r.termHandler.CreateTerm)
 				terms.GET("/:id", r.termHandler.GetTerm)
-				terms.PUT("/:id", r.termHandler.UpdateTerm)
-				terms.DELETE("/:id", r.termHandler.DeleteTerm)
+				terms.PUT("/:id", AdminMiddleware(), r.termHandler.UpdateTerm)
+				terms.DELETE("/:id", AdminMiddleware(), r.termHandler.DeleteTerm)
 			}
 
 			// 数据质量管理
 			dq := authorized.Group("/dq")
 			{
 				dq.GET("/rules", r.dqHandler.ListRules)
-				dq.POST("/rules", r.dqHandler.CreateRule)
+				dq.POST("/rules", AdminMiddleware(), r.dqHandler.CreateRule)
 				dq.GET("/rules/:id", r.dqHandler.GetRule)
-				dq.PUT("/rules/:id", r.dqHandler.UpdateRule)
-				dq.DELETE("/rules/:id", r.dqHandler.DeleteRule)
-				dq.POST("/check", r.dqHandler.CheckRules)
+				dq.PUT("/rules/:id", AdminMiddleware(), r.dqHandler.UpdateRule)
+				dq.DELETE("/rules/:id", AdminMiddleware(), r.dqHandler.DeleteRule)
+				dq.POST("/check", AdminMiddleware(), r.dqHandler.CheckRules)
 				dq.GET("/results", r.dqHandler.GetResults)
 				dq.GET("/stats", r.dqHandler.GetStats)
 			}
@@ -125,24 +125,24 @@ func (r *Router) Register(engine *gin.Engine) {
 			tags := authorized.Group("/tags")
 			{
 				tags.GET("", r.tagHandler.ListTags)
-				tags.POST("", r.tagHandler.CreateTag)
+				tags.POST("", AdminMiddleware(), r.tagHandler.CreateTag)
 				tags.GET("/:id", r.tagHandler.GetTag)
-				tags.PUT("/:id", r.tagHandler.UpdateTag)
-				tags.DELETE("/:id", r.tagHandler.DeleteTag)
+				tags.PUT("/:id", AdminMiddleware(), r.tagHandler.UpdateTag)
+				tags.DELETE("/:id", AdminMiddleware(), r.tagHandler.DeleteTag)
 				tags.GET("/:id/columns", r.tagHandler.GetColumnsByTag)
 			}
 
 			// DDL生成
-			authorized.POST("/ddl/generate", r.termHandler.GenerateDDL)
+			authorized.POST("/ddl/generate", AdminMiddleware(), r.termHandler.GenerateDDL)
 
 			// 告警规则管理
 			alerts := authorized.Group("/alerts")
 			{
 				alerts.GET("/rules", r.alertHandler.ListAlertRules)
-				alerts.POST("/rules", r.alertHandler.CreateAlertRule)
+				alerts.POST("/rules", AdminMiddleware(), r.alertHandler.CreateAlertRule)
 				alerts.GET("/rules/:id", r.alertHandler.GetAlertRule)
-				alerts.PUT("/rules/:id", r.alertHandler.UpdateAlertRule)
-				alerts.DELETE("/rules/:id", r.alertHandler.DeleteAlertRule)
+				alerts.PUT("/rules/:id", AdminMiddleware(), r.alertHandler.UpdateAlertRule)
+				alerts.DELETE("/rules/:id", AdminMiddleware(), r.alertHandler.DeleteAlertRule)
 			}
 
 			// 通知管理

@@ -507,6 +507,11 @@ func (m *MockStore) MarkNotificationAsRead(ctx context.Context, userID string, n
 	return args.Error(0)
 }
 
+func (m *MockStore) MarkManyNotificationsAsRead(ctx context.Context, userID string, notificationIDs []string) error {
+	args := m.Called(ctx, userID, notificationIDs)
+	return args.Error(0)
+}
+
 func (m *MockStore) MarkAllNotificationsAsRead(ctx context.Context, userID string) error {
 	args := m.Called(ctx, userID)
 	return args.Error(0)

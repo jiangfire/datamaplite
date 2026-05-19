@@ -177,12 +177,10 @@ func (h *NotificationHandler) MarkAsRead(c *gin.Context) {
 			return
 		}
 	} else if len(req.NotificationIDs) > 0 {
-		for _, id := range req.NotificationIDs {
-			if err := h.notifService.MarkAsRead(c.Request.Context(), userID, id); err != nil {
-				h.logger.Error("failed to mark as read", zap.Error(err))
-				h.InternalError(c, err.Error())
-				return
-			}
+		if err := h.notifService.MarkManyAsRead(c.Request.Context(), userID, req.NotificationIDs); err != nil {
+			h.logger.Error("failed to mark as read", zap.Error(err))
+			h.InternalError(c, err.Error())
+			return
 		}
 	}
 

@@ -27,7 +27,7 @@ func NewDDLGenerator() *DDLGenerator {
 func (g *DDLGenerator) GenerateMySQLDDL(obj *store.SchemaObjectRow, cols []*store.ColumnRow) string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("CREATE TABLE %s (\n", g.quoteIdentifier(obj.Name, "mysql")))
+	fmt.Fprintf(&sb, "CREATE TABLE %s (\n", g.quoteIdentifier(obj.Name, "mysql"))
 
 	var colDefs []string
 	var pkCols []string
@@ -44,7 +44,7 @@ func (g *DDLGenerator) GenerateMySQLDDL(obj *store.SchemaObjectRow, cols []*stor
 	sb.WriteString(strings.Join(colDefs, ",\n"))
 
 	if len(pkCols) > 0 {
-		sb.WriteString(fmt.Sprintf(",\n  PRIMARY KEY (%s)", strings.Join(pkCols, ", ")))
+		fmt.Fprintf(&sb, ",\n  PRIMARY KEY (%s)", strings.Join(pkCols, ", "))
 	}
 
 	sb.WriteString("\n);")
@@ -61,11 +61,11 @@ func (g *DDLGenerator) GeneratePostgresDDL(obj *store.SchemaObjectRow, cols []*s
 		schema = *obj.Schema
 	}
 
-	sb.WriteString(fmt.Sprintf(
+	fmt.Fprintf(&sb,
 		"CREATE TABLE %s.%s (\n",
 		g.quoteIdentifier(schema, "postgres"),
 		g.quoteIdentifier(obj.Name, "postgres"),
-	))
+	)
 
 	var colDefs []string
 	var pkCols []string
@@ -82,7 +82,7 @@ func (g *DDLGenerator) GeneratePostgresDDL(obj *store.SchemaObjectRow, cols []*s
 	sb.WriteString(strings.Join(colDefs, ",\n"))
 
 	if len(pkCols) > 0 {
-		sb.WriteString(fmt.Sprintf(",\n  PRIMARY KEY (%s)", strings.Join(pkCols, ", ")))
+		fmt.Fprintf(&sb, ",\n  PRIMARY KEY (%s)", strings.Join(pkCols, ", "))
 	}
 
 	sb.WriteString("\n);")
@@ -93,7 +93,7 @@ func (g *DDLGenerator) GeneratePostgresDDL(obj *store.SchemaObjectRow, cols []*s
 func (g *DDLGenerator) generateMySQLColumnDef(col *store.ColumnRow) string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("%s ", g.quoteIdentifier(col.Name, "mysql")))
+	fmt.Fprintf(&sb, "%s ", g.quoteIdentifier(col.Name, "mysql"))
 
 	// 数据类型映射
 	dataType := g.mapToMySQLType(col.DataType, col.FullDataType)
@@ -104,7 +104,7 @@ func (g *DDLGenerator) generateMySQLColumnDef(col *store.ColumnRow) string {
 	}
 
 	if col.DefaultValue != nil && *col.DefaultValue != "" {
-		sb.WriteString(fmt.Sprintf(" DEFAULT %s", g.formatDefaultValue(col, "mysql")))
+		fmt.Fprintf(&sb, " DEFAULT %s", g.formatDefaultValue(col, "mysql"))
 	}
 
 	if col.IsUnique && !col.IsPrimaryKey {
@@ -117,7 +117,7 @@ func (g *DDLGenerator) generateMySQLColumnDef(col *store.ColumnRow) string {
 func (g *DDLGenerator) generatePostgresColumnDef(col *store.ColumnRow) string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("%s ", g.quoteIdentifier(col.Name, "postgres")))
+	fmt.Fprintf(&sb, "%s ", g.quoteIdentifier(col.Name, "postgres"))
 
 	// 数据类型映射
 	dataType := g.mapToPostgresType(col.DataType, col.FullDataType)
@@ -128,7 +128,7 @@ func (g *DDLGenerator) generatePostgresColumnDef(col *store.ColumnRow) string {
 	}
 
 	if col.DefaultValue != nil && *col.DefaultValue != "" {
-		sb.WriteString(fmt.Sprintf(" DEFAULT %s", g.formatDefaultValue(col, "postgres")))
+		fmt.Fprintf(&sb, " DEFAULT %s", g.formatDefaultValue(col, "postgres"))
 	}
 
 	return sb.String()

@@ -91,6 +91,7 @@ type Store interface {
 	ListNotifications(ctx context.Context, userID string, unreadOnly bool, limit int) ([]*NotificationRow, error)
 	GetNotificationStats(ctx context.Context, userID string) (*NotificationStatsRow, error)
 	MarkNotificationAsRead(ctx context.Context, userID string, notificationID string) error
+	MarkManyNotificationsAsRead(ctx context.Context, userID string, notificationIDs []string) error
 	MarkAllNotificationsAsRead(ctx context.Context, userID string) error
 	UpdateNotificationWebhookStatus(ctx context.Context, id string, sent bool, errorMsg *string) error
 

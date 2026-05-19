@@ -209,6 +209,17 @@ func (c *Config) Validate() error {
 	if c.Auth.Enabled && c.Auth.JWTSecret == "" {
 		return fmt.Errorf("auth.jwt_secret is required (set DATAMAP_AUTH_JWT_SECRET)")
 	}
+	if c.Auth.Enabled {
+		if len(c.Auth.JWTSecret) < 32 {
+			return fmt.Errorf("auth.jwt_secret must be at least 32 characters long")
+		}
+		lower := strings.ToLower(c.Auth.JWTSecret)
+		if strings.Contains(lower, "change-me") ||
+			strings.Contains(lower, "replace_me") ||
+			strings.Contains(lower, "replace-me") {
+			return fmt.Errorf("auth.jwt_secret appears to be a placeholder; set a strong secret (e.g. `openssl rand -base64 48`)")
+		}
+	}
 
 	if c.Governance.Enabled {
 		if strings.TrimSpace(c.Governance.Endpoint) == "" {

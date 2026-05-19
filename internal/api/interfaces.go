@@ -72,6 +72,7 @@ type NotificationService interface {
 	ListNotifications(ctx context.Context, userID string, unreadOnly bool, limit int) ([]*model.NotificationResponse, error)
 	GetNotificationStats(ctx context.Context, userID string) (*model.NotificationStats, error)
 	MarkAsRead(ctx context.Context, userID string, id string) error
+	MarkManyAsRead(ctx context.Context, userID string, ids []string) error
 	MarkAllAsRead(ctx context.Context, userID string) error
 }
 

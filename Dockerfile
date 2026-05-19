@@ -1,5 +1,5 @@
 ARG NODE_IMAGE=docker.m.daocloud.io/library/node:22-alpine
-ARG GO_IMAGE=docker.m.daocloud.io/library/golang:1.25.4-alpine
+ARG GO_IMAGE=docker.m.daocloud.io/library/golang:1.26.3-alpine
 ARG RUNTIME_IMAGE=docker.m.daocloud.io/library/alpine:3.20
 ARG PNPM_VERSION=10.28.0
 ARG NPM_REGISTRY=https://registry.npmmirror.com

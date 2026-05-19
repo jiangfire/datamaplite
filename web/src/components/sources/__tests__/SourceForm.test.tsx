@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SourceForm } from '../SourceForm';
-import type { DataSourceCreate, DataSourceUpdate } from '../../../types';
+import type { DataSourceUpdate } from '../../../types';
 
 vi.mock('../../../services', () => ({
   sourceService: {

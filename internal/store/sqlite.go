@@ -381,9 +381,6 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 
--- 插入默认管理员用户 (密码: admin123)
-INSERT OR IGNORE INTO users (id, username, email, password_hash, role)
-VALUES ('admin-001', 'admin', 'admin@datamap.local', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'admin');
 
 -- 9. 数据质量规则表
 CREATE TABLE IF NOT EXISTS dq_rules (

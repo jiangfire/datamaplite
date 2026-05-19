@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { alertService } from '../services';
-import { useToastContext } from '../components/ToastProvider';
+import { useToastContext } from './useToastContext';
 import type { AlertRule, AlertRuleCreate } from '../types';
 
 export const useAlerts = () => {

@@ -223,7 +223,7 @@ docker-compose down -v --rmi local
 | `DATAMAP_POSTGRES_IMAGE` | PostgreSQL 镜像 | `docker.m.daocloud.io/library/postgres:16-alpine` |
 | `DATAMAP_PGADMIN_IMAGE` | pgAdmin 镜像 | `docker.m.daocloud.io/dpage/pgadmin4:latest` |
 
-首次启动会自动创建默认管理员账号 `admin / admin123`，上线后请立即修改或重建。
+首次启动时，若数据库中没有任何用户，且设置了环境变量 `DATAMAP_BOOTSTRAP_ADMIN_PASSWORD`，则会自动创建管理员账号 `admin`（密码取自该变量）。未设置该变量时，请通过 `/api/v1/auth/register` 接口手动创建第一个管理员。
 
 ## 获取更多帮助
 

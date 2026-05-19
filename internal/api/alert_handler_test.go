@@ -81,6 +81,11 @@ func (m *MockNotificationService) MarkAsRead(ctx context.Context, userID string,
 	return args.Error(0)
 }
 
+func (m *MockNotificationService) MarkManyAsRead(ctx context.Context, userID string, ids []string) error {
+	args := m.Called(ctx, userID, ids)
+	return args.Error(0)
+}
+
 func (m *MockNotificationService) MarkAllAsRead(ctx context.Context, userID string) error {
 	args := m.Called(ctx, userID)
 	return args.Error(0)

@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { notificationService } from '../services';
-import { useToastContext } from '../components/ToastProvider';
+import { useToastContext } from './useToastContext';
 import type { Notification, NotificationStats } from '../types';
 
 export const useNotifications = (unreadOnly?: boolean) => {
+  const { toast } = useToastContext();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [stats, setStats] = useState<NotificationStats | null>(null);
   const [loading, setLoading] = useState(false);

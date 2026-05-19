@@ -74,6 +74,7 @@ type ConnectionTestRequest struct {
 	Database string         `json:"database" validate:"required,max=255"`
 	Username string         `json:"username" validate:"required,max=100"`
 	Password string         `json:"password" validate:"required,max=255"`
+	SSLMode  string         `json:"ssl_mode"`
 }
 
 // SyncResponse 同步响应

@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
@@ -452,6 +453,28 @@ func (s *SQLiteStore) MarkNotificationAsRead(ctx context.Context, userID string,
 		WHERE user_id = ? AND notification_id = ?`
 
 	_, err := s.db.ExecContext(ctx, query, userID, notificationID)
+	return err
+}
+
+// MarkManyNotificationsAsRead 批量标记通知已读
+func (s *SQLiteStore) MarkManyNotificationsAsRead(ctx context.Context, userID string, notificationIDs []string) error {
+	if len(notificationIDs) == 0 {
+		return nil
+	}
+	placeholders := make([]string, len(notificationIDs))
+	for i := range notificationIDs {
+		placeholders[i] = "?"
+	}
+	query := fmt.Sprintf(`
+		UPDATE user_notifications
+		SET is_read = 1, read_at = datetime('now')
+		WHERE user_id = ? AND notification_id IN (%s)`,
+		strings.Join(placeholders, ", "))
+	args := []interface{}{userID}
+	for _, id := range notificationIDs {
+		args = append(args, id)
+	}
+	_, err := s.db.ExecContext(ctx, query, args...)
 	return err
 }
 

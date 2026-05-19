@@ -81,7 +81,8 @@ export const SourceForm: React.FC<SourceFormProps> = ({
       newErrors.port = '端口号必须在 1-65535 之间';
     }
     if (!formData.database.trim()) newErrors.database = '数据库名不能为空';
-    if (!formData.username.trim()) newErrors.username = '用户名不能为空';
+    if (mode === 'create' && !formData.username.trim())
+      newErrors.username = '用户名不能为空';
     if (mode === 'create' && !formData.password)
       newErrors.password = '密码不能为空';
 
@@ -140,7 +141,7 @@ export const SourceForm: React.FC<SourceFormProps> = ({
       title={mode === 'create' ? '创建数据源' : '编辑数据源'}
       size="lg"
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <div className="grid grid-cols-2 gap-4">
           <Input
             label="名称"
@@ -196,7 +197,7 @@ export const SourceForm: React.FC<SourceFormProps> = ({
               setFormData({ ...formData, username: e.target.value })
             }
             error={errors.username}
-            required
+            required={mode === 'create'}
           />
           <Input
             label="密码"

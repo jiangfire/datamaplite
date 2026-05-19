@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useReducer } from 'react';
 import { tagService } from '../services';
-import { useToastContext } from '../components/ToastProvider';
+import { useToastContext } from './useToastContext';
 import type { Tag, TagCreate, ColumnSearchResult } from '../types';
 
 export const useTags = () => {
@@ -111,36 +111,62 @@ export const useColumnTags = (columnId: string | null) => {
   return { tags, loading, error, addTag, removeTag, refetch: fetchColumnTags };
 };
 
+interface TagState {
+  tag: Tag | null;
+  columns: ColumnSearchResult[];
+  loading: boolean;
+  error: string | null;
+}
+
+type TagAction =
+  | { type: 'start' }
+  | { type: 'success'; tag: Tag; columns: ColumnSearchResult[] }
+  | { type: 'error'; error: string };
+
+function tagReducer(state: TagState, action: TagAction): TagState {
+  switch (action.type) {
+    case 'start':
+      return { ...state, loading: true, error: null };
+    case 'success':
+      return {
+        tag: action.tag,
+        columns: action.columns,
+        loading: false,
+        error: null,
+      };
+    case 'error':
+      return { ...state, loading: false, error: action.error };
+    default:
+      return state;
+  }
+}
+
 export const useTag = (tagId: string | undefined) => {
-  const [tag, setTag] = useState<Tag | null>(null);
-  const [columns, setColumns] = useState<ColumnSearchResult[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [state, dispatch] = useReducer(tagReducer, {
+    tag: null,
+    columns: [],
+    loading: false,
+    error: null,
+  });
 
   useEffect(() => {
-    if (!tagId) {
-      setTag(null);
-      setColumns([]);
-      return;
-    }
+    if (!tagId) return;
 
     let active = true;
-    setLoading(true);
-    setError(null);
+    dispatch({ type: 'start' });
 
     Promise.all([tagService.getTag(tagId), tagService.getColumnsByTag(tagId)])
       .then(([tagData, colsData]) => {
         if (active) {
-          setTag(tagData);
-          setColumns(colsData);
+          dispatch({ type: 'success', tag: tagData, columns: colsData });
         }
       })
       .catch((err) => {
         if (active)
-          setError(err instanceof Error ? err.message : 'Failed to fetch tag');
-      })
-      .finally(() => {
-        if (active) setLoading(false);
+          dispatch({
+            type: 'error',
+            error: err instanceof Error ? err.message : 'Failed to fetch tag',
+          });
       });
 
     return () => {
@@ -148,5 +174,5 @@ export const useTag = (tagId: string | undefined) => {
     };
   }, [tagId]);
 
-  return { tag, columns, loading, error };
+  return state;
 };

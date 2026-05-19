@@ -425,6 +425,27 @@ func (t *PostgresTxStore) MarkNotificationAsRead(ctx context.Context, userID str
 	return err
 }
 
+// MarkManyNotificationsAsRead 批量标记通知已读
+func (t *PostgresTxStore) MarkManyNotificationsAsRead(ctx context.Context, userID string, notificationIDs []string) error {
+	if len(notificationIDs) == 0 {
+		return nil
+	}
+	placeholders := make([]string, len(notificationIDs))
+	args := make([]interface{}, 0, len(notificationIDs)+1)
+	args = append(args, userID)
+	for i := range notificationIDs {
+		placeholders[i] = fmt.Sprintf("$%d", i+2)
+		args = append(args, notificationIDs[i])
+	}
+	query := fmt.Sprintf(`
+		UPDATE user_notifications
+		SET is_read = true, read_at = NOW()
+		WHERE user_id = $1 AND notification_id IN (%s)`,
+		strings.Join(placeholders, ", "))
+	_, err := t.tx.Exec(ctx, query, args...)
+	return err
+}
+
 // MarkAllNotificationsAsRead 标记所有通知已读
 func (t *PostgresTxStore) MarkAllNotificationsAsRead(ctx context.Context, userID string) error {
 	query := `

@@ -36,8 +36,12 @@ export const AlertRulesPage: React.FC = () => {
 
   useEffect(() => {
     const fetchSources = async () => {
-      const data = await sourceService.listSources();
-      setSources(data);
+      try {
+        const data = await sourceService.listSources();
+        setSources(data);
+      } catch (err) {
+        console.error('Failed to fetch sources:', err);
+      }
     };
 
     fetchSources();

@@ -1,35 +1,59 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useReducer, useState } from 'react';
 import { sourceService } from '../services';
 import type { SchemaTree, SchemaChange } from '../types';
 
+interface SchemaTreeState {
+  schemaTree: SchemaTree | null;
+  loading: boolean;
+  error: string | null;
+}
+
+type SchemaTreeAction =
+  | { type: 'start' }
+  | { type: 'success'; schemaTree: SchemaTree }
+  | { type: 'error'; error: string };
+
+function schemaTreeReducer(
+  state: SchemaTreeState,
+  action: SchemaTreeAction,
+): SchemaTreeState {
+  switch (action.type) {
+    case 'start':
+      return { ...state, loading: true, error: null };
+    case 'success':
+      return { schemaTree: action.schemaTree, loading: false, error: null };
+    case 'error':
+      return { ...state, loading: false, error: action.error };
+    default:
+      return state;
+  }
+}
+
 export const useSchemaTree = (sourceId: string | undefined) => {
-  const [schemaTree, setSchemaTree] = useState<SchemaTree | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [state, dispatch] = useReducer(schemaTreeReducer, {
+    schemaTree: null,
+    loading: false,
+    error: null,
+  });
   const [refreshTick, setRefreshTick] = useState(0);
 
   useEffect(() => {
-    if (!sourceId) {
-      setSchemaTree(null);
-      return;
-    }
+    if (!sourceId) return;
 
     let active = true;
-    setLoading(true);
-    setError(null);
+    dispatch({ type: 'start' });
     sourceService
       .getSchemaTree(sourceId)
       .then((data) => {
-        if (active) setSchemaTree(data);
+        if (active) dispatch({ type: 'success', schemaTree: data });
       })
       .catch((err) => {
         if (active)
-          setError(
-            err instanceof Error ? err.message : 'Failed to fetch schema',
-          );
-      })
-      .finally(() => {
-        if (active) setLoading(false);
+          dispatch({
+            type: 'error',
+            error:
+              err instanceof Error ? err.message : 'Failed to fetch schema',
+          });
       });
 
     return () => {
@@ -41,36 +65,60 @@ export const useSchemaTree = (sourceId: string | undefined) => {
     setRefreshTick((t) => t + 1);
   }, []);
 
-  return { schemaTree, loading, error, refetch };
+  return { ...state, refetch };
 };
 
+interface SchemaChangesState {
+  changes: SchemaChange[];
+  loading: boolean;
+  error: string | null;
+}
+
+type SchemaChangesAction =
+  | { type: 'start' }
+  | { type: 'success'; changes: SchemaChange[] }
+  | { type: 'error'; error: string };
+
+function schemaChangesReducer(
+  state: SchemaChangesState,
+  action: SchemaChangesAction,
+): SchemaChangesState {
+  switch (action.type) {
+    case 'start':
+      return { ...state, loading: true, error: null };
+    case 'success':
+      return { changes: action.changes, loading: false, error: null };
+    case 'error':
+      return { ...state, loading: false, error: action.error };
+    default:
+      return state;
+  }
+}
+
 export const useSchemaChanges = (sourceId: string | undefined) => {
-  const [changes, setChanges] = useState<SchemaChange[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [state, dispatch] = useReducer(schemaChangesReducer, {
+    changes: [],
+    loading: false,
+    error: null,
+  });
 
   useEffect(() => {
-    if (!sourceId) {
-      setChanges([]);
-      return;
-    }
+    if (!sourceId) return;
 
     let active = true;
-    setLoading(true);
-    setError(null);
+    dispatch({ type: 'start' });
     sourceService
       .getSchemaChanges(sourceId)
       .then((data) => {
-        if (active) setChanges(data);
+        if (active) dispatch({ type: 'success', changes: data });
       })
       .catch((err) => {
         if (active)
-          setError(
-            err instanceof Error ? err.message : 'Failed to fetch changes',
-          );
-      })
-      .finally(() => {
-        if (active) setLoading(false);
+          dispatch({
+            type: 'error',
+            error:
+              err instanceof Error ? err.message : 'Failed to fetch changes',
+          });
       });
 
     return () => {
@@ -78,7 +126,7 @@ export const useSchemaChanges = (sourceId: string | undefined) => {
     };
   }, [sourceId]);
 
-  return { changes, loading, error };
+  return state;
 };
 
 export const useSyncSource = () => {

@@ -120,6 +120,7 @@ func (h *SourceHandler) TestConnection(c *gin.Context) {
 		Database: req.Database,
 		Username: req.Username,
 		Password: req.Password,
+		SSLMode:  req.SSLMode,
 	}
 
 	if err := h.sourceService.TestConnection(c.Request.Context(), string(req.Type), config); err != nil {

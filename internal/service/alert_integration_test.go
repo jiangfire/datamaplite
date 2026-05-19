@@ -15,24 +15,40 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/bcrypt"
 )
-
-const defaultAdminUserID = "admin-001"
 
 type sqliteAlertTestEnv struct {
 	sourceEnv           *sqliteSourceTestEnv
 	alertService        *AlertService
 	notificationService *NotificationService
+	testUserID          string
 }
 
 func newSQLiteAlertTestEnv(t *testing.T) *sqliteAlertTestEnv {
 	t.Helper()
 
 	sourceEnv := newSQLiteSourceTestEnv(t)
+
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte("testpass"), 10)
+	require.NoError(t, err)
+
+	userID, err := sourceEnv.store.CreateUser(context.Background(), &store.UserCreate{
+		Username:     "testadmin",
+		Email:        "test@example.com",
+		PasswordHash: string(passwordHash),
+		Role:         "admin",
+	})
+	require.NoError(t, err)
+
+	alertSvc := NewAlertService(sourceEnv.store, zap.NewNop())
+	alertSvc.webhookValidator = func(string) error { return nil }
+
 	return &sqliteAlertTestEnv{
 		sourceEnv:           sourceEnv,
-		alertService:        NewAlertService(sourceEnv.store, zap.NewNop()),
+		alertService:        alertSvc,
 		notificationService: NewNotificationService(sourceEnv.store, zap.NewNop()),
+		testUserID:          userID,
 	}
 }
 
@@ -166,7 +182,7 @@ func TestAlertService_ProcessSchemaChange_WebhookSuccessPersistsNotificationStat
 	require.NotNil(t, payload.RuleID)
 	assert.Equal(t, rule.ID, *payload.RuleID)
 
-	notifications, err := env.notificationService.ListNotifications(ctx, defaultAdminUserID, false, 10)
+	notifications, err := env.notificationService.ListNotifications(ctx, env.testUserID, false, 10)
 	require.NoError(t, err)
 	require.Len(t, notifications, 1)
 	assert.Equal(t, "users.email", notifications[0].ObjectName)
@@ -200,7 +216,7 @@ func TestAlertService_ProcessSchemaChange_DuplicateDeliverySkipsSecondWebhookAnd
 	require.NoError(t, env.alertService.ProcessSchemaChange(ctx, change))
 	assert.Equal(t, int32(1), atomic.LoadInt32(&attempts))
 
-	notifications, err := env.notificationService.ListNotifications(ctx, defaultAdminUserID, false, 10)
+	notifications, err := env.notificationService.ListNotifications(ctx, env.testUserID, false, 10)
 	require.NoError(t, err)
 	require.Len(t, notifications, 1)
 	assert.True(t, notifications[0].WebhookSent)
@@ -230,7 +246,7 @@ func TestAlertService_ProcessSchemaChange_WebhookClientErrorPersistsFailureWitho
 	require.NoError(t, env.alertService.ProcessSchemaChange(ctx, change))
 	assert.Equal(t, int32(1), atomic.LoadInt32(&attempts))
 
-	notifications, err := env.notificationService.ListNotifications(ctx, defaultAdminUserID, false, 10)
+	notifications, err := env.notificationService.ListNotifications(ctx, env.testUserID, false, 10)
 	require.NoError(t, err)
 	require.Len(t, notifications, 1)
 	assert.False(t, notifications[0].WebhookSent)
@@ -274,7 +290,7 @@ func TestAlertService_ProcessSchemaChange_DuplicateAfterFailureReusesNotificatio
 	assert.Equal(t, first.ID, second.ID)
 	assert.True(t, second.WebhookSent)
 
-	notifications, err := env.notificationService.ListNotifications(ctx, defaultAdminUserID, false, 10)
+	notifications, err := env.notificationService.ListNotifications(ctx, env.testUserID, false, 10)
 	require.NoError(t, err)
 	require.Len(t, notifications, 1)
 	assert.True(t, notifications[0].WebhookSent)
@@ -310,7 +326,7 @@ func TestAlertService_ProcessSchemaChange_WebhookServerErrorRetriesAndClearsFail
 	require.NoError(t, env.alertService.ProcessSchemaChange(ctx, change))
 	assert.Equal(t, int32(3), atomic.LoadInt32(&attempts))
 
-	notifications, err := env.notificationService.ListNotifications(ctx, defaultAdminUserID, false, 10)
+	notifications, err := env.notificationService.ListNotifications(ctx, env.testUserID, false, 10)
 	require.NoError(t, err)
 	require.Len(t, notifications, 1)
 	assert.True(t, notifications[0].WebhookSent)
@@ -385,7 +401,7 @@ func TestAlertService_ProcessSchemaChange_WebhookConflictAcknowledgedAsSuccess(t
 
 	require.NoError(t, env.alertService.ProcessSchemaChange(ctx, change))
 
-	notifications, err := env.notificationService.ListNotifications(ctx, defaultAdminUserID, false, 10)
+	notifications, err := env.notificationService.ListNotifications(ctx, env.testUserID, false, 10)
 	require.NoError(t, err)
 	require.Len(t, notifications, 1)
 	assert.True(t, notifications[0].WebhookSent)
@@ -406,7 +422,7 @@ func TestAlertService_ProcessSchemaChange_WebhookAlreadyReportedAcknowledgedAsSu
 
 	require.NoError(t, env.alertService.ProcessSchemaChange(ctx, change))
 
-	notifications, err := env.notificationService.ListNotifications(ctx, defaultAdminUserID, false, 10)
+	notifications, err := env.notificationService.ListNotifications(ctx, env.testUserID, false, 10)
 	require.NoError(t, err)
 	require.Len(t, notifications, 1)
 	assert.True(t, notifications[0].WebhookSent)
@@ -432,7 +448,7 @@ func TestAlertService_ProcessSchemaChange_ContextCancelDuringBackoffPersistsFail
 	require.NoError(t, env.alertService.ProcessSchemaChange(ctx, change))
 	assert.Equal(t, int32(1), atomic.LoadInt32(&attempts))
 
-	notifications, err := env.notificationService.ListNotifications(context.Background(), defaultAdminUserID, false, 10)
+	notifications, err := env.notificationService.ListNotifications(context.Background(), env.testUserID, false, 10)
 	require.NoError(t, err)
 	require.Len(t, notifications, 1)
 	assert.False(t, notifications[0].WebhookSent)
@@ -469,7 +485,7 @@ func TestSourceService_SaveSchema_DropObjectTriggersScopedAlertRule(t *testing.T
 
 	require.NoError(t, env.sourceEnv.service.saveSchema(ctx, env.sourceEnv.sourceID, &scanner.SchemaInfo{Objects: []scanner.ObjectInfo{}}))
 
-	notifications := waitForNotifications(t, env.notificationService, defaultAdminUserID, 1)
+	notifications := waitForNotifications(t, env.notificationService, env.testUserID, 1)
 	require.Len(t, notifications, 1)
 	assert.Equal(t, "drop_object", notifications[0].ChangeType)
 	assert.Equal(t, "legacy_users", notifications[0].ObjectName)
@@ -627,4 +643,35 @@ func waitForNotifications(t *testing.T, svc *NotificationService, userID string,
 	require.NoError(t, err)
 	t.Fatalf("timed out waiting for %d notifications, got %d", count, len(notifications))
 	return nil
+}
+
+func TestValidateWebhookURL_BlocksRestrictedAddresses(t *testing.T) {
+	cases := []struct {
+		name    string
+		url     string
+		wantErr bool
+	}{
+		{"loopback IPv4", "http://127.0.0.1/webhook", true},
+		{"loopback IPv6", "http://[::1]/webhook", true},
+		{"private IPv4", "http://192.168.1.1/webhook", true},
+		{"private IPv4 10.x", "http://10.0.0.1/webhook", true},
+		{"private IPv4 172.16", "http://172.16.0.1/webhook", true},
+		{"link-local", "http://169.254.1.1/webhook", true},
+		{"zero IPv4", "http://0.0.0.0/webhook", true},
+		{"unspecified IPv6", "http://[::]/webhook", true},
+		{"non-http scheme", "ftp://example.com/webhook", true},
+		{"public http", "http://example.com/webhook", false},
+		{"public https", "https://example.com/webhook", false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateWebhookURL(tc.url)
+			if tc.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }

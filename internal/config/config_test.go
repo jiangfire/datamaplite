@@ -38,7 +38,7 @@ func TestLoadWithoutConfigFile(t *testing.T) {
 }
 
 func TestLoadWithEnvOverride(t *testing.T) {
-	require.NoError(t, os.Setenv("DATAMAP_AUTH_JWT_SECRET", "test-secret"))
+	require.NoError(t, os.Setenv("DATAMAP_AUTH_JWT_SECRET", "test-secret-key-for-jwt-signing-32"))
 	require.NoError(t, os.Setenv("DATAMAP_SERVER_PORT", "9000"))
 	require.NoError(t, os.Setenv("DATAMAP_DATABASE_SQLITE_PATH", "/tmp/test.db"))
 	t.Cleanup(func() {

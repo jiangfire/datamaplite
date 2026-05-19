@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
+	neturl "net/url"
 	"strings"
 	"time"
 
@@ -16,20 +18,66 @@ import (
 
 // AlertService 告警服务
 type AlertService struct {
-	store  store.Store
-	logger *zap.Logger
-	client *http.Client
+	store            store.Store
+	logger           *zap.Logger
+	client           *http.Client
+	webhookValidator func(string) error
 }
 
 // NewAlertService 创建告警服务
 func NewAlertService(store store.Store, logger *zap.Logger) *AlertService {
 	return &AlertService{
-		store:  store,
-		logger: logger,
-		client: &http.Client{
-			Timeout: 10 * time.Second,
-		},
+		store:            store,
+		logger:           logger,
+		client:           &http.Client{Timeout: 10 * time.Second},
+		webhookValidator: validateWebhookURL,
 	}
+}
+
+func validateWebhookURL(rawURL string) error {
+	u, err := neturl.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid webhook URL: %w", err)
+	}
+	if strings.ToLower(u.Scheme) != "http" && strings.ToLower(u.Scheme) != "https" {
+		return fmt.Errorf("webhook URL scheme must be http or https, got: %s", u.Scheme)
+	}
+	if u.Host == "" {
+		return fmt.Errorf("webhook URL must have a host")
+	}
+
+	host, _, err := net.SplitHostPort(u.Host)
+	if err != nil {
+		host = u.Host
+	}
+
+	if ip := net.ParseIP(host); ip != nil {
+		if isRestrictedIP(ip) {
+			return fmt.Errorf("webhook URL points to a restricted IP address")
+		}
+		return nil
+	}
+
+	addrs, err := net.LookupIP(host)
+	if err != nil {
+		return fmt.Errorf("failed to resolve webhook URL host: %w", err)
+	}
+	for _, ip := range addrs {
+		if isRestrictedIP(ip) {
+			return fmt.Errorf("webhook URL resolves to a restricted IP address")
+		}
+	}
+	return nil
+}
+
+func isRestrictedIP(ip net.IP) bool {
+	return ip.IsLoopback() ||
+		ip.IsPrivate() ||
+		ip.IsLinkLocalUnicast() ||
+		ip.IsLinkLocalMulticast() ||
+		ip.IsMulticast() ||
+		ip.Equal(net.ParseIP("0.0.0.0")) ||
+		ip.Equal(net.ParseIP("::"))
 }
 
 // CreateAlertRule 创建告警规则
@@ -56,6 +104,12 @@ func (s *AlertService) CreateAlertRule(ctx context.Context, req *model.AlertRule
 	}
 	if err := s.validateAlertRuleScope(ctx, req.SourceID, req.ObjectID); err != nil {
 		return nil, err
+	}
+
+	if req.NotifyWebhook && req.WebhookURL != nil && *req.WebhookURL != "" {
+		if err := s.webhookValidator(*req.WebhookURL); err != nil {
+			return nil, err
+		}
 	}
 
 	create := &store.AlertRuleCreate{
@@ -147,6 +201,12 @@ func (s *AlertService) UpdateAlertRule(ctx context.Context, id string, req *mode
 	}
 	if err := s.validateAlertRuleScope(ctx, effectiveSourceID, effectiveObjectID); err != nil {
 		return err
+	}
+
+	if req.NotifyWebhook && req.WebhookURL != nil && *req.WebhookURL != "" {
+		if err := s.webhookValidator(*req.WebhookURL); err != nil {
+			return err
+		}
 	}
 
 	updates := &store.AlertRuleUpdate{
@@ -345,6 +405,9 @@ func (s *AlertService) createNotification(ctx context.Context, rule *store.Alert
 func (s *AlertService) sendWebhook(ctx context.Context, rule *store.AlertRuleRow, change *SchemaChangeInfo, source *store.DataSourceRow, notificationID string, idempotencyKey string) error {
 	if rule.WebhookURL == nil || *rule.WebhookURL == "" {
 		return fmt.Errorf("webhook URL is empty")
+	}
+	if err := s.webhookValidator(*rule.WebhookURL); err != nil {
+		return err
 	}
 
 	payload := &model.WebhookPayload{
@@ -599,6 +662,15 @@ func (s *NotificationService) GetNotificationStats(ctx context.Context, userID s
 func (s *NotificationService) MarkAsRead(ctx context.Context, userID string, notificationID string) error {
 	if err := s.store.MarkNotificationAsRead(ctx, userID, notificationID); err != nil {
 		s.logger.Error("failed to mark notification as read", zap.Error(err))
+		return err
+	}
+	return nil
+}
+
+// MarkManyAsRead 批量标记通知已读
+func (s *NotificationService) MarkManyAsRead(ctx context.Context, userID string, notificationIDs []string) error {
+	if err := s.store.MarkManyNotificationsAsRead(ctx, userID, notificationIDs); err != nil {
+		s.logger.Error("failed to mark many notifications as read", zap.Error(err))
 		return err
 	}
 	return nil

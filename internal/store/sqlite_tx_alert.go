@@ -447,6 +447,28 @@ func (t *SQLiteTxStore) MarkNotificationAsRead(ctx context.Context, userID strin
 	return err
 }
 
+// MarkManyNotificationsAsRead 批量标记通知已读
+func (t *SQLiteTxStore) MarkManyNotificationsAsRead(ctx context.Context, userID string, notificationIDs []string) error {
+	if len(notificationIDs) == 0 {
+		return nil
+	}
+	placeholders := make([]string, len(notificationIDs))
+	for i := range notificationIDs {
+		placeholders[i] = "?"
+	}
+	query := fmt.Sprintf(`
+		UPDATE user_notifications
+		SET is_read = 1, read_at = datetime('now')
+		WHERE user_id = ? AND notification_id IN (%s)`,
+		strings.Join(placeholders, ", "))
+	args := []interface{}{userID}
+	for _, id := range notificationIDs {
+		args = append(args, id)
+	}
+	_, err := t.tx.ExecContext(ctx, query, args...)
+	return err
+}
+
 // MarkAllNotificationsAsRead 标记所有通知已读
 func (t *SQLiteTxStore) MarkAllNotificationsAsRead(ctx context.Context, userID string) error {
 	query := `
