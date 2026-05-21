@@ -495,7 +495,7 @@ func TestServer_GovernanceOutboxTools_RejectPublisherWithoutStore(t *testing.T) 
 		Enabled:          true,
 		Endpoint:         "http://example.invalid",
 		IntegrationToken: "integration-token",
-		SourceSystem:     "fuckcmdb",
+		SourceSystem:     "cornerstone",
 		Timeout:          time.Second,
 	}, zap.NewNop())
 

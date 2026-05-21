@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"regexp"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -10,6 +11,14 @@ import (
 )
 
 var validate = validator.New()
+
+func init() {
+	_ = validate.RegisterValidation("hexcolor", func(fl validator.FieldLevel) bool {
+		color := fl.Field().String()
+		match, _ := regexp.MatchString(`^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`, color)
+		return match
+	})
+}
 
 // Handler 基础处理器
 type Handler struct{}

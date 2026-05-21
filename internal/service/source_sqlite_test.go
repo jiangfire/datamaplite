@@ -498,7 +498,7 @@ func TestSourceService_SaveSchema_PublishesDistinctGovernanceEvents(t *testing.T
 		Enabled:          true,
 		Endpoint:         server.URL,
 		IntegrationToken: "integration-token",
-		SourceSystem:     "fuckcmdb",
+		SourceSystem:     "cornerstone",
 		Timeout:          time.Second,
 	}, zap.NewNop()))
 

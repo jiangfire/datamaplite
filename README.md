@@ -323,7 +323,7 @@ datamaplite/
 ## 技术栈
 
 **后端:**
-- Go 1.25
+- Go 1.26
 - Gin Web Framework
 - PostgreSQL (pgx)
 - SQLite（`modernc.org/sqlite` 纯 Go 驱动，无 CGO）

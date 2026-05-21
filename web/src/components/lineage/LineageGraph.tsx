@@ -13,6 +13,7 @@ import type { LineageResponse, LineageEdge } from '../../types';
 
 interface LineageGraphProps {
   lineage: LineageResponse;
+  columnName?: string;
 }
 
 interface LineageNodeProps {
@@ -107,7 +108,7 @@ const EdgeConnector: React.FC<{
   );
 };
 
-export const LineageGraph: React.FC<LineageGraphProps> = ({ lineage }) => {
+export const LineageGraph: React.FC<LineageGraphProps> = ({ lineage, columnName }) => {
   const { upward, downward, column_id } = lineage;
 
   return (
@@ -146,7 +147,7 @@ export const LineageGraph: React.FC<LineageGraphProps> = ({ lineage }) => {
             <div>
               <p className="text-sm text-slate-500">当前字段</p>
               <p className="text-lg font-semibold text-slate-900">
-                {column_id}
+                {columnName || column_id}
               </p>
             </div>
           </div>

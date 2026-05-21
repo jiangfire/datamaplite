@@ -1,6 +1,8 @@
 package api
 
 import (
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"github.com/jiangfire/datamaplite/internal/model"
 )
@@ -39,7 +41,11 @@ func (h *TagHandler) CreateTag(c *gin.Context) {
 
 	tag, err := h.tagService.CreateTag(c.Request.Context(), &req)
 	if err != nil {
-		h.BadRequest(c, err.Error())
+		if strings.Contains(err.Error(), "already exists") {
+			h.BadRequest(c, err.Error())
+			return
+		}
+		h.InternalError(c, err.Error())
 		return
 	}
 
@@ -69,7 +75,15 @@ func (h *TagHandler) UpdateTag(c *gin.Context) {
 	}
 
 	if err := h.tagService.UpdateTag(c.Request.Context(), id, &req); err != nil {
-		h.BadRequest(c, err.Error())
+		if strings.Contains(err.Error(), "not found") {
+			h.NotFound(c, err.Error())
+			return
+		}
+		if strings.Contains(err.Error(), "already exists") {
+			h.BadRequest(c, err.Error())
+			return
+		}
+		h.InternalError(c, err.Error())
 		return
 	}
 
@@ -81,7 +95,11 @@ func (h *TagHandler) DeleteTag(c *gin.Context) {
 	id := c.Param("id")
 
 	if err := h.tagService.DeleteTag(c.Request.Context(), id); err != nil {
-		h.BadRequest(c, err.Error())
+		if strings.Contains(err.Error(), "not found") {
+			h.NotFound(c, err.Error())
+			return
+		}
+		h.InternalError(c, err.Error())
 		return
 	}
 

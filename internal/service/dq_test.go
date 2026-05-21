@@ -230,7 +230,7 @@ func TestDQService_PublishDQFailureEvent_ErrorResultPublishesGovernanceEvent(t *
 		Enabled:          true,
 		Endpoint:         server.URL,
 		IntegrationToken: "integration-token",
-		SourceSystem:     "fuckcmdb",
+		SourceSystem:     "cornerstone",
 		Timeout:          time.Second,
 	}, zap.NewNop()))
 

@@ -5,7 +5,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jiangfire/datamaplite/internal/model"
-	"github.com/jiangfire/datamaplite/internal/service"
 )
 
 // SchemaHandler Schema处理器
@@ -15,7 +14,7 @@ type SchemaHandler struct {
 }
 
 // NewSchemaHandler 创建Schema处理器
-func NewSchemaHandler(metadataService *service.MetadataService) *SchemaHandler {
+func NewSchemaHandler(metadataService MetadataService) *SchemaHandler {
 	return &SchemaHandler{
 		Handler:         NewHandler(),
 		metadataService: metadataService,

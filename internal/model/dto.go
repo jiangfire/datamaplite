@@ -321,8 +321,8 @@ type ImpactObject struct {
 
 // PaginationQuery 分页查询
 type PaginationQuery struct {
-	Page     int `query:"page"`
-	PageSize int `query:"page_size"`
+	Page     int `form:"page"`
+	PageSize int `form:"page_size"`
 }
 
 // GetOffset 获取偏移量
@@ -363,13 +363,3 @@ type TagResponse struct {
 	UpdatedAt   string `json:"updated_at"`
 }
 
-// ColumnTagRequest 添加标签到字段请求
-type ColumnTagRequest struct {
-	TagID string `json:"tag_id" validate:"required"`
-}
-
-// ColumnWithTagsResponse 带标签的字段响应
-type ColumnWithTagsResponse struct {
-	ColumnDetailResponse
-	Tags []TagResponse `json:"tags"`
-}

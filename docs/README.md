@@ -106,8 +106,8 @@
 ### 当前已验证通过
 
 ```powershell
-$env:GOCACHE='C:\Users\yimo\Codes\fuckcmdb\.gocache'; go test ./internal/service -count=1
-$env:GOCACHE='C:\Users\yimo\Codes\fuckcmdb\.gocache'; go test ./... -count=1
+$env:GOCACHE='C:\Users\yimo\Codes\datamaplite\.gocache'; go test ./internal/service -count=1
+$env:GOCACHE='C:\Users\yimo\Codes\datamaplite\.gocache'; go test ./... -count=1
 ```
 
 ### 当前剩余主要风险

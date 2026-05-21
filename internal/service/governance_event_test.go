@@ -34,7 +34,7 @@ func TestGovernanceEventService_Publish_UsesAuditMeta(t *testing.T) {
 		Enabled:          true,
 		Endpoint:         server.URL,
 		IntegrationToken: "integration-token",
-		SourceSystem:     "fuckcmdb",
+		SourceSystem:     "cornerstone",
 		Timeout:          time.Second,
 	}, zap.NewNop())
 
@@ -73,7 +73,7 @@ func TestSourceService_PublishSchemaChangeEvent_ReusesAuditTrace(t *testing.T) {
 		Enabled:          true,
 		Endpoint:         server.URL,
 		IntegrationToken: "integration-token",
-		SourceSystem:     "fuckcmdb",
+		SourceSystem:     "cornerstone",
 		Timeout:          time.Second,
 	}, zap.NewNop())
 
@@ -110,7 +110,7 @@ func TestGovernanceEventService_Publish_RejectsMissingEventType(t *testing.T) {
 		Enabled:          true,
 		Endpoint:         "http://example.invalid",
 		IntegrationToken: "integration-token",
-		SourceSystem:     "fuckcmdb",
+		SourceSystem:     "cornerstone",
 		Timeout:          time.Second,
 	}, zap.NewNop())
 
@@ -125,7 +125,7 @@ func TestGovernanceEventService_OutboxOperations_RequireStore(t *testing.T) {
 		Enabled:          true,
 		Endpoint:         "http://example.invalid",
 		IntegrationToken: "integration-token",
-		SourceSystem:     "fuckcmdb",
+		SourceSystem:     "cornerstone",
 		Timeout:          time.Second,
 	}, zap.NewNop())
 
@@ -152,7 +152,7 @@ func TestGovernanceEventService_Publish_RejectsNon2xxResponse(t *testing.T) {
 		Enabled:          true,
 		Endpoint:         server.URL,
 		IntegrationToken: "integration-token",
-		SourceSystem:     "fuckcmdb",
+		SourceSystem:     "cornerstone",
 		Timeout:          time.Second,
 	}, zap.NewNop())
 
@@ -191,7 +191,7 @@ func TestGovernanceEventService_Publish_OutboxPersistsAndEventuallyDelivers(t *t
 		Enabled:          true,
 		Endpoint:         server.URL,
 		IntegrationToken: "integration-token",
-		SourceSystem:     "fuckcmdb",
+		SourceSystem:     "cornerstone",
 		Timeout:          time.Second,
 	}, zap.NewNop())
 	eventService.SetStore(st)
@@ -244,7 +244,7 @@ func TestGovernanceEventService_Publish_DuplicateEventIDDoesNotDuplicateOutboxOr
 		Enabled:          true,
 		Endpoint:         server.URL,
 		IntegrationToken: "integration-token",
-		SourceSystem:     "fuckcmdb",
+		SourceSystem:     "cornerstone",
 		Timeout:          time.Second,
 	}, zap.NewNop())
 	eventService.SetStore(st)
@@ -279,7 +279,7 @@ func TestGovernanceEventService_Publish_DuplicateAckIsTreatedAsSuccess(t *testin
 		Enabled:          true,
 		Endpoint:         server.URL,
 		IntegrationToken: "integration-token",
-		SourceSystem:     "fuckcmdb",
+		SourceSystem:     "cornerstone",
 		Timeout:          time.Second,
 	}, zap.NewNop())
 
@@ -314,7 +314,7 @@ func TestGovernanceEventService_ProcessOutbox_DeadLettersAfterMaxAttemptsAndCanR
 		Enabled:          true,
 		Endpoint:         server.URL,
 		IntegrationToken: "integration-token",
-		SourceSystem:     "fuckcmdb",
+		SourceSystem:     "cornerstone",
 		Timeout:          time.Second,
 	}, zap.NewNop())
 	eventService.SetStore(st)
@@ -398,7 +398,7 @@ func TestGovernanceEventService_ProcessOutbox_InvalidPayloadDeadLettersWithoutDi
 		Enabled:          true,
 		Endpoint:         server.URL,
 		IntegrationToken: "integration-token",
-		SourceSystem:     "fuckcmdb",
+		SourceSystem:     "cornerstone",
 		Timeout:          time.Second,
 	}, zap.NewNop())
 	eventService.SetStore(st)
@@ -444,7 +444,7 @@ func TestGovernanceEventService_ReplayOutboxEvent_RejectsDeliveredEvent(t *testi
 		Enabled:          true,
 		Endpoint:         "http://example.invalid",
 		IntegrationToken: "integration-token",
-		SourceSystem:     "fuckcmdb",
+		SourceSystem:     "cornerstone",
 		Timeout:          time.Second,
 	}, zap.NewNop())
 	eventService.SetStore(st)
@@ -498,7 +498,7 @@ func TestGovernanceEventService_ProcessOutbox_LeasePreventsDoubleDispatchAcrossI
 		Enabled:          true,
 		Endpoint:         server.URL,
 		IntegrationToken: "integration-token",
-		SourceSystem:     "fuckcmdb",
+		SourceSystem:     "cornerstone",
 		Timeout:          time.Second,
 	}, zap.NewNop())
 	first.SetStore(st)
@@ -507,7 +507,7 @@ func TestGovernanceEventService_ProcessOutbox_LeasePreventsDoubleDispatchAcrossI
 		Enabled:          true,
 		Endpoint:         server.URL,
 		IntegrationToken: "integration-token",
-		SourceSystem:     "fuckcmdb",
+		SourceSystem:     "cornerstone",
 		Timeout:          time.Second,
 	}, zap.NewNop())
 	second.SetStore(st)

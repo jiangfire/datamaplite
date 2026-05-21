@@ -5,6 +5,7 @@ import type { SchemaObjectWithColumns, Column } from '../../types';
 
 interface SchemaTreeProps {
   objects: SchemaObjectWithColumns[];
+  initialExpandedIds?: string[];
 }
 
 interface ObjectNodeProps {
@@ -51,7 +52,7 @@ const ObjectNode: React.FC<ObjectNodeProps> = ({
   onToggle,
 }) => {
   return (
-    <div className="border-b border-slate-100 last:border-0">
+    <div id={object.id} className="border-b border-slate-100 last:border-0">
       <button
         onClick={onToggle}
         className="w-full flex items-center gap-2 py-2.5 px-3 text-left hover:bg-slate-50 transition-colors"
@@ -82,9 +83,9 @@ const ObjectNode: React.FC<ObjectNodeProps> = ({
   );
 };
 
-export const SchemaTree: React.FC<SchemaTreeProps> = ({ objects }) => {
+export const SchemaTree: React.FC<SchemaTreeProps> = ({ objects, initialExpandedIds }) => {
   const [expandedObjects, setExpandedObjects] = useState<Set<string>>(
-    new Set(),
+    new Set(initialExpandedIds || []),
   );
 
   const toggleObject = (id: string) => {

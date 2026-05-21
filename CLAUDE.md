@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 DataMap-Lite is a lightweight data catalog system for metadata governance in semiconductor display R&D departments. It solves data consistency issues like "same meaning, different names" (e.g., PanelID/plt_no/玻璃编号).
 
 **Tech Stack:**
-- Backend: Go 1.25 + Gin + PostgreSQL/SQLite
+- Backend: Go 1.26 + Gin + PostgreSQL/SQLite
 - Frontend: React 19 + TypeScript + Rsbuild + Tailwind CSS 4
 - Database: PostgreSQL (production), SQLite (development)
 

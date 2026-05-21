@@ -244,7 +244,7 @@ func TestSourceHandler_CreateSource(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusCreated, w.Code)
 
 	resp := decodeHTTPResult(t, w.Body.Bytes())
 	assert.Equal(t, successCode, resp.Code)

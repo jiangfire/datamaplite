@@ -33,6 +33,7 @@ const (
 	DataSourceStatusActive   DataSourceStatus = "active"
 	DataSourceStatusInactive DataSourceStatus = "inactive"
 	DataSourceStatusError    DataSourceStatus = "error"
+	DataSourceStatusSyncing  DataSourceStatus = "syncing"
 )
 
 // DataSource 数据源实体

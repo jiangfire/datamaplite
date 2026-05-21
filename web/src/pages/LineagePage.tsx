@@ -9,7 +9,7 @@ import {
   LineageGraph,
   ImpactAnalysis,
 } from '../components';
-import { useColumnSearch, useLineage, useImpactAnalysis } from '../hooks';
+import { useColumnSearch, useLineage, useImpactAnalysis, useColumnDetail } from '../hooks';
 
 export const LineagePage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -18,6 +18,7 @@ export const LineagePage: React.FC = () => {
   const { results, search } = useColumnSearch();
   const { lineage } = useLineage(columnId || undefined);
   const { impact } = useImpactAnalysis(columnId || undefined);
+  const { column } = useColumnDetail(columnId || undefined);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSearch = useCallback(
@@ -97,7 +98,10 @@ export const LineagePage: React.FC = () => {
             <div className="mt-4 p-3 bg-indigo-50 rounded-lg flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-600">当前分析字段</p>
-                <p className="font-medium text-indigo-900">{columnId}</p>
+                <p className="font-medium text-indigo-900">{column?.name || columnId}</p>
+                {column && (
+                  <p className="text-xs text-slate-500">{column.object.name} · {column.source.name}</p>
+                )}
               </div>
               <Button
                 variant="ghost"
@@ -116,7 +120,7 @@ export const LineagePage: React.FC = () => {
       {/* Lineage Graph */}
       {columnId ? (
         lineage ? (
-          <LineageGraph lineage={lineage} />
+          <LineageGraph lineage={lineage} columnName={column?.name} />
         ) : (
           <Card>
             <CardContent className="py-12 text-center">

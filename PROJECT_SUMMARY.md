@@ -5,7 +5,7 @@
 DataMap-Lite 是一个轻量级数据目录系统，面向半导体显示研发部门的元数据治理解决方案。核心定位是解决"同义不同名"（如 PanelID/plt_no/玻璃编号）的数据一致性问题。
 
 **开发周期**: Phase 1-5 (5个阶段)
-**技术栈**: Go 1.25 + Gin + PostgreSQL/SQLite + React 19 + TypeScript
+**技术栈**: Go 1.26 + Gin + PostgreSQL/SQLite + React 19 + TypeScript
 
 ---
 
@@ -53,7 +53,7 @@ DataMap-Lite 是一个轻量级数据目录系统，面向半导体显示研发�
 ## 项目结构
 
 ```
-datamap-lite/
+datamaplite/
 ├── cmd/datamap/              # 应用入口
 │   └── main.go
 ├── internal/

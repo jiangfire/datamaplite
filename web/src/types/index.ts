@@ -445,10 +445,6 @@ export interface TagCreate {
   description?: string;
 }
 
-export interface ColumnTagRequest {
-  tag_id: string;
-}
-
 // ============ Alert Rule Types ============
 export interface AlertRule {
   id: string;

@@ -1,7 +1,7 @@
 # DataMap-Lite 技术规格说明书：研发领域轻量级数据目录系统
 
 **版本**：v1.0  
-**技术栈**：Golang 1.25 + PostgreSQL 16 + Gin  
+**技术栈**：Golang 1.26 + PostgreSQL 16 + Gin  
 **目标用户**：半导体显示研发部门
 **核心定位**：解决"同义不同名"（PanelID/plt_no/玻璃编号）的元数据治理，非数据中台，非 CMDB 替代
 

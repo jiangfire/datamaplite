@@ -594,7 +594,7 @@ export const ColumnDetailPage: React.FC = () => {
             <GitBranch size={20} className="inline mr-2" />
             血缘关系预览
           </h2>
-          <LineageGraph lineage={lineage} />
+          <LineageGraph lineage={lineage} columnName={column?.name} />
         </div>
       )}
 

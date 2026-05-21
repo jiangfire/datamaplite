@@ -1,4 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { ArrowLeft, RefreshCw, Database, History } from 'lucide-react';
 import {
   Layout,
@@ -39,6 +40,20 @@ export const SourceDetailPage: React.FC = () => {
   const { schemaTree, loading: schemaLoading, refetch } = useSchemaTree(id);
   const { changes, loading: changesLoading } = useSchemaChanges(id);
   const { sync, syncing } = useSyncSource();
+  const [anchorObjectId, setAnchorObjectId] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    if (hash) {
+      setAnchorObjectId(hash);
+      setTimeout(() => {
+        const el = document.getElementById(hash);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    }
+  }, [schemaTree]);
 
   const handleSync = async () => {
     if (!id) return;
@@ -170,7 +185,7 @@ export const SourceDetailPage: React.FC = () => {
             </CardContent>
           </Card>
         ) : schemaTree ? (
-          <SchemaTree objects={schemaTree.objects} />
+          <SchemaTree objects={schemaTree.objects} initialExpandedIds={anchorObjectId ? [anchorObjectId] : undefined} />
         ) : (
           <Card>
             <CardContent className="py-12 text-center text-slate-400">

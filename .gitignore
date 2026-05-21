@@ -30,3 +30,9 @@ internal/webui/generated/*
 .omc/
 .claude/
 .cache/
+
+# Build output
+bin/
+
+# SQLite data directory
+data/

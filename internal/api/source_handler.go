@@ -50,7 +50,7 @@ func (h *SourceHandler) CreateSource(c *gin.Context) {
 		return
 	}
 
-	h.JSON(c, source)
+	h.Created(c, source)
 }
 
 // GetSource 获取数据源详情

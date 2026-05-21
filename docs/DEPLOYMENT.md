@@ -7,7 +7,7 @@
 1. **克隆仓库**
 ```bash
 git clone https://github.com/jiangfire/datamaplite.git
-cd fuckcmdb
+cd datamaplite
 ```
 
 2. **配置环境变量**
@@ -218,7 +218,7 @@ docker-compose down -v --rmi local
 | `DATAMAP_GOPROXY` | Go 依赖代理 | `https://goproxy.cn,direct` |
 | `DATAMAP_NPM_REGISTRY` | npm/pnpm 镜像源 | `https://registry.npmmirror.com` |
 | `DATAMAP_NODE_IMAGE` | 前端构建基础镜像 | `docker.m.daocloud.io/library/node:22-alpine` |
-| `DATAMAP_GO_IMAGE` | Go 构建基础镜像 | `docker.m.daocloud.io/library/golang:1.25.4-alpine` |
+| `DATAMAP_GO_IMAGE` | Go 构建基础镜像 | `docker.m.daocloud.io/library/golang:1.26.3-alpine` |
 | `DATAMAP_RUNTIME_IMAGE` | 运行时基础镜像 | `docker.m.daocloud.io/library/alpine:3.20` |
 | `DATAMAP_POSTGRES_IMAGE` | PostgreSQL 镜像 | `docker.m.daocloud.io/library/postgres:16-alpine` |
 | `DATAMAP_PGADMIN_IMAGE` | pgAdmin 镜像 | `docker.m.daocloud.io/dpage/pgadmin4:latest` |

@@ -35,7 +35,7 @@ func (h *TermHandler) CreateTerm(c *gin.Context) {
 		return
 	}
 
-	h.JSON(c, term)
+	h.Created(c, term)
 }
 
 // ListTerms 列出业务术语
