@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -55,6 +56,17 @@ func newSQLiteSourceTestEnvAtPath(t *testing.T, dbPath string) *sqliteSourceTest
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, st.Close())
+		// On Windows SQLite WAL file handles may linger briefly after Close,
+		// causing t.TempDir() cleanup to fail. Retry removing DB files.
+		for _, suffix := range []string{"", "-wal", "-shm"} {
+			f := dbPath + suffix
+			for i := 0; i < 20; i++ {
+				if err := os.Remove(f); err == nil || os.IsNotExist(err) {
+					break
+				}
+				time.Sleep(10 * time.Millisecond)
+			}
+		}
 	})
 
 	cipher, err := crypto.NewCipher("12345678901234567890123456789012")
@@ -953,14 +965,14 @@ func TestSourceService_TriggerSync_DoesNotPersistAfterLeaseLoss(t *testing.T) {
 		Store:    baseEnv.store,
 		renewErr: assert.AnError,
 	}, baseEnv.service.cipher, scanner.NewRegistry())
-	firstService.syncLeaseTTL = 40 * time.Millisecond
-	firstService.syncLeaseStaleAfter = 40 * time.Millisecond
+	firstService.syncLeaseTTL = 100 * time.Millisecond
+	firstService.syncLeaseStaleAfter = 100 * time.Millisecond
 
 	secondCipher, err := crypto.NewCipher("12345678901234567890123456789012")
 	require.NoError(t, err)
 	secondService := NewSourceService(secondStore, secondCipher, scanner.NewRegistry())
-	secondService.syncLeaseTTL = 40 * time.Millisecond
-	secondService.syncLeaseStaleAfter = 40 * time.Millisecond
+	secondService.syncLeaseTTL = 1 * time.Second
+	secondService.syncLeaseStaleAfter = 1 * time.Second
 
 	firstStarted := make(chan struct{}, 1)
 	releaseFirst := make(chan struct{})
@@ -1018,7 +1030,7 @@ func TestSourceService_TriggerSync_DoesNotPersistAfterLeaseLoss(t *testing.T) {
 		t.Fatal("timed out waiting for first stale sync to start")
 	}
 
-	time.Sleep(120 * time.Millisecond)
+	time.Sleep(300 * time.Millisecond)
 
 	require.NoError(t, secondService.TriggerSync(ctx, baseEnv.sourceID))
 	row := waitForSourceState(t, secondStore, baseEnv.sourceID, func(row *store.DataSourceRow) bool {
