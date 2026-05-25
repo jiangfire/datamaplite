@@ -75,6 +75,7 @@ func runPostgresMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 		{version: "001_init_schema", path: "migrations/001_init_schema.sql"},
 		{version: "002_business_terms_fields", path: "migrations/002_business_terms_fields.sql"},
 		{version: "003_reliability", path: "migrations/003_reliability.sql"},
+		{version: "004_sync_schedules", path: "migrations/004_sync_schedules.sql"},
 	}
 
 	for _, migration := range migrations {
@@ -764,4 +765,280 @@ func (s *PostgresStore) GetDQStats(ctx context.Context) (*DQStatsRow, error) {
 	}
 
 	return &stats, nil
+}
+
+// ========== SyncSchedule ==========
+
+// CreateSyncSchedule 创建定时同步配置
+func (s *PostgresStore) CreateSyncSchedule(ctx context.Context, schedule *SyncScheduleCreate) (string, error) {
+	query := `
+		INSERT INTO sync_schedules (id, source_id, name, description, cron_expression, is_active)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`
+	id := uuid.New().String()
+	_, err := s.pool.Exec(ctx, query,
+		id, schedule.SourceID, schedule.Name, schedule.Description,
+		schedule.CronExpression, schedule.IsActive,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to create sync schedule: %w", err)
+	}
+	return id, nil
+}
+
+// GetSyncSchedule 获取定时同步配置
+func (s *PostgresStore) GetSyncSchedule(ctx context.Context, id string) (*SyncScheduleRow, error) {
+	query := `
+		SELECT id, source_id, name, description, cron_expression, is_active,
+		       last_run_at::text, last_run_status, last_run_error, next_run_at::text,
+		       created_at::text, updated_at::text
+		FROM sync_schedules WHERE id = $1
+	`
+	row := s.pool.QueryRow(ctx, query, id)
+	var ssr SyncScheduleRow
+	err := row.Scan(
+		&ssr.ID, &ssr.SourceID, &ssr.Name, &ssr.Description, &ssr.CronExpression, &ssr.IsActive,
+		&ssr.LastRunAt, &ssr.LastRunStatus, &ssr.LastRunError, &ssr.NextRunAt,
+		&ssr.CreatedAt, &ssr.UpdatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("sync schedule not found: %s", id)
+		}
+		return nil, fmt.Errorf("failed to get sync schedule: %w", err)
+	}
+	return &ssr, nil
+}
+
+// ListSyncSchedules 列出所有定时同步配置
+func (s *PostgresStore) ListSyncSchedules(ctx context.Context) ([]*SyncScheduleRow, error) {
+	query := `
+		SELECT id, source_id, name, description, cron_expression, is_active,
+		       last_run_at::text, last_run_status, last_run_error, next_run_at::text,
+		       created_at::text, updated_at::text
+		FROM sync_schedules ORDER BY created_at DESC
+	`
+	rows, err := s.pool.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list sync schedules: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*SyncScheduleRow
+	for rows.Next() {
+		var ssr SyncScheduleRow
+		err := rows.Scan(
+			&ssr.ID, &ssr.SourceID, &ssr.Name, &ssr.Description, &ssr.CronExpression, &ssr.IsActive,
+			&ssr.LastRunAt, &ssr.LastRunStatus, &ssr.LastRunError, &ssr.NextRunAt,
+			&ssr.CreatedAt, &ssr.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, &ssr)
+	}
+	return results, rows.Err()
+}
+
+// ListSyncSchedulesBySource 按数据源列出定时同步配置
+func (s *PostgresStore) ListSyncSchedulesBySource(ctx context.Context, sourceID string) ([]*SyncScheduleRow, error) {
+	query := `
+		SELECT id, source_id, name, description, cron_expression, is_active,
+		       last_run_at::text, last_run_status, last_run_error, next_run_at::text,
+		       created_at::text, updated_at::text
+		FROM sync_schedules WHERE source_id = $1 ORDER BY created_at DESC
+	`
+	rows, err := s.pool.Query(ctx, query, sourceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list sync schedules by source: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*SyncScheduleRow
+	for rows.Next() {
+		var ssr SyncScheduleRow
+		err := rows.Scan(
+			&ssr.ID, &ssr.SourceID, &ssr.Name, &ssr.Description, &ssr.CronExpression, &ssr.IsActive,
+			&ssr.LastRunAt, &ssr.LastRunStatus, &ssr.LastRunError, &ssr.NextRunAt,
+			&ssr.CreatedAt, &ssr.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, &ssr)
+	}
+	return results, rows.Err()
+}
+
+// UpdateSyncSchedule 更新定时同步配置
+func (s *PostgresStore) UpdateSyncSchedule(ctx context.Context, id string, updates *SyncScheduleUpdate) error {
+	query := `UPDATE sync_schedules SET name = COALESCE($1, name), description = COALESCE($2, description), cron_expression = COALESCE($3, cron_expression), is_active = COALESCE($4, is_active) WHERE id = $5`
+	res, err := s.pool.Exec(ctx, query, updates.Name, updates.Description, updates.CronExpression, updates.IsActive, id)
+	if err != nil {
+		return fmt.Errorf("failed to update sync schedule: %w", err)
+	}
+	if res.RowsAffected() == 0 {
+		return fmt.Errorf("sync schedule not found: %s", id)
+	}
+	return nil
+}
+
+// DeleteSyncSchedule 删除定时同步配置
+func (s *PostgresStore) DeleteSyncSchedule(ctx context.Context, id string) error {
+	res, err := s.pool.Exec(ctx, `DELETE FROM sync_schedules WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete sync schedule: %w", err)
+	}
+	if res.RowsAffected() == 0 {
+		return fmt.Errorf("sync schedule not found: %s", id)
+	}
+	return nil
+}
+
+// UpdateSyncScheduleRunStatus 更新定时同步运行状态
+func (s *PostgresStore) UpdateSyncScheduleRunStatus(ctx context.Context, id string, status string, errorMsg *string, nextRunAt *string) error {
+	query := `UPDATE sync_schedules SET last_run_at = NOW(), last_run_status = $1, last_run_error = $2, next_run_at = $3 WHERE id = $4`
+	_, err := s.pool.Exec(ctx, query, status, errorMsg, nextRunAt, id)
+	if err != nil {
+		return fmt.Errorf("failed to update sync schedule run status: %w", err)
+	}
+	return nil
+}
+
+// ========== PostgresTxStore SyncSchedule ==========
+
+// CreateSyncSchedule 创建定时同步配置（事务版）
+func (t *PostgresTxStore) CreateSyncSchedule(ctx context.Context, schedule *SyncScheduleCreate) (string, error) {
+	query := `
+		INSERT INTO sync_schedules (id, source_id, name, description, cron_expression, is_active)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`
+	id := uuid.New().String()
+	_, err := t.tx.Exec(ctx, query,
+		id, schedule.SourceID, schedule.Name, schedule.Description,
+		schedule.CronExpression, schedule.IsActive,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to create sync schedule: %w", err)
+	}
+	return id, nil
+}
+
+// GetSyncSchedule 获取定时同步配置（事务版）
+func (t *PostgresTxStore) GetSyncSchedule(ctx context.Context, id string) (*SyncScheduleRow, error) {
+	query := `
+		SELECT id, source_id, name, description, cron_expression, is_active,
+		       last_run_at::text, last_run_status, last_run_error, next_run_at::text,
+		       created_at::text, updated_at::text
+		FROM sync_schedules WHERE id = $1
+	`
+	row := t.tx.QueryRow(ctx, query, id)
+	var ssr SyncScheduleRow
+	err := row.Scan(
+		&ssr.ID, &ssr.SourceID, &ssr.Name, &ssr.Description, &ssr.CronExpression, &ssr.IsActive,
+		&ssr.LastRunAt, &ssr.LastRunStatus, &ssr.LastRunError, &ssr.NextRunAt,
+		&ssr.CreatedAt, &ssr.UpdatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("sync schedule not found: %s", id)
+		}
+		return nil, fmt.Errorf("failed to get sync schedule: %w", err)
+	}
+	return &ssr, nil
+}
+
+// ListSyncSchedules 列出所有定时同步配置（事务版）
+func (t *PostgresTxStore) ListSyncSchedules(ctx context.Context) ([]*SyncScheduleRow, error) {
+	query := `
+		SELECT id, source_id, name, description, cron_expression, is_active,
+		       last_run_at::text, last_run_status, last_run_error, next_run_at::text,
+		       created_at::text, updated_at::text
+		FROM sync_schedules ORDER BY created_at DESC
+	`
+	rows, err := t.tx.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list sync schedules: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*SyncScheduleRow
+	for rows.Next() {
+		var ssr SyncScheduleRow
+		err := rows.Scan(
+			&ssr.ID, &ssr.SourceID, &ssr.Name, &ssr.Description, &ssr.CronExpression, &ssr.IsActive,
+			&ssr.LastRunAt, &ssr.LastRunStatus, &ssr.LastRunError, &ssr.NextRunAt,
+			&ssr.CreatedAt, &ssr.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, &ssr)
+	}
+	return results, rows.Err()
+}
+
+// ListSyncSchedulesBySource 按数据源列出定时同步配置（事务版）
+func (t *PostgresTxStore) ListSyncSchedulesBySource(ctx context.Context, sourceID string) ([]*SyncScheduleRow, error) {
+	query := `
+		SELECT id, source_id, name, description, cron_expression, is_active,
+		       last_run_at::text, last_run_status, last_run_error, next_run_at::text,
+		       created_at::text, updated_at::text
+		FROM sync_schedules WHERE source_id = $1 ORDER BY created_at DESC
+	`
+	rows, err := t.tx.Query(ctx, query, sourceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list sync schedules by source: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*SyncScheduleRow
+	for rows.Next() {
+		var ssr SyncScheduleRow
+		err := rows.Scan(
+			&ssr.ID, &ssr.SourceID, &ssr.Name, &ssr.Description, &ssr.CronExpression, &ssr.IsActive,
+			&ssr.LastRunAt, &ssr.LastRunStatus, &ssr.LastRunError, &ssr.NextRunAt,
+			&ssr.CreatedAt, &ssr.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, &ssr)
+	}
+	return results, rows.Err()
+}
+
+// UpdateSyncSchedule 更新定时同步配置（事务版）
+func (t *PostgresTxStore) UpdateSyncSchedule(ctx context.Context, id string, updates *SyncScheduleUpdate) error {
+	query := `UPDATE sync_schedules SET name = COALESCE($1, name), description = COALESCE($2, description), cron_expression = COALESCE($3, cron_expression), is_active = COALESCE($4, is_active) WHERE id = $5`
+	res, err := t.tx.Exec(ctx, query, updates.Name, updates.Description, updates.CronExpression, updates.IsActive, id)
+	if err != nil {
+		return fmt.Errorf("failed to update sync schedule: %w", err)
+	}
+	if res.RowsAffected() == 0 {
+		return fmt.Errorf("sync schedule not found: %s", id)
+	}
+	return nil
+}
+
+// DeleteSyncSchedule 删除定时同步配置（事务版）
+func (t *PostgresTxStore) DeleteSyncSchedule(ctx context.Context, id string) error {
+	res, err := t.tx.Exec(ctx, `DELETE FROM sync_schedules WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete sync schedule: %w", err)
+	}
+	if res.RowsAffected() == 0 {
+		return fmt.Errorf("sync schedule not found: %s", id)
+	}
+	return nil
+}
+
+// UpdateSyncScheduleRunStatus 更新定时同步运行状态（事务版）
+func (t *PostgresTxStore) UpdateSyncScheduleRunStatus(ctx context.Context, id string, status string, errorMsg *string, nextRunAt *string) error {
+	query := `UPDATE sync_schedules SET last_run_at = NOW(), last_run_status = $1, last_run_error = $2, next_run_at = $3 WHERE id = $4`
+	_, err := t.tx.Exec(ctx, query, status, errorMsg, nextRunAt, id)
+	if err != nil {
+		return fmt.Errorf("failed to update sync schedule run status: %w", err)
+	}
+	return nil
 }

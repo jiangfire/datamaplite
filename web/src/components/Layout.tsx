@@ -13,6 +13,7 @@ import {
   LogOut,
   UserCircle2,
   Users,
+  LayoutDashboard,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useAuth } from '../auth';
@@ -24,6 +25,7 @@ interface NavItem {
 }
 
 const baseNavItems: NavItem[] = [
+  { path: '/dashboard', label: '仪表盘', icon: <LayoutDashboard size={20} /> },
   { path: '/', label: '数据源', icon: <Database size={20} /> },
   { path: '/search', label: '字段搜索', icon: <Search size={20} /> },
   { path: '/terms', label: '业务术语', icon: <BookOpen size={20} /> },
@@ -34,11 +36,10 @@ const baseNavItems: NavItem[] = [
   { path: '/notifications', label: '通知中心', icon: <Bell size={20} /> },
 ];
 
-const adminNavItem: NavItem = {
-  path: '/admin/users',
-  label: '用户管理',
-  icon: <Users size={20} />,
-};
+const adminNavItems: NavItem[] = [
+  { path: '/admin/users', label: '用户管理', icon: <Users size={20} /> },
+  { path: '/admin/sync', label: '同步调度', icon: <Database size={20} /> },
+];
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -49,7 +50,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({
 
   const navItems = useMemo(
     () =>
-      user?.role === 'admin' ? [...baseNavItems, adminNavItem] : baseNavItems,
+      user?.role === 'admin' ? [...baseNavItems, ...adminNavItems] : baseNavItems,
     [user?.role],
   );
 

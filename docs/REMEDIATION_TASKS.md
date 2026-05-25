@@ -309,24 +309,38 @@
 
 ## 📊 整体进度跟踪
 
+> **说明**：此表已根据实际完成情况修正（2026-06-24）。此前"0% 完成"的统计与顶部"2026-03-28 当日收口"及 2026-05-17 修复记录严重矛盾。
+
 ### 阶段进度
 
 | 阶段 | 计划周期 | 任务总数 | 已完成 | 进度 |
 |------|----------|----------|--------|------|
-| Phase A: 安全与质量 | Week 1-4 | | 0 | 0% |
-| Phase B: 功能完善 | Week 5-10 | | 0 | 0% |
-| Phase C: 企业级特性 | Week 11-16 | | 0 | 0% |
-| Phase D: 前端优化 | Week 17-20 | | 0 | 0% |
-| **总计** | **20周** | | **0** | **0%** |
+| Phase A: 安全与质量 | Week 1-4 | 25 | 23 | 92% |
+| Phase B: 功能完善 | Week 5-10 | 16 | 1 | 6% |
+| Phase C: 企业级特性 | Week 11-16 | 38 | 2 | 5% |
+| Phase D: 前端优化 | Week 17-20 | 17 | 4 | 24% |
+| **总计** | **20周** | **96** | **30** | **31%** |
 
 ### 关键里程碑
 
 | 里程碑 | 计划日期 | 实际日期 | 状态 |
 |--------|----------|----------|------|
-| M1: 安全加固完成 | Week 4 | | ⬜ |
-| M2: 功能完善完成 | Week 10 | | ⬜ |
+| M1: 安全加固完成 | Week 4 | 2026-05-17 | ✅ 核心安全漏洞已修复 |
+| M2: 功能完善完成 | Week 10 | | 🔄 定时同步开发中 |
 | M3: 企业特性完成 | Week 16 | | ⬜ |
 | M4: 全面优化完成 | Week 20 | | ⬜ |
+
+### 2026-06-24 本轮新增完成项
+
+| ID | 内容 | 状态 | 关键文件 |
+|---|---|---|---|
+| C1 | `.env.example` 密钥占位符修复 + config.go 增强检测 | ✅ | `.env.example`、`internal/config/config.go` |
+| C2 | 移除未实现的 oracle/mssql 类型声明 | ✅ | `internal/model/models.go`、`migrations/001_init_schema.sql`、`internal/store/sqlite.go` |
+| C3 | PostgreSQL 测试基础覆盖 | ✅ | `internal/store/postgres_test.go` |
+| B3 | 定时同步功能（cron 调度引擎 + API + 前端） | ✅ | `migrations/004_sync_schedules.sql`、`internal/service/scheduler.go`、`internal/api/sync_schedule_handler.go`、`web/src/pages/SyncSchedulesPage.tsx` |
+| C3-obs | 可观测性（Prometheus /metrics + 健康检查增强） | ✅ | `internal/api/metrics.go`、`go.mod` |
+| C1-dash | 数据资产仪表盘（聚合统计 API + 前端） | ✅ | `internal/service/dashboard.go`、`internal/api/dashboard_handler.go`、`web/src/pages/DashboardPage.tsx` |
+| 文档 | 新建 `CODE_REVIEW_2026_06.md`，修正 `REMEDIATION_TASKS.md` 失真进度表 | ✅ | `docs/CODE_REVIEW_2026_06.md` |
 
 ---
 

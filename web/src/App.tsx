@@ -15,6 +15,8 @@ import {
   AlertRulesPage,
   NotificationsPage,
   AdminUsersPage,
+  SyncSchedulesPage,
+  DashboardPage,
 } from './pages';
 import {
   AuthProvider,
@@ -36,6 +38,9 @@ const App = () => {
           </Route>
 
           <Route element={<RequireAuth />}>
+            {/* Dashboard */}
+            <Route path="/dashboard" element={<DashboardPage />} />
+
             {/* Data Sources */}
             <Route path="/" element={<SourcesPage />} />
             <Route path="/sources/:id" element={<SourceDetailPage />} />
@@ -70,6 +75,7 @@ const App = () => {
             {/* Admin */}
             <Route element={<RequireRole role="admin" />}>
               <Route path="/admin/users" element={<AdminUsersPage />} />
+              <Route path="/admin/sync" element={<SyncSchedulesPage />} />
             </Route>
           </Route>
 

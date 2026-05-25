@@ -1157,7 +1157,7 @@ func TestConfigValidation(t *testing.T) {
 			name: "invalid database type",
 			cfg: config.Config{
 				Server:   config.ServerConfig{Port: 8080},
-				Database: config.DatabaseConfig{Type: "oracle"},
+				Database: config.DatabaseConfig{Type: "redis"},
 			},
 			wantErr: true,
 		},

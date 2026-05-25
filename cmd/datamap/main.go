@@ -156,6 +156,15 @@ func run() error {
 	sourceService.SetGovernanceEventService(governanceEventService)
 	dqService.SetGovernanceEventService(governanceEventService)
 
+	// 初始化定时同步调度服务
+	syncSchedulerService := service.NewSyncSchedulerService(store, sourceService, logger)
+	if err := syncSchedulerService.Start(ctx); err != nil {
+		logger.Warn("failed to start sync scheduler", zap.Error(err))
+	}
+	defer syncSchedulerService.Stop()
+
+	dashboardService := service.NewDashboardService(store)
+
 	// 初始化API层
 	sourceHandler := api.NewSourceHandler(sourceService, metadataService)
 	schemaHandler := api.NewSchemaHandler(metadataService)
@@ -165,7 +174,9 @@ func run() error {
 	tagHandler := api.NewTagHandler(tagService)
 	alertHandler := api.NewAlertHandler(alertService, notifService, logger)
 	notifHandler := api.NewNotificationHandler(notifService, logger)
-	router := api.NewRouter(sourceHandler, schemaHandler, termHandler, authHandler, dqHandler, tagHandler, alertHandler, notifHandler, authService)
+	syncScheduleHandler := api.NewSyncScheduleHandler(store, syncSchedulerService)
+	dashboardHandler := api.NewDashboardHandler(dashboardService)
+	router := api.NewRouter(sourceHandler, schemaHandler, termHandler, authHandler, dqHandler, tagHandler, alertHandler, notifHandler, syncScheduleHandler, dashboardHandler, authService)
 	mcpHandler := mcpserver.New(&mcpserver.Dependencies{
 		SourceService:       sourceService,
 		MetadataService:     metadataService,
@@ -181,8 +192,14 @@ func run() error {
 
 	engine := gin.New()
 	engine.Use(gin.Recovery())
+	engine.Use(api.MetricsMiddleware())
 	engine.Use(loggingMiddleware(logger))
 	engine.Use(errorHandlingMiddleware())
+
+	// 注册健康检查和指标路由
+	healthChecker := api.NewHealthChecker(store)
+	healthChecker.RegisterHealthRoutes(engine)
+	api.RegisterMetricsRoutes(engine)
 
 	// 注册路由
 	router.Register(engine)

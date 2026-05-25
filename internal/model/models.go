@@ -13,8 +13,6 @@ const (
 	DataSourceMySQL      DataSourceType = "mysql"
 	DataSourcePostgreSQL DataSourceType = "postgres"
 	DataSourceMongoDB    DataSourceType = "mongodb"
-	DataSourceOracle     DataSourceType = "oracle"
-	DataSourceMSSQL      DataSourceType = "mssql"
 )
 
 // ObjectType 对象类型
@@ -152,4 +150,20 @@ type ColumnWithObject struct {
 type ObjectWithColumns struct {
 	SchemaObject
 	Columns []Column
+}
+
+// SyncSchedule 定时同步调度配置
+type SyncSchedule struct {
+	ID              uuid.UUID  `db:"id"`
+	SourceID        uuid.UUID  `db:"source_id"`
+	Name            string     `db:"name"`
+	Description     *string    `db:"description"`
+	CronExpression  string     `db:"cron_expression"`
+	IsActive        bool       `db:"is_active"`
+	LastRunAt       *time.Time `db:"last_run_at"`
+	LastRunStatus   *string    `db:"last_run_status"`
+	LastRunError    *string    `db:"last_run_error"`
+	NextRunAt       *time.Time `db:"next_run_at"`
+	CreatedAt       time.Time  `db:"created_at"`
+	UpdatedAt       time.Time  `db:"updated_at"`
 }

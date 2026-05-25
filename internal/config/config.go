@@ -245,10 +245,14 @@ func GetEncryptionKey() (string, error) {
 	if len(key) != 32 {
 		return "", fmt.Errorf("DATAMAP_ENCRYPTION_KEY must be 32 bytes (got %d)", len(key))
 	}
-	if strings.Contains(strings.ToLower(key), "change-me") ||
-		strings.Contains(strings.ToLower(key), "replace_me") ||
-		strings.Contains(strings.ToLower(key), "replace-me") {
-		return "", fmt.Errorf("DATAMAP_ENCRYPTION_KEY appears to be a placeholder (contains change-me/replace_me). Generate a real 32-byte key, e.g. `openssl rand -hex 16`")
+	lower := strings.ToLower(key)
+	if strings.Contains(lower, "change-me") ||
+		strings.Contains(lower, "replace_me") ||
+		strings.Contains(lower, "replace-me") ||
+		strings.Contains(lower, "set_your") ||
+		strings.Contains(lower, "placeholder") ||
+		strings.Contains(lower, "example") {
+		return "", fmt.Errorf("DATAMAP_ENCRYPTION_KEY appears to be a placeholder. Generate a real 32-byte key, e.g. `openssl rand -hex 16`")
 	}
 	return key, nil
 }

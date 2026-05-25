@@ -242,7 +242,7 @@ CREATE TABLE IF NOT EXISTS data_sources (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     description TEXT,
-    type TEXT NOT NULL CHECK (type IN ('mysql', 'postgres', 'mongodb', 'oracle', 'mssql')),
+    type TEXT NOT NULL CHECK (type IN ('mysql', 'postgres', 'mongodb')),
     host TEXT NOT NULL,
     port INTEGER NOT NULL CHECK (port > 0 AND port <= 65535),
     database TEXT NOT NULL,
@@ -540,6 +540,26 @@ CREATE TABLE IF NOT EXISTS governance_outbox (
 
 CREATE INDEX IF NOT EXISTS idx_governance_outbox_status_next_attempt ON governance_outbox(status, next_attempt_at);
 CREATE INDEX IF NOT EXISTS idx_governance_outbox_event_id ON governance_outbox(event_id);
+
+-- 18. 定时同步调度表
+CREATE TABLE IF NOT EXISTS sync_schedules (
+    id TEXT PRIMARY KEY,
+    source_id TEXT NOT NULL REFERENCES data_sources(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    description TEXT,
+    cron_expression TEXT NOT NULL,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    last_run_at TEXT,
+    last_run_status TEXT CHECK (last_run_status IN ('success', 'failed', 'running')),
+    last_run_error TEXT,
+    next_run_at TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_sync_schedules_source ON sync_schedules(source_id);
+CREATE INDEX IF NOT EXISTS idx_sync_schedules_active ON sync_schedules(is_active);
+CREATE INDEX IF NOT EXISTS idx_sync_schedules_next_run ON sync_schedules(next_run_at);
 `
 	_, err := db.ExecContext(ctx, schema)
 	return err
@@ -1466,4 +1486,280 @@ func (t *SQLiteTxStore) GetDQStats(ctx context.Context) (*DQStatsRow, error) {
 	}
 
 	return &stats, nil
+}
+
+// ========== SyncSchedule ==========
+
+// CreateSyncSchedule 创建定时同步配置
+func (s *SQLiteStore) CreateSyncSchedule(ctx context.Context, schedule *SyncScheduleCreate) (string, error) {
+	query := `
+		INSERT INTO sync_schedules (id, source_id, name, description, cron_expression, is_active)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`
+	id := uuid.New().String()
+	_, err := s.db.ExecContext(ctx, query,
+		id, schedule.SourceID, schedule.Name, schedule.Description,
+		schedule.CronExpression, schedule.IsActive,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to create sync schedule: %w", err)
+	}
+	return id, nil
+}
+
+// GetSyncSchedule 获取定时同步配置
+func (s *SQLiteStore) GetSyncSchedule(ctx context.Context, id string) (*SyncScheduleRow, error) {
+	query := `
+		SELECT id, source_id, name, description, cron_expression, is_active,
+		       last_run_at, last_run_status, last_run_error, next_run_at,
+		       created_at, updated_at
+		FROM sync_schedules WHERE id = ?
+	`
+	row := s.db.QueryRowContext(ctx, query, id)
+	var ssr SyncScheduleRow
+	err := row.Scan(
+		&ssr.ID, &ssr.SourceID, &ssr.Name, &ssr.Description, &ssr.CronExpression, &ssr.IsActive,
+		&ssr.LastRunAt, &ssr.LastRunStatus, &ssr.LastRunError, &ssr.NextRunAt,
+		&ssr.CreatedAt, &ssr.UpdatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("sync schedule not found: %s", id)
+		}
+		return nil, fmt.Errorf("failed to get sync schedule: %w", err)
+	}
+	return &ssr, nil
+}
+
+// ListSyncSchedules 列出所有定时同步配置
+func (s *SQLiteStore) ListSyncSchedules(ctx context.Context) ([]*SyncScheduleRow, error) {
+	query := `
+		SELECT id, source_id, name, description, cron_expression, is_active,
+		       last_run_at, last_run_status, last_run_error, next_run_at,
+		       created_at, updated_at
+		FROM sync_schedules ORDER BY created_at DESC
+	`
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list sync schedules: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*SyncScheduleRow
+	for rows.Next() {
+		var ssr SyncScheduleRow
+		err := rows.Scan(
+			&ssr.ID, &ssr.SourceID, &ssr.Name, &ssr.Description, &ssr.CronExpression, &ssr.IsActive,
+			&ssr.LastRunAt, &ssr.LastRunStatus, &ssr.LastRunError, &ssr.NextRunAt,
+			&ssr.CreatedAt, &ssr.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, &ssr)
+	}
+	return results, rows.Err()
+}
+
+// ListSyncSchedulesBySource 按数据源列出定时同步配置
+func (s *SQLiteStore) ListSyncSchedulesBySource(ctx context.Context, sourceID string) ([]*SyncScheduleRow, error) {
+	query := `
+		SELECT id, source_id, name, description, cron_expression, is_active,
+		       last_run_at, last_run_status, last_run_error, next_run_at,
+		       created_at, updated_at
+		FROM sync_schedules WHERE source_id = ? ORDER BY created_at DESC
+	`
+	rows, err := s.db.QueryContext(ctx, query, sourceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list sync schedules by source: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*SyncScheduleRow
+	for rows.Next() {
+		var ssr SyncScheduleRow
+		err := rows.Scan(
+			&ssr.ID, &ssr.SourceID, &ssr.Name, &ssr.Description, &ssr.CronExpression, &ssr.IsActive,
+			&ssr.LastRunAt, &ssr.LastRunStatus, &ssr.LastRunError, &ssr.NextRunAt,
+			&ssr.CreatedAt, &ssr.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, &ssr)
+	}
+	return results, rows.Err()
+}
+
+// UpdateSyncSchedule 更新定时同步配置
+func (s *SQLiteStore) UpdateSyncSchedule(ctx context.Context, id string, updates *SyncScheduleUpdate) error {
+	query := `UPDATE sync_schedules SET name = COALESCE(?, name), description = COALESCE(?, description), cron_expression = COALESCE(?, cron_expression), is_active = COALESCE(?, is_active) WHERE id = ?`
+	res, err := s.db.ExecContext(ctx, query, updates.Name, updates.Description, updates.CronExpression, updates.IsActive, id)
+	if err != nil {
+		return fmt.Errorf("failed to update sync schedule: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("sync schedule not found: %s", id)
+	}
+	return nil
+}
+
+// DeleteSyncSchedule 删除定时同步配置
+func (s *SQLiteStore) DeleteSyncSchedule(ctx context.Context, id string) error {
+	res, err := s.db.ExecContext(ctx, `DELETE FROM sync_schedules WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete sync schedule: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("sync schedule not found: %s", id)
+	}
+	return nil
+}
+
+// UpdateSyncScheduleRunStatus 更新定时同步运行状态
+func (s *SQLiteStore) UpdateSyncScheduleRunStatus(ctx context.Context, id string, status string, errorMsg *string, nextRunAt *string) error {
+	query := `UPDATE sync_schedules SET last_run_at = datetime('now'), last_run_status = ?, last_run_error = ?, next_run_at = ? WHERE id = ?`
+	_, err := s.db.ExecContext(ctx, query, status, errorMsg, nextRunAt, id)
+	if err != nil {
+		return fmt.Errorf("failed to update sync schedule run status: %w", err)
+	}
+	return nil
+}
+
+// ========== SQLiteTxStore SyncSchedule ==========
+
+// CreateSyncSchedule 创建定时同步配置（事务版）
+func (t *SQLiteTxStore) CreateSyncSchedule(ctx context.Context, schedule *SyncScheduleCreate) (string, error) {
+	query := `
+		INSERT INTO sync_schedules (id, source_id, name, description, cron_expression, is_active)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`
+	id := uuid.New().String()
+	_, err := t.tx.ExecContext(ctx, query,
+		id, schedule.SourceID, schedule.Name, schedule.Description,
+		schedule.CronExpression, schedule.IsActive,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to create sync schedule: %w", err)
+	}
+	return id, nil
+}
+
+// GetSyncSchedule 获取定时同步配置（事务版）
+func (t *SQLiteTxStore) GetSyncSchedule(ctx context.Context, id string) (*SyncScheduleRow, error) {
+	query := `
+		SELECT id, source_id, name, description, cron_expression, is_active,
+		       last_run_at, last_run_status, last_run_error, next_run_at,
+		       created_at, updated_at
+		FROM sync_schedules WHERE id = ?
+	`
+	row := t.tx.QueryRowContext(ctx, query, id)
+	var ssr SyncScheduleRow
+	err := row.Scan(
+		&ssr.ID, &ssr.SourceID, &ssr.Name, &ssr.Description, &ssr.CronExpression, &ssr.IsActive,
+		&ssr.LastRunAt, &ssr.LastRunStatus, &ssr.LastRunError, &ssr.NextRunAt,
+		&ssr.CreatedAt, &ssr.UpdatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("sync schedule not found: %s", id)
+		}
+		return nil, fmt.Errorf("failed to get sync schedule: %w", err)
+	}
+	return &ssr, nil
+}
+
+// ListSyncSchedules 列出所有定时同步配置（事务版）
+func (t *SQLiteTxStore) ListSyncSchedules(ctx context.Context) ([]*SyncScheduleRow, error) {
+	query := `
+		SELECT id, source_id, name, description, cron_expression, is_active,
+		       last_run_at, last_run_status, last_run_error, next_run_at,
+		       created_at, updated_at
+		FROM sync_schedules ORDER BY created_at DESC
+	`
+	rows, err := t.tx.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list sync schedules: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*SyncScheduleRow
+	for rows.Next() {
+		var ssr SyncScheduleRow
+		err := rows.Scan(
+			&ssr.ID, &ssr.SourceID, &ssr.Name, &ssr.Description, &ssr.CronExpression, &ssr.IsActive,
+			&ssr.LastRunAt, &ssr.LastRunStatus, &ssr.LastRunError, &ssr.NextRunAt,
+			&ssr.CreatedAt, &ssr.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, &ssr)
+	}
+	return results, rows.Err()
+}
+
+// ListSyncSchedulesBySource 按数据源列出定时同步配置（事务版）
+func (t *SQLiteTxStore) ListSyncSchedulesBySource(ctx context.Context, sourceID string) ([]*SyncScheduleRow, error) {
+	query := `
+		SELECT id, source_id, name, description, cron_expression, is_active,
+		       last_run_at, last_run_status, last_run_error, next_run_at,
+		       created_at, updated_at
+		FROM sync_schedules WHERE source_id = ? ORDER BY created_at DESC
+	`
+	rows, err := t.tx.QueryContext(ctx, query, sourceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list sync schedules by source: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*SyncScheduleRow
+	for rows.Next() {
+		var ssr SyncScheduleRow
+		err := rows.Scan(
+			&ssr.ID, &ssr.SourceID, &ssr.Name, &ssr.Description, &ssr.CronExpression, &ssr.IsActive,
+			&ssr.LastRunAt, &ssr.LastRunStatus, &ssr.LastRunError, &ssr.NextRunAt,
+			&ssr.CreatedAt, &ssr.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, &ssr)
+	}
+	return results, rows.Err()
+}
+
+// UpdateSyncSchedule 更新定时同步配置（事务版）
+func (t *SQLiteTxStore) UpdateSyncSchedule(ctx context.Context, id string, updates *SyncScheduleUpdate) error {
+	query := `UPDATE sync_schedules SET name = COALESCE(?, name), description = COALESCE(?, description), cron_expression = COALESCE(?, cron_expression), is_active = COALESCE(?, is_active) WHERE id = ?`
+	res, err := t.tx.ExecContext(ctx, query, updates.Name, updates.Description, updates.CronExpression, updates.IsActive, id)
+	if err != nil {
+		return fmt.Errorf("failed to update sync schedule: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("sync schedule not found: %s", id)
+	}
+	return nil
+}
+
+// DeleteSyncSchedule 删除定时同步配置（事务版）
+func (t *SQLiteTxStore) DeleteSyncSchedule(ctx context.Context, id string) error {
+	res, err := t.tx.ExecContext(ctx, `DELETE FROM sync_schedules WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete sync schedule: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("sync schedule not found: %s", id)
+	}
+	return nil
+}
+
+// UpdateSyncScheduleRunStatus 更新定时同步运行状态（事务版）
+func (t *SQLiteTxStore) UpdateSyncScheduleRunStatus(ctx context.Context, id string, status string, errorMsg *string, nextRunAt *string) error {
+	query := `UPDATE sync_schedules SET last_run_at = datetime('now'), last_run_status = ?, last_run_error = ?, next_run_at = ? WHERE id = ?`
+	_, err := t.tx.ExecContext(ctx, query, status, errorMsg, nextRunAt, id)
+	if err != nil {
+		return fmt.Errorf("failed to update sync schedule run status: %w", err)
+	}
+	return nil
 }

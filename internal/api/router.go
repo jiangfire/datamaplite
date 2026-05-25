@@ -15,11 +15,13 @@ type Router struct {
 	tagHandler          *TagHandler
 	alertHandler        *AlertHandler
 	notificationHandler *NotificationHandler
+	syncScheduleHandler *SyncScheduleHandler
+	dashboardHandler    *DashboardHandler
 	authService         *service.AuthService
 }
 
 // NewRouter 创建路由注册器
-func NewRouter(sourceHandler *SourceHandler, schemaHandler *SchemaHandler, termHandler *TermHandler, authHandler *AuthHandler, dqHandler *DQHandler, tagHandler *TagHandler, alertHandler *AlertHandler, notificationHandler *NotificationHandler, authService *service.AuthService) *Router {
+func NewRouter(sourceHandler *SourceHandler, schemaHandler *SchemaHandler, termHandler *TermHandler, authHandler *AuthHandler, dqHandler *DQHandler, tagHandler *TagHandler, alertHandler *AlertHandler, notificationHandler *NotificationHandler, syncScheduleHandler *SyncScheduleHandler, dashboardHandler *DashboardHandler, authService *service.AuthService) *Router {
 	return &Router{
 		sourceHandler:       sourceHandler,
 		schemaHandler:       schemaHandler,
@@ -29,19 +31,14 @@ func NewRouter(sourceHandler *SourceHandler, schemaHandler *SchemaHandler, termH
 		tagHandler:          tagHandler,
 		alertHandler:        alertHandler,
 		notificationHandler: notificationHandler,
+		syncScheduleHandler: syncScheduleHandler,
+		dashboardHandler:    dashboardHandler,
 		authService:         authService,
 	}
 }
 
 // Register 注册所有路由
 func (r *Router) Register(engine *gin.Engine) {
-	baseHandler := NewHandler()
-
-	// Health check
-	engine.GET("/health", func(c *gin.Context) {
-		baseHandler.JSON(c, gin.H{"status": "ok"})
-	})
-
 	// API v1
 	v1 := engine.Group("/api/v1")
 	{
@@ -56,6 +53,9 @@ func (r *Router) Register(engine *gin.Engine) {
 		authorized := v1.Group("")
 		authorized.Use(AuthMiddleware(r.authService), GovernanceAuditMiddleware())
 		{
+			// 仪表盘统计
+			authorized.GET("/dashboard/stats", r.dashboardHandler.GetStats)
+
 			// 当前用户信息
 			authorized.GET("/auth/me", r.authHandler.GetCurrentUser)
 
@@ -151,6 +151,11 @@ func (r *Router) Register(engine *gin.Engine) {
 				notifications.GET("", r.notificationHandler.ListNotifications)
 				notifications.GET("/stats", r.notificationHandler.GetNotificationStats)
 				notifications.POST("/read", r.notificationHandler.MarkAsRead)
+			}
+
+			// 定时同步调度管理
+			if r.syncScheduleHandler != nil {
+				r.syncScheduleHandler.RegisterRoutes(authorized)
 			}
 		}
 	}

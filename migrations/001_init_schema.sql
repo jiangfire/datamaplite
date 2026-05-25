@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS data_sources (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(100) NOT NULL,
     description TEXT,
-    type VARCHAR(20) NOT NULL CHECK (type IN ('mysql', 'postgres', 'mongodb', 'oracle', 'mssql')),
+    type VARCHAR(20) NOT NULL CHECK (type IN ('mysql', 'postgres', 'mongodb')),
     host VARCHAR(255) NOT NULL,
     port INTEGER NOT NULL CHECK (port > 0 AND port <= 65535),
     database VARCHAR(255) NOT NULL,

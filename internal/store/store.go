@@ -130,6 +130,15 @@ type Store interface {
 	ListGovernanceOutboxEvents(ctx context.Context, limit int) ([]*GovernanceOutboxEventRow, error)
 	GetGovernanceOutboxStats(ctx context.Context) (*GovernanceOutboxStatsRow, error)
 
+	// SyncSchedule 定时同步
+	CreateSyncSchedule(ctx context.Context, schedule *SyncScheduleCreate) (string, error)
+	GetSyncSchedule(ctx context.Context, id string) (*SyncScheduleRow, error)
+	ListSyncSchedules(ctx context.Context) ([]*SyncScheduleRow, error)
+	ListSyncSchedulesBySource(ctx context.Context, sourceID string) ([]*SyncScheduleRow, error)
+	UpdateSyncSchedule(ctx context.Context, id string, updates *SyncScheduleUpdate) error
+	DeleteSyncSchedule(ctx context.Context, id string) error
+	UpdateSyncScheduleRunStatus(ctx context.Context, id string, status string, errorMsg *string, nextRunAt *string) error
+
 	// Transaction
 	WithTx(ctx context.Context, fn func(Store) error) error
 
@@ -624,6 +633,39 @@ type SyncLeaseRow struct {
 	OwnerID    string
 	LeaseUntil string
 	UpdatedAt  string
+}
+
+// SyncScheduleCreate 创建定时同步参数
+type SyncScheduleCreate struct {
+	SourceID       string
+	Name           string
+	Description    *string
+	CronExpression string
+	IsActive       bool
+}
+
+// SyncScheduleUpdate 更新定时同步参数
+type SyncScheduleUpdate struct {
+	Name           *string
+	Description    *string
+	CronExpression *string
+	IsActive       *bool
+}
+
+// SyncScheduleRow 定时同步行
+type SyncScheduleRow struct {
+	ID             string
+	SourceID       string
+	Name           string
+	Description    *string
+	CronExpression string
+	IsActive       bool
+	LastRunAt      *string
+	LastRunStatus  *string
+	LastRunError   *string
+	NextRunAt      *string
+	CreatedAt      string
+	UpdatedAt      string
 }
 
 // GovernanceOutboxEventCreate 治理事件 outbox 入队参数。

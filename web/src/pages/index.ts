@@ -13,3 +13,5 @@ export { TagDetailPage } from './TagDetailPage';
 export { AlertRulesPage } from './AlertRulesPage';
 export { NotificationsPage } from './NotificationsPage';
 export { AdminUsersPage } from './AdminUsersPage';
+export { SyncSchedulesPage } from './SyncSchedulesPage';
+export { DashboardPage } from './DashboardPage';
