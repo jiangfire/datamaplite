@@ -5,7 +5,7 @@ import { useToast } from './useToast';
 export function useSyncSchedules() {
   const [schedules, setSchedules] = useState<SyncSchedule[]>([]);
   const [loading, setLoading] = useState(false);
-  const { showError, showSuccess } = useToast();
+  const { add } = useToast();
 
   const fetchSchedules = async () => {
     setLoading(true);
@@ -13,7 +13,7 @@ export function useSyncSchedules() {
       const data = await syncScheduleService.listSchedules();
       setSchedules(data);
     } catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to load schedules');
+      add(err instanceof Error ? err.message : 'Failed to load schedules', 'error');
     } finally {
       setLoading(false);
     }
@@ -22,10 +22,10 @@ export function useSyncSchedules() {
   const createSchedule = async (data: Parameters<typeof syncScheduleService.createSchedule>[0]) => {
     try {
       await syncScheduleService.createSchedule(data);
-      showSuccess('Schedule created successfully');
+      add('Schedule created successfully', 'success');
       await fetchSchedules();
     } catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to create schedule');
+      add(err instanceof Error ? err.message : 'Failed to create schedule', 'error');
       throw err;
     }
   };
@@ -33,10 +33,10 @@ export function useSyncSchedules() {
   const updateSchedule = async (id: string, data: Parameters<typeof syncScheduleService.updateSchedule>[1]) => {
     try {
       await syncScheduleService.updateSchedule(id, data);
-      showSuccess('Schedule updated successfully');
+      add('Schedule updated successfully', 'success');
       await fetchSchedules();
     } catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to update schedule');
+      add(err instanceof Error ? err.message : 'Failed to update schedule', 'error');
       throw err;
     }
   };
@@ -44,10 +44,10 @@ export function useSyncSchedules() {
   const deleteSchedule = async (id: string) => {
     try {
       await syncScheduleService.deleteSchedule(id);
-      showSuccess('Schedule deleted successfully');
+      add('Schedule deleted successfully', 'success');
       await fetchSchedules();
     } catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to delete schedule');
+      add(err instanceof Error ? err.message : 'Failed to delete schedule', 'error');
       throw err;
     }
   };

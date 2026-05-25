@@ -5,7 +5,7 @@ import { useToast } from './useToast';
 export function useDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(false);
-  const { showError } = useToast();
+  const { add } = useToast();
 
   const fetchStats = async () => {
     setLoading(true);
@@ -13,7 +13,7 @@ export function useDashboard() {
       const data = await dashboardService.getStats();
       setStats(data);
     } catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to load dashboard');
+      add(err instanceof Error ? err.message : 'Failed to load dashboard', 'error');
     } finally {
       setLoading(false);
     }

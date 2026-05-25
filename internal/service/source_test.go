@@ -607,6 +607,50 @@ func (m *MockStore) GetGovernanceOutboxStats(ctx context.Context) (*store.Govern
 	return args.Get(0).(*store.GovernanceOutboxStatsRow), args.Error(1)
 }
 
+func (m *MockStore) CreateSyncSchedule(ctx context.Context, schedule *store.SyncScheduleCreate) (string, error) {
+	args := m.Called(ctx, schedule)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockStore) GetSyncSchedule(ctx context.Context, id string) (*store.SyncScheduleRow, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.SyncScheduleRow), args.Error(1)
+}
+
+func (m *MockStore) ListSyncSchedules(ctx context.Context) ([]*store.SyncScheduleRow, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*store.SyncScheduleRow), args.Error(1)
+}
+
+func (m *MockStore) ListSyncSchedulesBySource(ctx context.Context, sourceID string) ([]*store.SyncScheduleRow, error) {
+	args := m.Called(ctx, sourceID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*store.SyncScheduleRow), args.Error(1)
+}
+
+func (m *MockStore) UpdateSyncSchedule(ctx context.Context, id string, updates *store.SyncScheduleUpdate) error {
+	args := m.Called(ctx, id, updates)
+	return args.Error(0)
+}
+
+func (m *MockStore) DeleteSyncSchedule(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *MockStore) UpdateSyncScheduleRunStatus(ctx context.Context, id string, status string, errorMsg *string, nextRunAt *string) error {
+	args := m.Called(ctx, id, status, errorMsg, nextRunAt)
+	return args.Error(0)
+}
+
 // MockScanner 模拟Scanner接口
 type MockScanner struct {
 	mock.Mock
