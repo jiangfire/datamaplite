@@ -46,7 +46,9 @@ func testPostgresStore(t *testing.T) Store {
 		case "host":
 			cfg.Host = kv[1]
 		case "port":
-			fmt.Sscanf(kv[1], "%d", &cfg.Port)
+			if _, err := fmt.Sscanf(kv[1], "%d", &cfg.Port); err != nil {
+				cfg.Port = 5432
+			}
 		case "user":
 			cfg.Username = kv[1]
 		case "password":
@@ -78,23 +80,23 @@ func testPostgresStore(t *testing.T) Store {
 func cleanupPostgresTestData(ctx context.Context, st Store) {
 	// 使用类型断言来执行清理
 	if pg, ok := st.(*PostgresStore); ok {
-		pg.pool.Exec(ctx, `DELETE FROM user_notifications`)
-		pg.pool.Exec(ctx, `DELETE FROM notifications`)
-		pg.pool.Exec(ctx, `DELETE FROM alert_rules`)
-		pg.pool.Exec(ctx, `DELETE FROM column_tags`)
-		pg.pool.Exec(ctx, `DELETE FROM tags`)
-		pg.pool.Exec(ctx, `DELETE FROM dq_results`)
-		pg.pool.Exec(ctx, `DELETE FROM dq_rules`)
-		pg.pool.Exec(ctx, `DELETE FROM lineage_edges`)
-		pg.pool.Exec(ctx, `DELETE FROM column_mappings`)
-		pg.pool.Exec(ctx, `DELETE FROM columns`)
-		pg.pool.Exec(ctx, `DELETE FROM schema_changes`)
-		pg.pool.Exec(ctx, `DELETE FROM schema_objects`)
-		pg.pool.Exec(ctx, `DELETE FROM governance_outbox`)
-		pg.pool.Exec(ctx, `DELETE FROM sync_leases`)
-		pg.pool.Exec(ctx, `DELETE FROM business_terms`)
-		pg.pool.Exec(ctx, `DELETE FROM users`)
-		pg.pool.Exec(ctx, `DELETE FROM data_sources`)
+		_, _ = pg.pool.Exec(ctx, `DELETE FROM user_notifications`)
+		_, _ = pg.pool.Exec(ctx, `DELETE FROM notifications`)
+		_, _ = pg.pool.Exec(ctx, `DELETE FROM alert_rules`)
+		_, _ = pg.pool.Exec(ctx, `DELETE FROM column_tags`)
+		_, _ = pg.pool.Exec(ctx, `DELETE FROM tags`)
+		_, _ = pg.pool.Exec(ctx, `DELETE FROM dq_results`)
+		_, _ = pg.pool.Exec(ctx, `DELETE FROM dq_rules`)
+		_, _ = pg.pool.Exec(ctx, `DELETE FROM lineage_edges`)
+		_, _ = pg.pool.Exec(ctx, `DELETE FROM column_mappings`)
+		_, _ = pg.pool.Exec(ctx, `DELETE FROM columns`)
+		_, _ = pg.pool.Exec(ctx, `DELETE FROM schema_changes`)
+		_, _ = pg.pool.Exec(ctx, `DELETE FROM schema_objects`)
+		_, _ = pg.pool.Exec(ctx, `DELETE FROM governance_outbox`)
+		_, _ = pg.pool.Exec(ctx, `DELETE FROM sync_leases`)
+		_, _ = pg.pool.Exec(ctx, `DELETE FROM business_terms`)
+		_, _ = pg.pool.Exec(ctx, `DELETE FROM users`)
+		_, _ = pg.pool.Exec(ctx, `DELETE FROM data_sources`)
 	}
 }
 

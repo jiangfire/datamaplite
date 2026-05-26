@@ -121,7 +121,7 @@ func (h *SyncScheduleHandler) CreateSchedule(c *gin.Context) {
 	if h.schedulerService != nil {
 		if err := h.schedulerService.RefreshSchedules(ctx); err != nil {
 			// 不阻断创建成功，只记录日志
-			// TODO: 添加日志
+			_ = err // TODO: add logging
 		}
 	}
 
@@ -163,7 +163,7 @@ func (h *SyncScheduleHandler) UpdateSchedule(c *gin.Context) {
 	// 刷新调度器
 	if h.schedulerService != nil {
 		if err := h.schedulerService.RefreshSchedules(ctx); err != nil {
-			// 不阻断更新成功
+			_ = err // 不阻断更新成功
 		}
 	}
 
@@ -186,7 +186,7 @@ func (h *SyncScheduleHandler) DeleteSchedule(c *gin.Context) {
 	// 刷新调度器
 	if h.schedulerService != nil {
 		if err := h.schedulerService.RefreshSchedules(ctx); err != nil {
-			// 不阻断删除成功
+			_ = err // 不阻断删除成功
 		}
 	}
 

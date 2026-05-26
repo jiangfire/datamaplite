@@ -1543,7 +1543,7 @@ func (s *SQLiteStore) ListSyncSchedules(ctx context.Context) ([]*SyncScheduleRow
 	if err != nil {
 		return nil, fmt.Errorf("failed to list sync schedules: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []*SyncScheduleRow
 	for rows.Next() {
@@ -1573,7 +1573,7 @@ func (s *SQLiteStore) ListSyncSchedulesBySource(ctx context.Context, sourceID st
 	if err != nil {
 		return nil, fmt.Errorf("failed to list sync schedules by source: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []*SyncScheduleRow
 	for rows.Next() {
@@ -1681,7 +1681,7 @@ func (t *SQLiteTxStore) ListSyncSchedules(ctx context.Context) ([]*SyncScheduleR
 	if err != nil {
 		return nil, fmt.Errorf("failed to list sync schedules: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []*SyncScheduleRow
 	for rows.Next() {
@@ -1711,7 +1711,7 @@ func (t *SQLiteTxStore) ListSyncSchedulesBySource(ctx context.Context, sourceID 
 	if err != nil {
 		return nil, fmt.Errorf("failed to list sync schedules by source: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []*SyncScheduleRow
 	for rows.Next() {
