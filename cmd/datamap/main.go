@@ -175,7 +175,7 @@ func run() error {
 	alertHandler := api.NewAlertHandler(alertService, notifService, logger)
 	notifHandler := api.NewNotificationHandler(notifService, logger)
 	syncScheduleHandler := api.NewSyncScheduleHandler(store, syncSchedulerService)
-	dashboardHandler := api.NewDashboardHandler(dashboardService)
+	dashboardHandler := api.NewDashboardHandler(dashboardService, store)
 	router := api.NewRouter(sourceHandler, schemaHandler, termHandler, authHandler, dqHandler, tagHandler, alertHandler, notifHandler, syncScheduleHandler, dashboardHandler, authService)
 	mcpHandler := mcpserver.New(&mcpserver.Dependencies{
 		SourceService:       sourceService,
@@ -199,7 +199,7 @@ func run() error {
 	// 注册健康检查和指标路由
 	healthChecker := api.NewHealthChecker(store)
 	healthChecker.RegisterHealthRoutes(engine)
-	api.RegisterMetricsRoutes(engine)
+	api.RegisterMetricsRoutes(engine, cfg.Metrics.APIKey)
 
 	// 注册路由
 	router.Register(engine)

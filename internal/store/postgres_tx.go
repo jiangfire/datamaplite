@@ -19,6 +19,11 @@ func (t *PostgresTxStore) Close() error {
 	return nil
 }
 
+// Ping 轻量级健康检查（事务内始终可用）
+func (t *PostgresTxStore) Ping(ctx context.Context) error {
+	return nil
+}
+
 // CreateDataSource 创建数据源
 func (t *PostgresTxStore) CreateDataSource(ctx context.Context, source *DataSourceCreate) (string, error) {
 	query := `

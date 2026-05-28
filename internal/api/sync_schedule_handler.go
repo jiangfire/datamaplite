@@ -29,10 +29,10 @@ func (h *SyncScheduleHandler) RegisterRoutes(router *gin.RouterGroup) {
 	schedules := router.Group("/sync/schedules")
 	{
 		schedules.GET("", h.ListSchedules)
-		schedules.POST("", h.CreateSchedule)
 		schedules.GET("/:id", h.GetSchedule)
-		schedules.PUT("/:id", h.UpdateSchedule)
-		schedules.DELETE("/:id", h.DeleteSchedule)
+		schedules.POST("", AdminMiddleware(), h.CreateSchedule)
+		schedules.PUT("/:id", AdminMiddleware(), h.UpdateSchedule)
+		schedules.DELETE("/:id", AdminMiddleware(), h.DeleteSchedule)
 	}
 }
 

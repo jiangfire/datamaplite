@@ -16,7 +16,15 @@ export interface DashboardStats {
   unread_notifications: number;
 }
 
+export interface ChangeTrendPoint {
+  date: string;
+  count: number;
+}
+
 export const dashboardService = {
   getStats: (): Promise<DashboardStats> =>
     api.get<DashboardStats>('/dashboard/stats'),
+
+  getChangeTrend: (days = 30): Promise<ChangeTrendPoint[]> =>
+    api.get<ChangeTrendPoint[]>(`/dashboard/change-trend?days=${days}`),
 };

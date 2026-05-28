@@ -1,4 +1,5 @@
 import { Layout } from '../components/Layout';
+import { ChangeTrendChart } from '../components/dashboard/ChangeTrendChart';
 import { useDashboard } from '../hooks/useDashboard';
 import {
   Database,
@@ -43,7 +44,7 @@ function StatCard({ title, value, icon, color, subtitle }: StatCardProps) {
 }
 
 export function DashboardPage() {
-  const { stats, loading } = useDashboard();
+  const { stats, changeTrend, loading } = useDashboard();
 
   if (loading) {
     return (
@@ -167,6 +168,11 @@ export function DashboardPage() {
             </span>
           </div>
         )}
+
+        <div className="mt-8 bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+          <h2 className="text-lg font-semibold text-slate-800 mb-4">Schema 变更趋势 (近 30 天)</h2>
+          <ChangeTrendChart data={changeTrend} />
+        </div>
       </div>
     </Layout>
   );

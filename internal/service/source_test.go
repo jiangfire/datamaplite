@@ -260,6 +260,11 @@ func (m *MockStore) Close() error {
 	return args.Error(0)
 }
 
+func (m *MockStore) Ping(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
 func (m *MockStore) CreateUser(ctx context.Context, user *store.UserCreate) (string, error) {
 	args := m.Called(ctx, user)
 	return args.String(0), args.Error(1)
@@ -649,6 +654,22 @@ func (m *MockStore) DeleteSyncSchedule(ctx context.Context, id string) error {
 func (m *MockStore) UpdateSyncScheduleRunStatus(ctx context.Context, id string, status string, errorMsg *string, nextRunAt *string) error {
 	args := m.Called(ctx, id, status, errorMsg, nextRunAt)
 	return args.Error(0)
+}
+
+func (m *MockStore) GetDashboardCounts(ctx context.Context, userID string) (*store.DashboardCountsRow, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.DashboardCountsRow), args.Error(1)
+}
+
+func (m *MockStore) GetChangeTrend(ctx context.Context, days int) ([]*store.ChangeTrendPoint, error) {
+	args := m.Called(ctx, days)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*store.ChangeTrendPoint), args.Error(1)
 }
 
 // MockScanner 模拟Scanner接口

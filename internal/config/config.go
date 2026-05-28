@@ -17,6 +17,7 @@ type Config struct {
 	Scanner    ScannerConfig    `mapstructure:"scanner"`
 	Auth       AuthConfig       `mapstructure:"auth"`
 	Governance GovernanceConfig `mapstructure:"governance"`
+	Metrics    MetricsConfig    `mapstructure:"metrics"`
 }
 
 // ServerConfig HTTP服务配置
@@ -79,6 +80,11 @@ type GovernanceConfig struct {
 	Timeout          time.Duration `mapstructure:"timeout"`
 }
 
+// MetricsConfig Prometheus 指标端点配置
+type MetricsConfig struct {
+	APIKey string `mapstructure:"api_key"`
+}
+
 // Load 加载配置
 func Load() (*Config, error) {
 	viper.SetConfigName("config")
@@ -107,6 +113,7 @@ func Load() (*Config, error) {
 		"governance.integration_token",
 		"governance.source_system",
 		"governance.timeout",
+		"metrics.api_key",
 	} {
 		if err := viper.BindEnv(key); err != nil {
 			return nil, fmt.Errorf("failed to bind env %s: %w", key, err)
@@ -183,6 +190,9 @@ func setDefaults() {
 	viper.SetDefault("governance.integration_token", "")
 	viper.SetDefault("governance.source_system", "cornerstone")
 	viper.SetDefault("governance.timeout", "5s")
+
+	// Metrics defaults
+	viper.SetDefault("metrics.api_key", "")
 }
 
 // Validate 验证配置

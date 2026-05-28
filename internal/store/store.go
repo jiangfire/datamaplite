@@ -139,8 +139,15 @@ type Store interface {
 	DeleteSyncSchedule(ctx context.Context, id string) error
 	UpdateSyncScheduleRunStatus(ctx context.Context, id string, status string, errorMsg *string, nextRunAt *string) error
 
+	// Dashboard 聚合统计
+	GetDashboardCounts(ctx context.Context, userID string) (*DashboardCountsRow, error)
+	GetChangeTrend(ctx context.Context, days int) ([]*ChangeTrendPoint, error)
+
 	// Transaction
 	WithTx(ctx context.Context, fn func(Store) error) error
+
+	// Ping 轻量级健康检查
+	Ping(ctx context.Context) error
 
 	// Close 关闭连接
 	Close() error
@@ -718,6 +725,29 @@ type NotificationStatsRow struct {
 	TotalCount  int64
 	UnreadCount int64
 	TodayCount  int64
+}
+
+// DashboardCountsRow 仪表盘聚合统计
+type DashboardCountsRow struct {
+	TotalSources        int64
+	TotalObjects        int64
+	TotalColumns        int64
+	TotalTerms          int64
+	TotalMappings       int64
+	TotalDQRules        int64
+	ActiveDQRules       int64
+	OverallPassRate     float64
+	TotalTags           int64
+	RecentChanges       int64
+	TotalAlertRules     int64
+	TotalUsers          int64
+	UnreadNotifications int64
+}
+
+// ChangeTrendPoint 变更趋势数据点
+type ChangeTrendPoint struct {
+	Date  string `json:"date"`
+	Count int64  `json:"count"`
 }
 
 // New 创建新的存储实例

@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Layout } from '../components/Layout';
+import { Modal } from '../components/ui/Modal';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { useSyncSchedules } from '../hooks/useSyncSchedules';
 import { useSources } from '../hooks/useSources';
 import type { SyncScheduleCreate, SyncScheduleUpdate } from '../services/syncScheduleService';
@@ -8,6 +10,7 @@ export function SyncSchedulesPage() {
   const { schedules, loading, createSchedule, updateSchedule, deleteSchedule } = useSyncSchedules();
   const { sources } = useSources();
   const [showModal, setShowModal] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<SyncScheduleCreate>>({
     name: '',
@@ -22,7 +25,7 @@ export function SyncSchedulesPage() {
     setFormData({
       name: '',
       source_id: sources[0]?.id || '',
-      cron_expression: '0 2 * * *',
+      cron_expression: '0 0 2 * * *',
       description: '',
       is_active: true,
     });
@@ -53,17 +56,29 @@ export function SyncSchedulesPage() {
       is_active: formData.is_active ?? true,
     };
 
-    if (editingId) {
-      const update: SyncScheduleUpdate = {};
-      if (formData.name !== undefined) update.name = formData.name;
-      if (formData.cron_expression !== undefined) update.cron_expression = formData.cron_expression;
-      if (formData.description !== undefined) update.description = formData.description;
-      if (formData.is_active !== undefined) update.is_active = formData.is_active;
-      await updateSchedule(editingId, update);
-    } else {
-      await createSchedule(data);
+    try {
+      if (editingId) {
+        const update: SyncScheduleUpdate = {};
+        if (formData.name !== undefined) update.name = formData.name;
+        if (formData.cron_expression !== undefined) update.cron_expression = formData.cron_expression;
+        if (formData.description !== undefined) update.description = formData.description;
+        if (formData.is_active !== undefined) update.is_active = formData.is_active;
+        await updateSchedule(editingId, update);
+      } else {
+        await createSchedule(data);
+      }
+      setShowModal(false);
+    } catch {
+      // error already handled by hook toast
     }
-    setShowModal(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteSchedule(id);
+    } catch {
+      // error already handled by hook toast
+    }
   };
 
   const getStatusColor = (status?: string) => {
@@ -154,11 +169,7 @@ export function SyncSchedulesPage() {
                         Edit
                       </button>
                       <button
-                        onClick={() => {
-                          if (confirm('Delete this schedule?')) {
-                            deleteSchedule(schedule.id);
-                          }
-                        }}
+                        onClick={() => setConfirmDeleteId(schedule.id)}
                         className="text-red-600 hover:text-red-800 text-sm"
                       >
                         Delete
@@ -171,86 +182,98 @@ export function SyncSchedulesPage() {
           </div>
         )}
 
-        {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
-              <h2 className="text-xl font-bold mb-4">{editingId ? 'Edit Schedule' : 'New Schedule'}</h2>
-              <form onSubmit={handleSubmit}>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium mb-1">Name *</label>
-                  <input
-                    type="text"
-                    value={formData.name || ''}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full border rounded-lg px-3 py-2"
-                    required
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium mb-1">Data Source *</label>
-                  <select
-                    value={formData.source_id || ''}
-                    onChange={(e) => setFormData({ ...formData, source_id: e.target.value })}
-                    className="w-full border rounded-lg px-3 py-2"
-                    required
-                  >
-                    <option value="">Select a source...</option>
-                    {sources.map((source) => (
-                      <option key={source.id} value={source.id}>{source.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium mb-1">Cron Expression *</label>
-                  <input
-                    type="text"
-                    value={formData.cron_expression || ''}
-                    onChange={(e) => setFormData({ ...formData, cron_expression: e.target.value })}
-                    className="w-full border rounded-lg px-3 py-2 font-mono text-sm"
-                    placeholder="0 2 * * *"
-                    required
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Format: sec min hour day month weekday (e.g. 0 2 * * *)</p>
-                </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium mb-1">Description</label>
-                  <textarea
-                    value={formData.description || ''}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full border rounded-lg px-3 py-2"
-                    rows={2}
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={formData.is_active}
-                      onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                      className="mr-2"
-                    />
-                    Active
-                  </label>
-                </div>
-                <div className="flex justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowModal(false)}
-                    className="px-4 py-2 border rounded-lg hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    {editingId ? 'Update' : 'Create'}
-                  </button>
-                </div>
-              </form>
+        <Modal
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+          title={editingId ? 'Edit Schedule' : 'New Schedule'}
+          size="md"
+        >
+          <form onSubmit={handleSubmit}>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1">Name *</label>
+              <input
+                type="text"
+                value={formData.name || ''}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full border rounded-lg px-3 py-2"
+                required
+              />
             </div>
-          </div>
-        )}
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1">Data Source *</label>
+              <select
+                value={formData.source_id || ''}
+                onChange={(e) => setFormData({ ...formData, source_id: e.target.value })}
+                className="w-full border rounded-lg px-3 py-2"
+                required
+              >
+                <option value="">Select a source...</option>
+                {sources.map((source) => (
+                  <option key={source.id} value={source.id}>{source.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1">Cron Expression *</label>
+              <input
+                type="text"
+                value={formData.cron_expression || ''}
+                onChange={(e) => setFormData({ ...formData, cron_expression: e.target.value })}
+                className="w-full border rounded-lg px-3 py-2 font-mono text-sm"
+                placeholder="0 0 2 * * *"
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">Format: sec min hour day month weekday (e.g. 0 0 2 * * *)</p>
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1">Description</label>
+              <textarea
+                value={formData.description || ''}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="w-full border rounded-lg px-3 py-2"
+                rows={2}
+              />
+            </div>
+            <div className="mb-4">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={formData.is_active}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                  className="mr-2"
+                />
+                Active
+              </label>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                {editingId ? 'Update' : 'Create'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+
+        <ConfirmDialog
+          isOpen={confirmDeleteId !== null}
+          onClose={() => setConfirmDeleteId(null)}
+          onConfirm={() => {
+            if (confirmDeleteId) handleDelete(confirmDeleteId);
+          }}
+          title="Delete Schedule"
+          message="Are you sure you want to delete this sync schedule? This action cannot be undone."
+          confirmLabel="Delete"
+          variant="danger"
+        />
       </div>
     </Layout>
   );

@@ -66,6 +66,11 @@ func (s *SQLiteStore) Close() error {
 	return s.db.Close()
 }
 
+// Ping 轻量级健康检查
+func (s *SQLiteStore) Ping(ctx context.Context) error {
+	return s.db.PingContext(ctx)
+}
+
 // CreateUser 创建用户
 func (s *SQLiteStore) CreateUser(ctx context.Context, user *UserCreate) (string, error) {
 	query := `
@@ -836,6 +841,11 @@ func (t *SQLiteTxStore) WithTx(ctx context.Context, fn func(Store) error) error 
 
 // Close 关闭事务存储
 func (t *SQLiteTxStore) Close() error {
+	return nil
+}
+
+// Ping 轻量级健康检查（事务内始终可用）
+func (t *SQLiteTxStore) Ping(ctx context.Context) error {
 	return nil
 }
 
@@ -1762,4 +1772,142 @@ func (t *SQLiteTxStore) UpdateSyncScheduleRunStatus(ctx context.Context, id stri
 		return fmt.Errorf("failed to update sync schedule run status: %w", err)
 	}
 	return nil
+}
+
+// GetDashboardCounts 获取仪表盘聚合统计（单条 SQL）
+func (s *SQLiteStore) GetDashboardCounts(ctx context.Context, userID string) (*DashboardCountsRow, error) {
+	query := `
+		SELECT
+			(SELECT COUNT(*) FROM data_sources) AS total_sources,
+			(SELECT COUNT(*) FROM schema_objects) AS total_objects,
+			(SELECT COUNT(*) FROM columns) AS total_columns,
+			(SELECT COUNT(*) FROM business_terms) AS total_terms,
+			(SELECT COUNT(*) FROM column_mappings) AS total_mappings,
+			(SELECT COUNT(*) FROM dq_rules) AS total_dq_rules,
+			(SELECT COUNT(*) FROM dq_rules WHERE is_active = 1) AS active_dq_rules,
+			COALESCE((SELECT CAST(SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END) AS FLOAT) / NULLIF(COUNT(*), 0) * 100 FROM dq_results), 0) AS overall_pass_rate,
+			(SELECT COUNT(*) FROM tags) AS total_tags,
+			(SELECT COUNT(*) FROM schema_changes WHERE julianday(detected_at) >= julianday('now', '-30 days')) AS recent_changes,
+			(SELECT COUNT(*) FROM alert_rules) AS total_alert_rules,
+			(SELECT COUNT(*) FROM users) AS total_users,
+			(SELECT COUNT(*) FROM user_notifications WHERE user_id = ? AND is_read = 0) AS unread_notifications
+	`
+
+	var row DashboardCountsRow
+	err := s.db.QueryRowContext(ctx, query, userID).Scan(
+		&row.TotalSources,
+		&row.TotalObjects,
+		&row.TotalColumns,
+		&row.TotalTerms,
+		&row.TotalMappings,
+		&row.TotalDQRules,
+		&row.ActiveDQRules,
+		&row.OverallPassRate,
+		&row.TotalTags,
+		&row.RecentChanges,
+		&row.TotalAlertRules,
+		&row.TotalUsers,
+		&row.UnreadNotifications,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get dashboard counts: %w", err)
+	}
+
+	return &row, nil
+}
+
+// GetDashboardCounts 获取仪表盘聚合统计（事务版）
+func (t *SQLiteTxStore) GetDashboardCounts(ctx context.Context, userID string) (*DashboardCountsRow, error) {
+	query := `
+		SELECT
+			(SELECT COUNT(*) FROM data_sources) AS total_sources,
+			(SELECT COUNT(*) FROM schema_objects) AS total_objects,
+			(SELECT COUNT(*) FROM columns) AS total_columns,
+			(SELECT COUNT(*) FROM business_terms) AS total_terms,
+			(SELECT COUNT(*) FROM column_mappings) AS total_mappings,
+			(SELECT COUNT(*) FROM dq_rules) AS total_dq_rules,
+			(SELECT COUNT(*) FROM dq_rules WHERE is_active = 1) AS active_dq_rules,
+			COALESCE((SELECT CAST(SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END) AS FLOAT) / NULLIF(COUNT(*), 0) * 100 FROM dq_results), 0) AS overall_pass_rate,
+			(SELECT COUNT(*) FROM tags) AS total_tags,
+			(SELECT COUNT(*) FROM schema_changes WHERE julianday(detected_at) >= julianday('now', '-30 days')) AS recent_changes,
+			(SELECT COUNT(*) FROM alert_rules) AS total_alert_rules,
+			(SELECT COUNT(*) FROM users) AS total_users,
+			(SELECT COUNT(*) FROM user_notifications WHERE user_id = ? AND is_read = 0) AS unread_notifications
+	`
+
+	var row DashboardCountsRow
+	err := t.tx.QueryRowContext(ctx, query, userID).Scan(
+		&row.TotalSources,
+		&row.TotalObjects,
+		&row.TotalColumns,
+		&row.TotalTerms,
+		&row.TotalMappings,
+		&row.TotalDQRules,
+		&row.ActiveDQRules,
+		&row.OverallPassRate,
+		&row.TotalTags,
+		&row.RecentChanges,
+		&row.TotalAlertRules,
+		&row.TotalUsers,
+		&row.UnreadNotifications,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get dashboard counts: %w", err)
+	}
+
+	return &row, nil
+}
+
+// GetChangeTrend 获取变更趋势（按天统计）
+func (s *SQLiteStore) GetChangeTrend(ctx context.Context, days int) ([]*ChangeTrendPoint, error) {
+	query := `
+		SELECT date(detected_at) AS day, COUNT(*) AS cnt
+		FROM schema_changes
+		WHERE julianday(detected_at) >= julianday('now', ? || ' days')
+		GROUP BY day
+		ORDER BY day ASC
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, fmt.Sprintf("-%d", days))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get change trend: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var results []*ChangeTrendPoint
+	for rows.Next() {
+		var p ChangeTrendPoint
+		if err := rows.Scan(&p.Date, &p.Count); err != nil {
+			return nil, err
+		}
+		results = append(results, &p)
+	}
+	return results, rows.Err()
+}
+
+// GetChangeTrend 获取变更趋势（事务版）
+func (t *SQLiteTxStore) GetChangeTrend(ctx context.Context, days int) ([]*ChangeTrendPoint, error) {
+	query := `
+		SELECT date(detected_at) AS day, COUNT(*) AS cnt
+		FROM schema_changes
+		WHERE julianday(detected_at) >= julianday('now', ? || ' days')
+		GROUP BY day
+		ORDER BY day ASC
+	`
+
+	rows, err := t.tx.QueryContext(ctx, query, fmt.Sprintf("-%d", days))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get change trend: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var results []*ChangeTrendPoint
+	for rows.Next() {
+		var p ChangeTrendPoint
+		if err := rows.Scan(&p.Date, &p.Count); err != nil {
+			return nil, err
+		}
+		results = append(results, &p)
+	}
+	return results, rows.Err()
 }

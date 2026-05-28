@@ -71,9 +71,41 @@ func MetricsMiddleware() gin.HandlerFunc {
 	}
 }
 
-// RegisterMetricsRoutes 注册 /metrics 路由
-func RegisterMetricsRoutes(engine *gin.Engine) {
-	engine.GET("/metrics", gin.WrapH(promhttp.HandlerFor(metricsRegistry, promhttp.HandlerOpts{})))
+// MetricsAuthMiddleware 验证 /metrics 端点的 API Key
+func MetricsAuthMiddleware(apiKey string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if apiKey == "" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "metrics endpoint not configured"})
+			c.Abort()
+			return
+		}
+
+		key := c.Query("api_key")
+		if key == "" {
+			key = c.GetHeader("X-Metrics-Key")
+		}
+
+		if key == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "api key required"})
+			c.Abort()
+			return
+		}
+
+		if key != apiKey {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid api key"})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
+// RegisterMetricsRoutes 注册 /metrics 路由（带 API Key 认证）
+func RegisterMetricsRoutes(engine *gin.Engine, apiKey string) {
+	metricsGroup := engine.Group("/metrics")
+	metricsGroup.Use(MetricsAuthMiddleware(apiKey))
+	metricsGroup.GET("", gin.WrapH(promhttp.HandlerFor(metricsRegistry, promhttp.HandlerOpts{})))
 }
 
 // HealthChecker 健康检查器
@@ -101,15 +133,13 @@ func (h *HealthChecker) Check(ctx context.Context) *HealthResponse {
 		Checks:    make(map[string]string),
 	}
 
-	// 检查数据库连接（使用轻量级查询）
+	// 检查数据库连接（使用轻量级 Ping）
 	if h.store != nil {
 		// 使用超时 context 避免健康检查 hang 住
 		pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 
-		// 对于 SQLite，使用轻量查询验证连接
-		_, err := h.store.ListDataSources(pingCtx)
-		if err != nil {
+		if err := h.store.Ping(pingCtx); err != nil {
 			resp.Status = "degraded"
 			resp.Checks["database"] = "unhealthy: " + err.Error()
 		} else {

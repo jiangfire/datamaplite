@@ -174,8 +174,9 @@ func (s *SyncSchedulerService) RefreshSchedules(ctx context.Context) error {
 	return s.reloadSchedules(ctx)
 }
 
-// ValidateCronExpression 验证 cron 表达式是否有效
+// ValidateCronExpression 验证 cron 表达式是否有效（6 字段格式：秒 分 时 日 月 周）
 func ValidateCronExpression(expr string) error {
-	_, err := cron.ParseStandard(expr)
+	parser := cron.NewParser(cron.Second | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
+	_, err := parser.Parse(expr)
 	return err
 }

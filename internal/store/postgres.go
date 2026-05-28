@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -130,6 +131,11 @@ func readMigration(path string) ([]byte, error) {
 func (s *PostgresStore) Close() error {
 	s.pool.Close()
 	return nil
+}
+
+// Ping 轻量级健康检查
+func (s *PostgresStore) Ping(ctx context.Context) error {
+	return s.pool.Ping(ctx)
 }
 
 // WithTx 在事务中执行
@@ -1041,4 +1047,146 @@ func (t *PostgresTxStore) UpdateSyncScheduleRunStatus(ctx context.Context, id st
 		return fmt.Errorf("failed to update sync schedule run status: %w", err)
 	}
 	return nil
+}
+
+// GetDashboardCounts 获取仪表盘聚合统计（单条 SQL）
+func (s *PostgresStore) GetDashboardCounts(ctx context.Context, userID string) (*DashboardCountsRow, error) {
+	query := `
+		SELECT
+			(SELECT COUNT(*) FROM data_sources) AS total_sources,
+			(SELECT COUNT(*) FROM schema_objects) AS total_objects,
+			(SELECT COUNT(*) FROM columns) AS total_columns,
+			(SELECT COUNT(*) FROM business_terms) AS total_terms,
+			(SELECT COUNT(*) FROM column_mappings) AS total_mappings,
+			(SELECT COUNT(*) FROM dq_rules) AS total_dq_rules,
+			(SELECT COUNT(*) FROM dq_rules WHERE is_active = true) AS active_dq_rules,
+			COALESCE((SELECT SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END)::FLOAT / NULLIF(COUNT(*), 0) * 100 FROM dq_results), 0) AS overall_pass_rate,
+			(SELECT COUNT(*) FROM tags) AS total_tags,
+			(SELECT COUNT(*) FROM schema_changes WHERE detected_at >= NOW() - INTERVAL '30 days') AS recent_changes,
+			(SELECT COUNT(*) FROM alert_rules) AS total_alert_rules,
+			(SELECT COUNT(*) FROM users) AS total_users,
+			(SELECT COUNT(*) FROM user_notifications WHERE user_id = $1 AND is_read = false) AS unread_notifications
+	`
+
+	var row DashboardCountsRow
+	err := s.pool.QueryRow(ctx, query, userID).Scan(
+		&row.TotalSources,
+		&row.TotalObjects,
+		&row.TotalColumns,
+		&row.TotalTerms,
+		&row.TotalMappings,
+		&row.TotalDQRules,
+		&row.ActiveDQRules,
+		&row.OverallPassRate,
+		&row.TotalTags,
+		&row.RecentChanges,
+		&row.TotalAlertRules,
+		&row.TotalUsers,
+		&row.UnreadNotifications,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get dashboard counts: %w", err)
+	}
+
+	return &row, nil
+}
+
+// GetDashboardCounts 获取仪表盘聚合统计（事务版）
+func (t *PostgresTxStore) GetDashboardCounts(ctx context.Context, userID string) (*DashboardCountsRow, error) {
+	query := `
+		SELECT
+			(SELECT COUNT(*) FROM data_sources) AS total_sources,
+			(SELECT COUNT(*) FROM schema_objects) AS total_objects,
+			(SELECT COUNT(*) FROM columns) AS total_columns,
+			(SELECT COUNT(*) FROM business_terms) AS total_terms,
+			(SELECT COUNT(*) FROM column_mappings) AS total_mappings,
+			(SELECT COUNT(*) FROM dq_rules) AS total_dq_rules,
+			(SELECT COUNT(*) FROM dq_rules WHERE is_active = true) AS active_dq_rules,
+			COALESCE((SELECT SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END)::FLOAT / NULLIF(COUNT(*), 0) * 100 FROM dq_results), 0) AS overall_pass_rate,
+			(SELECT COUNT(*) FROM tags) AS total_tags,
+			(SELECT COUNT(*) FROM schema_changes WHERE detected_at >= NOW() - INTERVAL '30 days') AS recent_changes,
+			(SELECT COUNT(*) FROM alert_rules) AS total_alert_rules,
+			(SELECT COUNT(*) FROM users) AS total_users,
+			(SELECT COUNT(*) FROM user_notifications WHERE user_id = $1 AND is_read = false) AS unread_notifications
+	`
+
+	var row DashboardCountsRow
+	err := t.tx.QueryRow(ctx, query, userID).Scan(
+		&row.TotalSources,
+		&row.TotalObjects,
+		&row.TotalColumns,
+		&row.TotalTerms,
+		&row.TotalMappings,
+		&row.TotalDQRules,
+		&row.ActiveDQRules,
+		&row.OverallPassRate,
+		&row.TotalTags,
+		&row.RecentChanges,
+		&row.TotalAlertRules,
+		&row.TotalUsers,
+		&row.UnreadNotifications,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get dashboard counts: %w", err)
+	}
+
+	return &row, nil
+}
+
+// GetChangeTrend 获取变更趋势（按天统计）
+func (s *PostgresStore) GetChangeTrend(ctx context.Context, days int) ([]*ChangeTrendPoint, error) {
+	query := `
+		SELECT DATE(detected_at) AS day, COUNT(*) AS cnt
+		FROM schema_changes
+		WHERE detected_at >= NOW() - ($1 || ' days')::INTERVAL
+		GROUP BY day
+		ORDER BY day ASC
+	`
+
+	rows, err := s.pool.Query(ctx, query, fmt.Sprintf("%d", days))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get change trend: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*ChangeTrendPoint
+	for rows.Next() {
+		var p ChangeTrendPoint
+		var day time.Time
+		if err := rows.Scan(&day, &p.Count); err != nil {
+			return nil, err
+		}
+		p.Date = day.Format("2006-01-02")
+		results = append(results, &p)
+	}
+	return results, rows.Err()
+}
+
+// GetChangeTrend 获取变更趋势（事务版）
+func (t *PostgresTxStore) GetChangeTrend(ctx context.Context, days int) ([]*ChangeTrendPoint, error) {
+	query := `
+		SELECT DATE(detected_at) AS day, COUNT(*) AS cnt
+		FROM schema_changes
+		WHERE detected_at >= NOW() - ($1 || ' days')::INTERVAL
+		GROUP BY day
+		ORDER BY day ASC
+	`
+
+	rows, err := t.tx.Query(ctx, query, fmt.Sprintf("%d", days))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get change trend: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*ChangeTrendPoint
+	for rows.Next() {
+		var p ChangeTrendPoint
+		var day time.Time
+		if err := rows.Scan(&day, &p.Count); err != nil {
+			return nil, err
+		}
+		p.Date = day.Format("2006-01-02")
+		results = append(results, &p)
+	}
+	return results, rows.Err()
 }

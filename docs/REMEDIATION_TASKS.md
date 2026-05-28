@@ -315,20 +315,20 @@
 
 | 阶段 | 计划周期 | 任务总数 | 已完成 | 进度 |
 |------|----------|----------|--------|------|
-| Phase A: 安全与质量 | Week 1-4 | 25 | 23 | 92% |
-| Phase B: 功能完善 | Week 5-10 | 16 | 1 | 6% |
-| Phase C: 企业级特性 | Week 11-16 | 38 | 2 | 5% |
-| Phase D: 前端优化 | Week 17-20 | 17 | 4 | 24% |
-| **总计** | **20周** | **96** | **30** | **31%** |
+| Phase A: 安全与质量 | Week 1-4 | 25 | 25 | 100% |
+| Phase B: 功能完善 | Week 5-10 | 16 | 4 | 25% |
+| Phase C: 企业级特性 | Week 11-16 | 38 | 8 | 21% |
+| Phase D: 前端优化 | Week 17-20 | 17 | 7 | 41% |
+| **总计** | **20周** | **96** | **44** | **46%** |
 
 ### 关键里程碑
 
 | 里程碑 | 计划日期 | 实际日期 | 状态 |
 |--------|----------|----------|------|
 | M1: 安全加固完成 | Week 4 | 2026-05-17 | ✅ 核心安全漏洞已修复 |
-| M2: 功能完善完成 | Week 10 | | 🔄 定时同步开发中 |
-| M3: 企业特性完成 | Week 16 | | ⬜ |
-| M4: 全面优化完成 | Week 20 | | ⬜ |
+| M2: 功能完善完成 | Week 10 | | 🔄 定时同步已完成，Oracle/MSSQL 已移除 |
+| M3: 企业特性完成 | Week 16 | | 🔄 仪表盘+可观测性已完成，权限/审计待做 |
+| M4: 全面优化完成 | Week 20 | | 🔄 趋势图表+Modal 复用已完成 |
 
 ### 2026-06-24 本轮新增完成项
 
@@ -341,6 +341,19 @@
 | C3-obs | 可观测性（Prometheus /metrics + 健康检查增强） | ✅ | `internal/api/metrics.go`、`go.mod` |
 | C1-dash | 数据资产仪表盘（聚合统计 API + 前端） | ✅ | `internal/service/dashboard.go`、`internal/api/dashboard_handler.go`、`web/src/pages/DashboardPage.tsx` |
 | 文档 | 新建 `CODE_REVIEW_2026_06.md`，修正 `REMEDIATION_TASKS.md` 失真进度表 | ✅ | `docs/CODE_REVIEW_2026_06.md` |
+
+### 2026-05-28 本轮新增完成项
+
+| ID | 内容 | 状态 | 关键文件 |
+|---|---|---|---|
+| P0-1 | Cron 验证修复为 6 字段格式（与引擎一致） | ✅ | `internal/service/scheduler.go`、`internal/service/scheduler_test.go` |
+| P0-2 | /metrics 端点加独立 API Key 认证 | ✅ | `internal/api/metrics.go`、`internal/config/config.go`、`.env.example` |
+| P1-1 | Dashboard N+1 查询优化（单条聚合 SQL） | ✅ | `internal/store/sqlite.go`、`internal/store/postgres.go`、`internal/service/dashboard.go` |
+| P1-2 | Sync Schedule 路由加 AdminMiddleware | ✅ | `internal/api/sync_schedule_handler.go` |
+| P1-3 | Dashboard 未读通知改为当前用户 | ✅ | `internal/service/dashboard.go`、`internal/api/dashboard_handler.go` |
+| P1-4 | Health check 改用轻量 Ping 查询 | ✅ | `internal/store/store.go`、`internal/api/metrics.go` |
+| P2-1 | SyncSchedulesPage 复用共享 Modal + ConfirmDialog | ✅ | `web/src/pages/SyncSchedulesPage.tsx`、`web/src/components/ui/ConfirmDialog.tsx` |
+| P2-2 | Dashboard 添加 ECharts 变更趋势图表 | ✅ | `web/src/components/dashboard/ChangeTrendChart.tsx`、`web/src/pages/DashboardPage.tsx` |
 
 ---
 

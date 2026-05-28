@@ -55,6 +55,7 @@ func (r *Router) Register(engine *gin.Engine) {
 		{
 			// 仪表盘统计
 			authorized.GET("/dashboard/stats", r.dashboardHandler.GetStats)
+			authorized.GET("/dashboard/change-trend", r.dashboardHandler.GetChangeTrend)
 
 			// 当前用户信息
 			authorized.GET("/auth/me", r.authHandler.GetCurrentUser)
