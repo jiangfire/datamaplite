@@ -33,11 +33,12 @@ FROM ${GO_IMAGE} AS builder
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates
 
+ARG TARGETARCH
 ARG GOPROXY
 ARG GOSUMDB
 ENV CGO_ENABLED=0 \
     GOOS=linux \
-    GOARCH=amd64 \
+    GOARCH=${TARGETARCH} \
     GOPROXY=${GOPROXY} \
     GOSUMDB=${GOSUMDB}
 
