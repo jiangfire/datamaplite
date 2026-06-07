@@ -95,8 +95,8 @@ jobs:
           DATAMAP_DATABASE_TYPE: sqlite
           DATAMAP_AUTH_JWT_SECRET: test-jwt-secret
           DATAMAP_ENCRYPTION_KEY: test-encryption-key-32bytes-long!!
-          DATAMAP_TEST_POSTGRES_DSN: postgres://test:test@localhost:5432/test?sslmode=disable
-          POSTGRES_TEST_DSN: postgres://test:test@localhost:5432/test?sslmode=disable
+          DATAMAP_TEST_POSTGRES_DSN: "host=localhost port=5432 user=test password=test dbname=test sslmode=disable"
+          POSTGRES_TEST_DSN: "host=localhost port=5432 user=test password=test dbname=test sslmode=disable"
           MYSQL_TEST_DSN: root:root@tcp(localhost:3306)/test?parseTime=true
           MONGODB_TEST_URI: mongodb://localhost:27017/test
         run: |
