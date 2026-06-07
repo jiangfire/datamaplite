@@ -24,7 +24,7 @@ ON notifications(rule_id, change_id)
 WHERE rule_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS sync_leases (
-    source_id TEXT PRIMARY KEY REFERENCES data_sources(id) ON DELETE CASCADE,
+    source_id UUID PRIMARY KEY REFERENCES data_sources(id) ON DELETE CASCADE,
     owner_id TEXT NOT NULL,
     lease_until TIMESTAMPTZ NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
